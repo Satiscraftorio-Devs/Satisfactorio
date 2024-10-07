@@ -2,7 +2,7 @@ mod camera;
 mod world_setup;
 
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::window::{CursorGrabMode, WindowMode};
 use camera::*;
 use world_setup::*;
 
@@ -35,6 +35,7 @@ fn start(mut commands: Commands, meshes: ResMut<Assets<Mesh>>, materials: ResMut
     
 
     if let Ok(mut window) = windows.get_single_mut() {
+        window.mode = WindowMode::Fullscreen;
         window.cursor.visible = false;
         window.cursor.grab_mode = CursorGrabMode::Confined;
     }  
