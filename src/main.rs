@@ -1,6 +1,10 @@
 mod camera;
+mod movement;
+mod debug_controls;
 mod world_generator;
 
+use movement::*;
+use debug_controls::*;
 use world_generator::*;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, WindowMode};
@@ -21,7 +25,9 @@ fn main() {
     )
     .insert_resource(ClearColor(Color::srgb_u8(37, 179, 226)))
     .add_systems(Update,
-        move_camera,
+        (move_camera,
+        move_player,
+        check_debug_controls)
     )
     .run();
 

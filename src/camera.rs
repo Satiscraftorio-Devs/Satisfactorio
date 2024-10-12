@@ -1,63 +1,22 @@
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
-
-
-pub fn move_camera(keyboard_input: Res<ButtonInput<KeyCode>>, mut mouse_input: EventReader<MouseMotion>, time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
+pub fn move_camera(mut mouse_input: EventReader<MouseMotion>, mut query: Query<&mut Transform, With<Camera>>) {
     let sensitivity = 0.00048828125;
 
-
     for mut transform in query.iter_mut() {
-        let mut direction = Vec3::ZERO;
-        let mut speed = 1.0;
 
-
+        // Orientation Caméra
         for ev in mouse_input.read() {
-            
-            transform.rotate_local_x((-ev.delta.y * sensitivity).clamp(-1.57, 1.75));
+            // Axe Vertical
+            transform.rotate_local_x(-ev.delta.y * sensitivity);
+            // Axe Horizontal
             transform.rotate_y(-ev.delta.x * sensitivity);
-
+            
+            // Debug pour la rotation
+            // Il faut qu'on arrive à clamp l'axe vertical pour pas se faire un torticoli car là ça devient chaud miskine le joueur il meurt h24 😭😭😭
+            // println!("X: {} Y: {} Z: {} W: {}", transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w/*, transform.local_y().z*/);
         }
 
-        if keyboard_input.pressed(KeyCode::ControlLeft){
-            speed = 5.0;
-        }
-        
-       
-        // direction avant-arrière:
-        // (les customs transforms servent éviter de controller l'altitude avec les touches Z et S 
-        // comme dans minecraft en créatif plutôt qu'en spectateur)
-        if keyboard_input.pressed(KeyCode::KeyW) {
-            let mut custom_transform = *transform.forward();
-            custom_transform.y = 0.0;
-            direction += custom_transform;
-        }
-        if keyboard_input.pressed(KeyCode::KeyS) {
-            let mut custom_transform = *transform.forward();
-            custom_transform.y = 0.0;
-            direction -= custom_transform * time.delta_seconds();
-        }
-        // direction droite-gauche
-        if keyboard_input.pressed(KeyCode::KeyA) {
-            direction -= *transform.right() * time.delta_seconds();
-        }
-        if keyboard_input.pressed(KeyCode::KeyD) {
-            direction += *transform.right() * time.delta_seconds();  
-        }
-
-        // Direction haut-bas
-        if keyboard_input.pressed(KeyCode::ShiftLeft){
-            direction.y -= 1.0 * time.delta_seconds();
-        }
-
-        if keyboard_input.pressed(KeyCode::Space){
-            direction.y += 1.0 * time.delta_seconds();
-        }
-
-        if direction.length() > 0.0 {
-            direction = direction.normalize() * speed;
-        }
-
-        transform.translation += direction * 0.125;
     }
 }
 

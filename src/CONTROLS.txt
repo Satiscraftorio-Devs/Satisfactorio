@@ -1,0 +1,21 @@
+############
+#  Debug   #
+############
+
+F1              > activer-désactiver plein écran
+F2              > activer-désactiver curseur visible et confiné dans la fenêtre
+
+############
+# Gameplay #
+############
+
+Z               > Avancer
+S               > Reculer
+Q               > Se déplacer vers la gauche
+D               > Se déplacer vers la droite
+
+Left Shift      > Descendre (axe Y)
+Space           > Monter (axe Y)
+Left CTRL       > Multiplie la vitesse par 4 lorsque pressé
+
+Motion Souris   > Orienter la caméra joueur
