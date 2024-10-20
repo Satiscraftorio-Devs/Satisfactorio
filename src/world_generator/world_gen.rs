@@ -31,7 +31,6 @@ pub fn display_chunk_mesh(
 ) {
     const CHUNK_SIZE: f32 = 32.0;
     const RENDER_DISTANCE: i32 = 5;
-    const UNLOAD_DISTANCE: i32 = 5;
 
 
     let (_camera_entity, camera_transform) = query.single();
@@ -49,7 +48,7 @@ pub fn display_chunk_mesh(
                 let entities = Chunk::new(CHUNK_SIZE as usize, chunk_x, chunk_z).create_chunk_mesh(&mut commands, &mut meshes, &mut materials);
                 loaded_chunks.loaded_chunks_set.insert((chunk_x, chunk_z));
                 loaded_chunks.loaded_chunks_queue.extend(entities.into_iter().map(|entity| (entity, (chunk_x, chunk_z))));
-                println!("Chunk loaded: ({}, {}) | Total chunks: {}", chunk_x, chunk_z, loaded_chunks.loaded_chunks_set.len());
+                // println!("Chunk loaded: ({}, {}) | Total chunks: {}", chunk_x, chunk_z, loaded_chunks.loaded_chunks_set.len());
             }
         }
     }
@@ -63,7 +62,7 @@ pub fn unload_chunks(
     query: Query<(Entity, &Transform), With<Camera>>,
     mut loaded_chunks: ResMut<LoadedChunks>,
 ){
-    const UNLOAD_DISTANCE: i32 = 7;
+    const UNLOAD_DISTANCE: i32 = 5;
     const CHUNK_SIZE: f32 = 32.0;
 
 

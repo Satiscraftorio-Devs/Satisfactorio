@@ -28,7 +28,7 @@ impl Chunk {
         materials: &mut ResMut<Assets<StandardMaterial>>
     ) -> Vec<Entity> {
         let cube_mesh = meshes.add(Cuboid::mesh(&Cuboid::new(1.0, 1.0, 1.0)));
-        let cube_material = materials.add(Color::srgb_u8(30, 112, 0));
+        let cube_material = materials.add(Color::srgba_u8(30, 112, 0, 0));
         
         let x_chunk_origin: f32 = self.chunk_coords_x as f32 * self.size as f32;
         let z_chunk_origin: f32 = self.chunk_coords_z as f32 * self.size as f32;

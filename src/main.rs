@@ -42,7 +42,7 @@ fn start(mut commands: Commands, mut windows: Query<&mut Window>, mut wireframe_
 ) {
     wireframe_config.global = true;
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-15.0, 25.0, -20.0).looking_at(Vec3::new(0.0, 0.0, 1.0), Vec3::Y),
+        transform: Transform::from_xyz(-15.0, 25.0, -20.0).with_rotation(Quat::default()),
         ..default()
     });
     
