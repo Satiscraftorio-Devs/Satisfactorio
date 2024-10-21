@@ -4,6 +4,7 @@
 
 F1              > activer-désactiver plein écran
 F2              > activer-désactiver curseur visible et confiné dans la fenêtre
+F3              > activer-désactiver le wireframe des blocs
 
 ############
 # Gameplay #
