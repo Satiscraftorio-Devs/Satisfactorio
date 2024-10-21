@@ -3,6 +3,10 @@ mod movement;
 mod debug_controls;
 mod world_generator;
 
+use bevy::ecs::schedule;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::diagnostic::DiagnosticsStore;
+use bevy::render::diagnostic;
 use movement::*;
 use debug_controls::*;
 use world_generator::*;
@@ -15,7 +19,7 @@ use camera::*;
 
 fn main() {
     App::new()
-    .add_plugins((DefaultPlugins, WireframePlugin))
+    .add_plugins((DefaultPlugins, WireframePlugin, FrameTimeDiagnosticsPlugin::default(), LogDiagnosticsPlugin::default()))
     .insert_resource(ChunkManager::default())
     .insert_resource(CameraRotRelative(0.0))
     .init_resource::<WireframeConfig>()
@@ -33,6 +37,7 @@ fn main() {
         move_player,
         check_debug_controls,
     ))
+    .add_systems(PostUpdate, fps_count)
     .run();
 
 }
@@ -56,4 +61,12 @@ fn start(mut commands: Commands, mut windows: Query<&mut Window>, mut wireframe_
 
 
     
+}
+
+fn fps_count(diagnostics: Res<DiagnosticsStore>) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(value) = fps.smoothed() {
+            println!("Time spent: {:?}     Fps: {:.2?}", 1.0/value, value);
+        }
+    }
 }
