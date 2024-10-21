@@ -16,7 +16,7 @@ use camera::*;
 fn main() {
     App::new()
     .add_plugins((DefaultPlugins, WireframePlugin))
-    .insert_resource(LoadedChunks::default())
+    .insert_resource(ChunkManager::default())
     .insert_resource(CameraRotRelative(0.0))
     .init_resource::<WireframeConfig>()
     .insert_resource(ClearColor(Color::srgb_u8(37, 179, 226)))

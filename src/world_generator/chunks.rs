@@ -9,26 +9,24 @@ pub struct Chunk {
     chunk_coords_z: i32,
 }
 
+
 impl Chunk {
+    
     pub fn new(size: usize, chunk_coords_x: i32,chunk_coords_z: i32,) -> Self {
         Chunk {
             size,
             chunk_coords_x,
-            chunk_coords_z,
-            
-        }
-        
+            chunk_coords_z,           
+        }       
     }
-}
 
-impl Chunk {
     pub fn create_chunk_mesh(&self, 
-        commands: &mut Commands, 
+        commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         materials: &mut ResMut<Assets<StandardMaterial>>
     ) -> Vec<Entity> {
         let cube_mesh = meshes.add(Cuboid::mesh(&Cuboid::new(1.0, 1.0, 1.0)));
-        let cube_material = materials.add(Color::srgba_u8(30, 112, 0, 0));
+        let cube_material = materials.add(Color::srgba_u8(30, 112, 0, 255));
         
         let x_chunk_origin: f32 = self.chunk_coords_x as f32 * self.size as f32;
         let z_chunk_origin: f32 = self.chunk_coords_z as f32 * self.size as f32;

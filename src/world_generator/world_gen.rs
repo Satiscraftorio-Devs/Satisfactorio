@@ -16,9 +16,11 @@ pub fn _make_cube(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut 
 
 
 #[derive(Default, Resource)]
-pub struct LoadedChunks {
-    loaded_chunks_set: HashSet<(i32, i32)>,
-    loaded_chunks_queue: VecDeque<(Entity, (i32, i32))>,
+pub struct ChunkManager {
+    // Éléments à charger (liste avc coos de chunks)
+    chunks_to_load: HashSet<(i32, i32)>,
+    // Éléments chargés (liste avc entités et coos de chunks)
+    chunks_loaded: VecDeque<(Entity, (i32, i32))>,
 }
 
 
@@ -27,7 +29,7 @@ pub fn display_chunk_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     query: Query<(Entity, &Transform), With<Camera>>,
-    mut loaded_chunks: ResMut<LoadedChunks>,
+    mut chunk_manager: ResMut<ChunkManager>,
 ) {
     const CHUNK_SIZE: f32 = 32.0;
     const RENDER_DISTANCE: i32 = 5;
@@ -44,14 +46,14 @@ pub fn display_chunk_mesh(
             let chunk_x = player_chunk_x + dx;
             let chunk_z = player_chunk_z + dz;
 
-            if !loaded_chunks.loaded_chunks_set.contains(&(chunk_x, chunk_z)) {
+            if !chunk_manager.chunks_to_load.contains(&(chunk_x, chunk_z)) {
                 let entities = Chunk::new(CHUNK_SIZE as usize, chunk_x, chunk_z).create_chunk_mesh(&mut commands, &mut meshes, &mut materials);
-                loaded_chunks.loaded_chunks_set.insert((chunk_x, chunk_z));
-                loaded_chunks.loaded_chunks_queue.extend(entities.into_iter().map(|entity| (entity, (chunk_x, chunk_z))));
-                // println!("Chunk loaded: ({}, {}) | Total chunks: {}", chunk_x, chunk_z, loaded_chunks.loaded_chunks_set.len());
+                chunk_manager.chunks_to_load.insert((chunk_x, chunk_z));
+                chunk_manager.chunks_loaded.extend(entities.into_iter().map(|entity| (entity, (chunk_x, chunk_z))));
             }
         }
     }
+    println!("Chunk to load: {} | Total chunks: {}", chunk_manager.chunks_loaded.len(), chunk_manager.chunks_to_load.len());
 
     
 }
@@ -60,7 +62,7 @@ pub fn display_chunk_mesh(
 pub fn unload_chunks(
     mut commands: Commands,
     query: Query<(Entity, &Transform), With<Camera>>,
-    mut loaded_chunks: ResMut<LoadedChunks>,
+    mut chunk_manager: ResMut<ChunkManager>,
 ){
     const UNLOAD_DISTANCE: i32 = 5;
     const CHUNK_SIZE: f32 = 32.0;
@@ -70,35 +72,58 @@ pub fn unload_chunks(
     let player_position = camera_transform.translation;
     let player_chunk_x = (player_position.x / CHUNK_SIZE).floor() as i32;
     let player_chunk_z = (player_position.z / CHUNK_SIZE).floor() as i32;
-    // Décharger les chunks trop loin
-    while let Some((entity, (chunk_x, chunk_z))) = loaded_chunks.loaded_chunks_queue.pop_front() {
-        let distance_to_player = ((player_chunk_x - chunk_x).abs() + (player_chunk_z - chunk_z).abs()) / 2;
+
+
+
+    for (index, (entity, (chunk_x, chunk_z))) in chunk_manager.chunks_loaded.iter_mut().enumerate(){
+        let distance_to_player = ((player_chunk_x - *chunk_x).abs() + (player_chunk_z - *chunk_z).abs()) / 2;
         if distance_to_player > UNLOAD_DISTANCE {
-            if let Some(mut entity_commands) = commands.get_entity(entity) {
+            if let Some(mut entity_commands) = commands.get_entity(*entity) {
                 entity_commands.despawn();
+                // chunk_manager.chunks_to_load.remove(&(*chunk_x, *chunk_z));
             }
-            loaded_chunks.loaded_chunks_set.remove(&(chunk_x, chunk_z));
-            println!("Chunk unloaded: ({}, {}) | Remaining chunks: {}", chunk_x, chunk_z, loaded_chunks.loaded_chunks_set.len());
-        } else {
-            // Si le chunk n'est pas encore prêt à être déchargé, le remettre à la fin de la queue
-            loaded_chunks.loaded_chunks_queue.push_back((entity, (chunk_x, chunk_z)));
-            break;
+        else{
+
+        }
         }
     }
 
-    // Supprimer tous les chunks plus chargés
-    let mut entities_to_remove = Vec::new();
-    for (entity, (chunk_x, chunk_z)) in &loaded_chunks.loaded_chunks_queue {
-        if !loaded_chunks.loaded_chunks_set.contains(&(*chunk_x, *chunk_z)) {
-            entities_to_remove.push(*entity);
-        }
-    }
 
-    for entity in entities_to_remove.drain(..) {
-        if let Some(mut entity_commands) = commands.get_entity(entity) {
-            entity_commands.despawn();
-        }
-    }
+
+
+
+
+    
+
+    // // Décharger les chunks trop loin
+    // while let Some((entity, (chunk_x, chunk_z))) = chunk_manager.chunks_loaded.pop_front() {
+    //     let distance_to_player = ((player_chunk_x - chunk_x).abs() + (player_chunk_z - chunk_z).abs()) / 2;
+    //     if distance_to_player > UNLOAD_DISTANCE {
+    //         if let Some(mut entity_commands) = commands.get_entity(entity) {
+    //             entity_commands.despawn();
+    //         }
+    //         chunk_manager.chunks_to_load.remove(&(chunk_x, chunk_z));
+    //         println!("Chunk unloaded: ({}, {}) | Remaining chunks: {}", chunk_x, chunk_z, chunk_manager.chunks_to_load.len());
+    //     } else {
+    //         // Si le chunk n'est pas encore prêt à être déchargé, le remettre à la fin de la queue
+    //         chunk_manager.chunks_loaded.push_back((entity, (chunk_x, chunk_z)));
+    //         break;
+    //     }
+    // }
+
+    // // Supprimer tous les chunks plus chargés
+    // let mut entities_to_remove = Vec::new();
+    // for (entity, (chunk_x, chunk_z)) in &chunk_manager.chunks_loaded {
+    //     if !chunk_manager.chunks_to_load.contains(&(*chunk_x, *chunk_z)) {
+    //         entities_to_remove.push(*entity);
+    //     }
+    // }
+
+    // for entity in entities_to_remove.drain(..) {
+    //     if let Some(mut entity_commands) = commands.get_entity(entity) {
+    //         entity_commands.despawn();
+    //     }
+    // }
 }
 
 
