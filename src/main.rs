@@ -2,6 +2,7 @@ mod camera;
 mod movement;
 mod debug_controls;
 mod world_generator;
+mod world_generator_beta;
 
 use movement::*;
 use debug_controls::*;
@@ -14,13 +15,11 @@ use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::diagnostic::DiagnosticsStore;
 
-
-
 fn main() {
     App::new()
     .add_plugins((DefaultPlugins, WireframePlugin, FrameTimeDiagnosticsPlugin))
     .insert_resource(ChunkManager::default())
-    .insert_resource(RenderDistance(5))
+    .insert_resource(RenderDistance(12))
     .insert_resource(ChunkWidth(62.0))
     .insert_resource(CameraRotRelative(0.0))
     .init_resource::<WireframeConfig>()
@@ -38,9 +37,8 @@ fn main() {
         move_player,
         check_debug_controls,
     ))
-    .add_systems(PostUpdate, fps_count)
+    //.add_systems(PostUpdate, fps_count)
     .run();
-
 }
 
 

@@ -58,7 +58,8 @@ impl Chunk {
         
 
 // Bruit de perlin 2d
-fn generate_height(seed: u32, x: f64, z: f64, scale: f64, octaves: u32) -> f32 {
+#[inline]
+fn generate_height(seed: u32, x: f64, z: f64, scale: f64, octaves: i32) -> f32 {
     let perlin = Perlin::new(seed);
     
     let frequency = 16.0 * scale;
@@ -119,12 +120,12 @@ fn generate_mesh(x_chunk_origin: f32, z_chunk_origin: f32) -> Mesh {
     
 }
 
-
+#[inline]
 fn voxel_buffer(x_chunk_origin: f32, z_chunk_origin: f32) -> [u16; bgm::CS_P3] {
-    let mut voxels = [0; bgm::CS_P3];
+    let mut voxels: [u16; 262144] = [0; bgm::CS_P3];
     for x in 0..bgm::CS {
             for z in 0..bgm::CS {
-                let y = generate_height(14, x_chunk_origin as f64 + x as f64, z_chunk_origin as f64 + z as f64, 0.001, 4) as usize;
+                let y = generate_height(14, x_chunk_origin as f64 + x as f64, z_chunk_origin as f64 + z as f64, 0.001, 2) as usize;
                 voxels[bgm::pad_linearize(x, y, z)] = 1;
             }
     }
