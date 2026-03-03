@@ -11,7 +11,7 @@ pub const LAST_CHUNK_BLOCK_INDEX: i32 = CHUNK_SIZE - 1;
 
 #[derive(Clone)]
 pub struct Block {
-    id: i32
+    pub id: i32
 }
 
 pub struct Chunk {

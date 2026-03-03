@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use cgmath::num_traits::ToPrimitive;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::{player::Player, world::{Block, LAST_CHUNK_BLOCK_INDEX, CHUNK_SIZE, CHUNK_SIZE_SQR, Chunk, World}};
+use crate::{player::Player, world::{Block, CHUNK_SIZE, CHUNK_SIZE_SQR, Chunk, LAST_CHUNK_BLOCK_INDEX, World}};
 use crate::engine::render::geometry::Vertex;
 
 const X: f32 = 1.0;
@@ -21,6 +21,18 @@ const V_001: [f32; 3] = [0.0, 0.0,  Z ];
 const V_101: [f32; 3] = [ X , 0.0,  Z ];
 const V_111: [f32; 3] = [ X ,  Y ,  Z ];
 const V_011: [f32; 3] = [0.0,  Y ,  Z ];
+
+#[repr(u8)]
+#[derive(PartialEq)]
+#[derive(Clone, Copy)]
+enum Face {
+    Above,
+    Below,
+    Left,
+    Right,
+    Front,
+    Back,
+}
 
 pub struct ChunkMesh {
     pub vertices: Vec<Vertex>,
@@ -202,6 +214,138 @@ impl ChunkMesh {
 
         return mesh;
     }
+
+    pub fn make_greedy(chunk: &Chunk, world: &World, cx: i32, cy: i32, cz: i32) -> ChunkMesh {
+        let mut mesh = ChunkMesh::new();
+
+        let offset_x = cx * CHUNK_SIZE;
+        let offset_y = cy * CHUNK_SIZE;
+        let offset_z = cz * CHUNK_SIZE;
+
+        // We allocate once to avoid memory reallocation/destruction.
+        let mut mask: [[Option<(i32, Face)>; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] = [[None; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
+        
+        let mut current: Block;
+        let mut next: Block;
+        let mut is_current_air: bool;
+        let mut is_next_air: bool;
+
+        // Todo:
+        // - replace world.get_block by chunk.get_block whenever possible
+        // - check if the block is in the chunk before adding it to the mask
+        
+        // X axis
+        for slice in -1..CHUNK_SIZE {
+            // Mask
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    current = world.get_block_from_xyz(slice + offset_x, y + offset_y, z + offset_z);
+                    next = world.get_block_from_xyz(slice + offset_x + 1, y + offset_y, z + offset_z);
+
+                    is_current_air = current.is_air();
+                    is_next_air = next.is_air();
+
+                    if is_current_air == is_next_air {
+                        mask[y as usize][z as usize] = None;
+                        continue;
+                    }
+                    
+                    if is_current_air && !is_next_air {
+                        mask[y as usize][z as usize] = Some((next.id, Face::Left));
+                    }
+                    else {
+                        mask[y as usize][z as usize] = Some((current.id, Face::Right));
+                    }
+                }
+            }
+
+            // Mesh quads
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    let Some(face) = mask[y as usize][z as usize] else {
+                        continue;
+                    };
+
+                    let mut quad_y = 1;
+                    let mut quad_z = 1;
+
+                    // We grow the quad in the y-axis
+                    'outer: for iy in (y+1)..CHUNK_SIZE {
+                        let Some(y_neighbor) = mask[iy as usize][z as usize] else {
+                            break 'outer;
+                        };
+                        if y_neighbor.0 != face.0 || y_neighbor.1 != face.1 {
+                            break 'outer;
+                        }
+                        quad_y += 1;
+                    }
+
+                    // We grow the quad in the z-axis
+                    'outer: for iz in (z+1)..CHUNK_SIZE {
+                        // We check if every face in the y is compatible with our expansion, and if not, we stop it
+                        for iy in y..(y + quad_y) {
+                            let Some(z_neighbor) = mask[iy as usize][iz as usize] else {
+                                break 'outer;
+                            };
+                            if z_neighbor.0 != face.0 || z_neighbor.1 != face.1 {
+                                break 'outer;
+                            }
+                        }
+                        quad_z += 1;
+                    }
+
+                    // Add the quad to the mesh
+                    if face.1 == Face::Right {
+                        let x = slice as f32 + offset_x as f32;
+                        let y0 = y as f32 + offset_y as f32;
+                        let y1 = (y + quad_y) as f32 + offset_y as f32;
+                        let z0 = z as f32 + offset_z as f32;
+                        let z1 = (z + quad_z) as f32 + offset_z as f32;
+
+                        mesh.vertices.extend_from_slice(&[
+                            Vertex::new(x, y0, z0),
+                            Vertex::new(x, y1, z0),
+                            Vertex::new(x, y1, z1),
+
+                            Vertex::new(x, y0, z0),
+                            Vertex::new(x, y1, z1),
+                            Vertex::new(x, y0, z1),
+                        ]);
+                    }
+                    else if face.1 == Face::Left {
+                        let x = slice as f32 + offset_x as f32 + 1.0;
+                        let y0 = y as f32 + offset_y as f32;
+                        let y1 = (y + quad_y) as f32 + offset_y as f32;
+                        let z0 = z as f32 + offset_z as f32;
+                        let z1 = (z + quad_z) as f32 + offset_z as f32;
+
+                        mesh.vertices.extend_from_slice(&[
+                            Vertex::new(x, y0, z0),
+                            Vertex::new(x, y1, z1),
+                            Vertex::new(x, y1, z0),
+
+                            Vertex::new(x, y0, z0),
+                            Vertex::new(x, y0, z1),
+                            Vertex::new(x, y1, z1),
+                        ]);
+                    }
+
+                    // Clear the quad from the mask to avoid vertex dupplication
+                    for iy in y..(y + quad_y) {
+                        for iz in z..(z + quad_z) {
+                            mask[iy as usize][iz as usize] = None;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Y axis
+
+        // Z axis
+
+        return mesh;
+    }
 }
 
 pub struct WorldMesh {
@@ -228,7 +372,8 @@ impl WorldMesh {
                     }
                 }
 
-                let mesh = ChunkMesh::make(chunk, world, cx, cy, cz);
+                let mesh = ChunkMesh::make_greedy(chunk, world, cx, cy, cz);
+                // let mesh = ChunkMesh::make(chunk, world, cx, cy, cz);
                 return (key, Arc::new(mesh));
             })
             .collect();

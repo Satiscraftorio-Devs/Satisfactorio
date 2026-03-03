@@ -233,9 +233,10 @@ impl State {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
+                // cull_mode: None,
                 cull_mode: Some(wgpu::Face::Back),
                 // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Fill,
+                polygon_mode: wgpu::PolygonMode::Line,
                 // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
                 // Requires Features::CONSERVATIVE_RASTERIZATION
@@ -386,7 +387,7 @@ impl State {
 
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             // let v = self.vertex_buffer.size();
-            // println!("{v}");
+            // println!("Vertex buffer size: {}", v);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             // render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
 
