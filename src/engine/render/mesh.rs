@@ -227,34 +227,29 @@ impl ChunkMesh {
         
         let mut current: Block;
         let mut next: Block;
-        let mut is_current_air: bool;
-        let mut is_next_air: bool;
 
         // Todo:
         // - replace world.get_block by chunk.get_block whenever possible
         // - check if the block is in the chunk before adding it to the mask
         
         // X axis
-        for slice in -1..CHUNK_SIZE {
+        for x in -1..CHUNK_SIZE {
             // Mask
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    current = world.get_block_from_xyz(slice + offset_x, y + offset_y, z + offset_z);
-                    next = world.get_block_from_xyz(slice + offset_x + 1, y + offset_y, z + offset_z);
+                    current = world.get_local_block_from_xyz(x, y, z, cx, cy, cz);
+                    next = world.get_local_block_from_xyz(x + 1, y, z, cx, cy, cz);
 
-                    is_current_air = current.is_air();
-                    is_next_air = next.is_air();
-
-                    if is_current_air == is_next_air {
-                        mask[y as usize][z as usize] = None;
-                        continue;
-                    }
-                    
-                    if is_current_air && !is_next_air {
-                        mask[y as usize][z as usize] = Some((next.id, Face::Left));
-                    }
-                    else {
-                        mask[y as usize][z as usize] = Some((current.id, Face::Right));
+                    match (current.is_air(), next.is_air()) {
+                        (true, true) | (false, false) => {
+                            mask[y as usize][z as usize] = None;
+                        }
+                        (true, false) => {
+                            mask[y as usize][z as usize] = Some((next.id, Face::Left));
+                        }
+                        (false, true) => {
+                            mask[y as usize][z as usize] = Some((current.id, Face::Right));
+                        }
                     }
                 }
             }
@@ -271,10 +266,7 @@ impl ChunkMesh {
 
                     // We grow the quad in the y-axis
                     'outer: for iy in (y+1)..CHUNK_SIZE {
-                        let Some(y_neighbor) = mask[iy as usize][z as usize] else {
-                            break 'outer;
-                        };
-                        if y_neighbor.0 != face.0 || y_neighbor.1 != face.1 {
+                        if mask[iy as usize][z as usize] != Some(face) {
                             break 'outer;
                         }
                         quad_y += 1;
@@ -284,10 +276,7 @@ impl ChunkMesh {
                     'outer: for iz in (z+1)..CHUNK_SIZE {
                         // We check if every face in the y is compatible with our expansion, and if not, we stop it
                         for iy in y..(y + quad_y) {
-                            let Some(z_neighbor) = mask[iy as usize][iz as usize] else {
-                                break 'outer;
-                            };
-                            if z_neighbor.0 != face.0 || z_neighbor.1 != face.1 {
+                            if mask[iy as usize][iz as usize] != Some(face) {
                                 break 'outer;
                             }
                         }
@@ -295,38 +284,27 @@ impl ChunkMesh {
                     }
 
                     // Add the quad to the mesh
-                    if face.1 == Face::Right {
-                        let x = slice as f32 + offset_x as f32;
-                        let y0 = y as f32 + offset_y as f32;
-                        let y1 = (y + quad_y) as f32 + offset_y as f32;
-                        let z0 = z as f32 + offset_z as f32;
-                        let z1 = (z + quad_z) as f32 + offset_z as f32;
+                    let is_left_face = face.1 == Face::Left;
+                    
+                    let x = (x + offset_x + (is_left_face as i32)) as f32;
+                    let y0: f32 = (y + offset_y) as f32;
+                    let y1: f32 = (y + quad_y + offset_y) as f32;
+                    let z0: f32 = (z + offset_z) as f32;
+                    let z1: f32 = (z + quad_z + offset_z) as f32;
 
+                    let v1 = Vertex::new(x, y0, z0);
+                    let v2 = Vertex::new(x, y1, z1);
+                    let v3 = Vertex::new(x, y1, z0);
+                    let v4 = Vertex::new(x, y0, z1);
+
+                    if is_left_face {
                         mesh.vertices.extend_from_slice(&[
-                            Vertex::new(x, y0, z0),
-                            Vertex::new(x, y1, z0),
-                            Vertex::new(x, y1, z1),
-
-                            Vertex::new(x, y0, z0),
-                            Vertex::new(x, y1, z1),
-                            Vertex::new(x, y0, z1),
+                            v1, v2, v3, v1, v4, v2
                         ]);
                     }
-                    else if face.1 == Face::Left {
-                        let x = slice as f32 + offset_x as f32 + 1.0;
-                        let y0 = y as f32 + offset_y as f32;
-                        let y1 = (y + quad_y) as f32 + offset_y as f32;
-                        let z0 = z as f32 + offset_z as f32;
-                        let z1 = (z + quad_z) as f32 + offset_z as f32;
-
+                    else {
                         mesh.vertices.extend_from_slice(&[
-                            Vertex::new(x, y0, z0),
-                            Vertex::new(x, y1, z1),
-                            Vertex::new(x, y1, z0),
-
-                            Vertex::new(x, y0, z0),
-                            Vertex::new(x, y0, z1),
-                            Vertex::new(x, y1, z1),
+                            v1, v3, v2, v1, v2, v4
                         ]);
                     }
 

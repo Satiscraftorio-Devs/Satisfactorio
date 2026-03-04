@@ -137,4 +137,23 @@ impl World {
             return Block::air();
         }
     }
+
+    pub fn get_local_block_from_xyz(&self, lx: i32, ly: i32, lz: i32, cx: i32, cy: i32, cz: i32) -> Block {
+        if !(0..CHUNK_SIZE).contains(&lx)
+            || !(0..CHUNK_SIZE).contains(&ly)
+            || !(0..CHUNK_SIZE).contains(&lz) {
+            return self.get_block_from_xyz(
+                lx + cx * CHUNK_SIZE,
+                ly + cy * CHUNK_SIZE,
+                lz + cz * CHUNK_SIZE
+            );   
+        }
+        
+        if let Some(chunk) = self.get_chunk(cx, cy, cz) {
+            return chunk.get_block_from_xyz(lx, ly, lz);
+        }
+        else {
+            return Block::air();
+        }
+    }
 }
