@@ -19,7 +19,9 @@ pub struct State {
     config: wgpu::SurfaceConfiguration,
     is_surface_configured: bool,
     render_pipeline: wgpu::RenderPipeline,
+    gizmo_render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    gizmo_buffer: wgpu::Buffer,
     // index_buffer: wgpu::Buffer,
     pub window: Arc<Window>,
     num_indices: u32,
@@ -82,6 +84,7 @@ impl State {
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
+        
         // Shader code in this tutorial assumes an sRGB surface texture. Using a different
         // one will result in all the colors coming out darker. If you want to support non
         // sRGB surfaces, you'll need to account for that when drawing to the frame.
@@ -96,7 +99,7 @@ impl State {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: surface_caps.present_modes[0],
+            present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
@@ -252,6 +255,49 @@ impl State {
             cache: None,
         });
 
+        let gizmo_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::buffer_layout()],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    // 4.
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                // cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview_mask: None,
+            cache: None,
+        });
+
         let start = Instant::now();
 
         let mut world = World::new();
@@ -272,15 +318,33 @@ impl State {
 
         println!("Time to make meshes: {:.3}ms.", start.elapsed().as_micros().to_f64().unwrap() / 1_000.0);
 
-        let flat_vertices: Vec<Vertex> = vertices
+        let mut flat_vertices: Vec<Vertex> = vertices
             .meshes
             .iter()
             .flat_map(|chunk| chunk.1.vertices.clone())
             .collect::<Vec<Vertex>>();
 
+        let gizmo = [
+            Vertex::new_with_rgb(0.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            Vertex::new_with_rgb(1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            Vertex::new_with_rgb(1.0, 0.25, 0.0, 1.0, 0.0, 0.0),
+            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 1.0, 0.0),
+            Vertex::new_with_rgb(0.0, 1.0, 0.0, 0.0, 1.0, 0.0),
+            Vertex::new_with_rgb(0.25, 1.0, 0.25, 0.0, 1.0, 0.0),
+            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 0.0, 1.0),
+            Vertex::new_with_rgb(0.0, 0.0, 1.0, 0.0, 0.0, 1.0),
+            Vertex::new_with_rgb(0.0, 0.25, 1.0, 0.0, 0.0, 1.0),
+        ];
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&flat_vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Gizmo Buffer"),
+            contents: bytemuck::cast_slice(&gizmo),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -316,7 +380,9 @@ impl State {
             camera_controller,
             world,
             player,
-            num_vertex: flat_vertices.len() as u32
+            num_vertex: flat_vertices.len() as u32,
+            gizmo_buffer,
+            gizmo_render_pipeline
         })
     }
 
@@ -393,6 +459,10 @@ impl State {
 
             render_pass.draw(0..self.num_vertex, 0..1);
             // render_pass.draw_indexed(0..self.num_indices, 0, 0..1); // 2.
+
+            render_pass.set_pipeline(&self.gizmo_render_pipeline);
+            render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
+            render_pass.draw(0..9, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
