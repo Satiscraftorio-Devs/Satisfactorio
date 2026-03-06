@@ -3,6 +3,7 @@ use cgmath::num_traits::ToPrimitive;
 use crate::world::CHUNK_SIZE;
 
 /// Must be odd for semantic reasons (otherwise it will render one chunk more than this value)
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 5;
 /// Must be odd for semantic reasons (otherwise it will render one chunk more than this value)
@@ -12,6 +13,11 @@ const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 3;
 /// Must be odd for semantic reasons (otherwise it will render one chunk more than this value)
 const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 1;
 >>>>>>> Stashed changes
+=======
+const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 9;
+/// Must be odd for semantic reasons (otherwise it will render one chunk more than this value)
+const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 7;
+>>>>>>> bce0e3c2419c0429fd6c31bbc9b680a7c52484e8
 
 pub struct Player {
     pub x: f32,
