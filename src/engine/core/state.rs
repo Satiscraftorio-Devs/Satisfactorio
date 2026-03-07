@@ -294,8 +294,11 @@ impl State {
             cache: None,
         });
         
-        let mut world = World::new();
         let player = Player::new();
+
+        let world_start = Instant::now();
+
+        let mut world = World::new();
 
         let [min_x, max_x, min_y, max_y, min_z, max_z] = player.get_rendered_chunk_range();
 
@@ -307,6 +310,8 @@ impl State {
                 }
             }
         }
+
+        println!("Time to make the world: {:.3}ms.", world_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0);
 
         let start = Instant::now();
 
