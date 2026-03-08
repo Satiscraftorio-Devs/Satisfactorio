@@ -35,6 +35,11 @@ pub struct State {
     player: Player,
     world_mesh: WorldMesh,
     num_vertex: u32,
+    dt: f32,
+    last_frame: Instant,
+    timer: f32,
+    frame_count: i32,
+    fps: i32
 }
 
 impl State {
@@ -192,7 +197,7 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-        let camera_controller = CameraController::new(0.2, 0.002);
+        let camera_controller = CameraController::new(16.0, 0.5);
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
@@ -388,6 +393,11 @@ impl State {
             gizmo_buffer,
             gizmo_render_pipeline,
             world_mesh,
+            dt: 0.0,
+            fps: 0,
+            last_frame: Instant::now(),
+            frame_count: 0,
+            timer: 0.0
         })
     }
 
@@ -401,6 +411,27 @@ impl State {
     }
 
     pub fn update(&mut self) {
+        let now = Instant::now();
+        let delta = now - self.last_frame;
+        self.last_frame = now;
+        self.dt = delta.as_secs_f32();
+
+        self.frame_count += 1;
+        self.timer += delta.as_secs_f32();
+
+        if self.timer >= 1.0 {
+            self.fps = self.frame_count;
+            self.frame_count = 0;
+            self.timer = 0.0;
+
+            println!(
+                "FPS: {} dt: {}s\n>>> INFO: Position joueur: x={:.2}, y={:.2}, z={:.2} | position caméra: x={:.2}, y={:.2}, z={:.2}",
+                self.fps, self.dt,
+                self.player.pos.x, self.player.pos.y, self.player.pos.z,
+                self.camera.eye.x, self.camera.eye.y, self.camera.eye.z
+            );
+        }
+
         let forward = self.camera.forward();
         let right = self.camera.right();
         let up = cgmath::Vector3::unit_y();
@@ -410,7 +441,7 @@ impl State {
             direction += forward;
         }
         if self.camera_controller.is_backward_pressed {
-            direction -= forward;
+            direction -= forward
         }
         if self.camera_controller.is_right_pressed {
             direction += right;
@@ -426,20 +457,14 @@ impl State {
         }
 
         if direction.magnitude2() > 0.0 {
-            self.player.vel = direction.normalize() * self.camera_controller.speed;
-        } else {
+            self.player.vel = direction.normalize() * self.camera_controller.speed * self.dt;
+        }
+        else {
             self.player.vel = Vector3::new(0.0, 0.0, 0.0);
         }
 
-        println!(
-            ">>> INFO: Position joueur: x={:.2}, y={:.2}, z={:.2} | position caméra: x={:.2}, y={:.2}, z={:.2}",
-            self.player.pos.x, self.player.pos.y, self.player.pos.z,
-            self.camera.eye.x, self.camera.eye.y, self.camera.eye.z
-        );
-
         self.player.update();
-        self.camera_controller
-            .update_camera(&mut self.camera, &self.player);
+        self.camera_controller.update_camera(self.dt, &mut self.camera, &self.player);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.camera_buffer,

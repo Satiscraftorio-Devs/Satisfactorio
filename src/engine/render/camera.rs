@@ -151,13 +151,13 @@ impl CameraController {
         self.mouse_delta_y += dy as f32;
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, player: &Player) {
+    pub fn update_camera(&mut self, dt: f32, camera: &mut Camera, player: &Player) {
         // 1. Sync position joueur → camera (TOUJOURS)
         camera.eye = player.pos;
 
         // 2. Rotation souris (yaw/pitch) UNIQUEMENT
-        camera.yaw += self.mouse_delta_x * self.mouse_sensitivity;
-        camera.pitch -= self.mouse_delta_y * self.mouse_sensitivity;
+        camera.yaw += self.mouse_delta_x * self.mouse_sensitivity * dt;
+        camera.pitch -= self.mouse_delta_y * self.mouse_sensitivity * dt;
         self.mouse_delta_x = 0.0;
         self.mouse_delta_y = 0.0;
 
