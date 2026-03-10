@@ -1,9 +1,13 @@
 use std::time::Instant;
 
-use cgmath::{Deg, EuclideanSpace, InnerSpace, Matrix4, Vector3, dot};
-use wgpu::{BindGroup, Buffer, Queue, RenderPass, RenderPipeline};
+use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
+use wgpu::{BindGroup, Buffer, RenderPass, RenderPipeline};
 
-use crate::{common::geometry::plane::Plane, engine::render::{camera::{CameraUniform, OPENGL_TO_WGPU_MATRIX}, mesh::{chunk::ChunkMesh, world::WorldMesh}, texture::Texture}, game::{state::game::GameState, world::chunk::CHUNK_SIZE}};
+use crate::{
+    common::geometry::plane::Plane,
+    engine::render::{camera::CameraUniform, texture::Texture},
+    game::{state::game::GameState, world::chunk::CHUNK_SIZE},
+};
 
 pub struct FrameData {
     pub dt: f32,
@@ -35,19 +39,13 @@ pub(crate) struct RenderContext<'a> {
 }
 
 impl FrameData {
-    pub fn new(
-        dt: f32,
-        fps: u32,
-        fps_timer: f32,
-        last_frame: Instant,
-        frame_count: u32,
-    ) -> Self {
+    pub fn new(dt: f32, fps: u32, fps_timer: f32, last_frame: Instant, frame_count: u32) -> Self {
         Self {
             dt,
             fps,
             fps_timer,
             last_frame,
-            frame_count
+            frame_count,
         }
     }
 }
@@ -93,12 +91,17 @@ impl<'a> RenderContext<'a> {
         Self {
             game_state,
             frame_data,
-            renderer
+            renderer,
         }
     }
 }
 
-fn is_chunk_behind_camera(min: &Vector3<f32>, max: &Vector3<f32>, cam_forward: &Vector3<f32>, cam_eye: &Vector3<f32>) -> bool {
+fn is_chunk_behind_camera(
+    min: &Vector3<f32>,
+    max: &Vector3<f32>,
+    cam_forward: &Vector3<f32>,
+    cam_eye: &Vector3<f32>,
+) -> bool {
     let center = min + (max - min) * 0.5;
     let extent = (max - min) * 0.5;
 
@@ -122,14 +125,16 @@ fn extract_camera_frustum_planes(m: Matrix4<f32>) -> [Plane; 6] {
     ].map(|p| p.normalize())
 }
 
-fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[Plane;6]) -> bool {
+fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[Plane; 6]) -> bool {
     for p in planes {
         let positive = Vector3::new(
             if p.normal.x >= 0.0 { max.x } else { min.x },
             if p.normal.y >= 0.0 { max.y } else { min.y },
             if p.normal.z >= 0.0 { max.z } else { min.z },
         );
-        if p.distance(positive) < 0.0 { return false; }
+        if p.distance(positive) < 0.0 {
+            return false;
+        }
     }
     true
 }
@@ -163,11 +168,7 @@ pub fn render_world(render_pass: &mut RenderPass, context: &RenderContext) {
             (chunk_mesh.0 .2) as f32 * CHUNK_SIZE as f32,
         );
         // Vertex as Vector3 in the world that is equal to the absolute opposite of the local origin of the current chunk
-        let max = min + Vector3::new(
-            CHUNK_SIZE as f32,
-            CHUNK_SIZE as f32,
-            CHUNK_SIZE as f32
-        );
+        let max = min + Vector3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32);
 
         // Check if the chunk is behind the camera.
         // This allows us to pre-filter chunks before going too further in the tests, at least for chunks that shouldn't be drawn to screen.
@@ -186,7 +187,6 @@ pub fn render_world(render_pass: &mut RenderPass, context: &RenderContext) {
         // render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
         render_pass.draw(0..chunk_vertex_number, 0..1);
     }
-
 }
 
 pub fn render_gizmo(render_pass: &mut RenderPass, render_context: &RenderContext) {

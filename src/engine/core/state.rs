@@ -2,7 +2,9 @@ use crate::common::geometry::vertex::Vertex;
 use crate::engine::render::camera::{Camera, CameraUniform};
 use crate::engine::render::mesh::world::WorldMesh;
 use crate::engine::render::render::{FrameData, RenderContext, Renderer, render_gizmo, render_world};
+use crate::engine::render::text::TextRenderer;
 use crate::game::player::camera::CameraController;
+use cgmath::Vector3;
 use crate::game::player::player::Player;
 use crate::game::state::game::GameState;
 use crate::game::world::chunk::Chunk;
@@ -25,6 +27,7 @@ pub struct State {
     frame_data: FrameData,
     pub game_state: GameState,
     renderer: Renderer,
+    text_renderer: TextRenderer,
 }
 
 impl State {
@@ -353,6 +356,12 @@ impl State {
         
         game_state.init(&device);
 
+        let text_renderer = TextRenderer::new(
+            &device,
+            &queue,
+            config.format,
+        );
+
         Ok(Self {
             surface,
             device,
@@ -362,6 +371,7 @@ impl State {
             frame_data,
             game_state,
             renderer,
+            text_renderer,
         })
     }
 
@@ -371,6 +381,7 @@ impl State {
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
             self.renderer.is_surface_configured = true;
+            self.text_renderer.resize(width, height);
         }
     }
 
@@ -398,9 +409,16 @@ impl State {
         }
         
         self.game_state.update(&self.queue, &mut self.renderer, self.frame_data.dt);
+        
+        let player_pos = Vector3::new(
+            self.game_state.player.pos.x,
+            self.game_state.player.pos.y,
+            self.game_state.player.pos.z,
+        );
+        self.text_renderer.update_text(self.frame_data.fps, player_pos);
     }
 
-    pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.window.request_redraw();
 
         // We can't render unless the surface is configured
@@ -451,6 +469,9 @@ impl State {
 
             render_world(&mut render_pass, &render_context);
             render_gizmo(&mut render_pass, &render_context);
+            
+            self.text_renderer.prepare(&self.device, &self.queue);
+            self.text_renderer.render(&self.device, &self.queue, &mut render_pass);
         }
 
         // submit will accept anything that implements IntoIter
