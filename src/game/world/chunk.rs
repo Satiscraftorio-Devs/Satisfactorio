@@ -1,4 +1,4 @@
-use crate::{engine::render::mesh::world::WorldMesh, game::world::{block::BlockInstance, world::World}};
+use crate::game::world::block::BlockInstance;
 
 pub const CHUNK_SIZE: i32 = 32;
 pub const CHUNK_SIZE_SQR: i32 = CHUNK_SIZE * CHUNK_SIZE;

@@ -32,7 +32,7 @@ impl World {
         for x in min_cx..=max_cx {
             for y in min_cy..=max_cy {
                 for z in min_cz..=max_cz {
-                    if let Some(chunk) = self.get_chunk(x, y, z) {
+                    if let Some(_chunk) = self.get_chunk(x, y, z) {
                         if let Some(chunk_mesh) = world_mesh.meshes.get(&(x, y, z)) {
                             chunk_mesh.set_dirty();
                         }

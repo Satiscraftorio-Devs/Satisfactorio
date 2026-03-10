@@ -1,7 +1,5 @@
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3};
-use winit::keyboard::KeyCode;
 
-use crate::game::player::player::Player;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::from_cols(
