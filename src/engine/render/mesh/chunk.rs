@@ -1,9 +1,21 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cgmath::num_traits::ToPrimitive;
-use wgpu::{Device, util::DeviceExt};
+use wgpu::{util::DeviceExt, Device};
 
-use crate::{common::geometry::{direction::Direction, vertex::Vertex}, engine::render::{buffer::BufferData, mesh::{face_mask::FaceMask, texto::RenderFaceTexto}}, game::world::{block::BlockInstance, chunk::{CHUNK_SIZE, Chunk}, padded_chunk::PaddedChunk, world::World}};
+use crate::{
+    common::geometry::{direction::Direction, vertex::Vertex},
+    engine::render::{
+        buffer::BufferData,
+        mesh::{face_mask::FaceMask, texto::RenderFaceTexto},
+    },
+    game::world::{
+        block::BlockInstance,
+        chunk::{Chunk, CHUNK_SIZE},
+        padded_chunk::PaddedChunk,
+        world::World,
+    },
+};
 
 pub struct ChunkMesh {
     pub vertices: Vec<Vertex>,
@@ -88,8 +100,8 @@ impl ChunkMesh {
 
                     mask[y as usize][z as usize].set_visited(true);
 
-                    let mut quad_y = 1u8;
-                    let mut quad_z = 1u8;
+                    let mut quad_y = 1i32;
+                    let mut quad_z = 1i32;
 
                     // We grow the quad in the y-axis
                     'outer: for iy in (y as usize + 1)..(CHUNK_SIZE as usize) as usize {
@@ -119,7 +131,7 @@ impl ChunkMesh {
                             mask[iy][iz as usize].set_visited(true);
                         }
                     }
-                    
+
                     // Add the quad to the mesh
                     let is_left_face = face.get_face() == Direction::Left;
 
@@ -146,15 +158,15 @@ impl ChunkMesh {
                     // Long term: change the shader to use the texture property
                     // WARNING: do not invert w & h.
                     // Set width/height conventions for each axis that are both respected here and in the shader.
-                    let data = RenderFaceTexto::new(
-                        x.to_u8().unwrap(),
-                        y.to_u8().unwrap(),
-                        z.to_u8().unwrap(),
-                        quad_z.to_u8().unwrap(),
-                        quad_y.to_u8().unwrap(),
-                        face.get_face(),
-                        0u16
-                    );
+                    // let data = RenderFaceTexto::new(
+                    //     x.to_u8).unwrap(),
+                    //     y.to_u8().unwrap(),
+                    //     z.to_u8().unwrap(),
+                    //     quad_z.to_u8().unwrap(),
+                    //     quad_y.to_u8().unwrap(),
+                    //     face.get_face(),
+                    //     0u16,
+                    // );
 
                     // We can at least skip that part, knowing itering over this small part of the quad won't result in anything
                     // Skipping quad_y will probably makes us lose vertex in the process, this is why we just skip z.
@@ -199,8 +211,8 @@ impl ChunkMesh {
 
                     mask[x as usize][z as usize].set_visited(true);
 
-                    let mut quad_x = 1u8;
-                    let mut quad_z = 1u8;
+                    let mut quad_x = 1i32;
+                    let mut quad_z = 1i32;
 
                     // We grow the quad in the x-axis
                     'outer: for ix in (x as usize + 1)..(CHUNK_SIZE as usize) as usize {
@@ -294,8 +306,8 @@ impl ChunkMesh {
 
                     mask[x as usize][y as usize].set_visited(true);
 
-                    let mut quad_x = 1u8;
-                    let mut quad_y = 1u8;
+                    let mut quad_x = 1i32;
+                    let mut quad_y = 1i32;
 
                     // We grow the quad in the x-axis
                     'outer: for ix in (x as usize + 1)..(CHUNK_SIZE as usize) as usize {
