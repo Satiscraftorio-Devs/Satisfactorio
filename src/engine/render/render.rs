@@ -4,7 +4,7 @@ use cgmath::{EuclideanSpace, Matrix4, Point3, Vector3, dot};
 use wgpu::{BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPass, RenderPipeline, Surface, util::{BufferInitDescriptor, DeviceExt}, wgt::BufferDescriptor};
 
 use crate::{
-    common::geometry::{plane::Plane, vertex::Vertex},
+    common::geometry::{plane::Plane, vertex::{self, Vertex}},
     engine::render::{camera::{Camera, CameraUniform}, mesh::chunk::ChunkMesh, texture::Texture},
     game::{state::game::GameState, world::chunk::CHUNK_SIZE},
 };
@@ -36,6 +36,9 @@ pub struct Renderer {
 
     pub chunks: HashMap<(i32, i32, i32), Mesh>,
     pub camera: Camera,
+    
+    pub gpu_context: GpuContext,
+    pub render_manager: RenderManager,
 }
 
 impl FrameData {
@@ -60,49 +63,105 @@ pub struct GpuContext {
 pub struct BufferData {
     data: Buffer,
     length: u32,
-    capacity: u32
+    capacity: u32,
+    format: Option<IndexFormat>,
 }
 
 impl BufferData {
-
+    pub fn new(
+        data: Buffer,
+        length: u32,
+        capacity: u32,
+        format: Option<IndexFormat>
+    ) -> Self {
+        Self {
+            data,
+            length,
+            capacity,
+            format,
+        }
+    }
 }
 
 pub struct Mesh {
-    vertices: (Buffer, Option<u32>),
-    indices: Option<(Buffer, IndexFormat, u32)>,
+    vertices: BufferData,
+    indices: Option<BufferData>,
 }
 
 pub struct MeshData {
-    vertices: (Vec<Vertex>, Option<u32>),
+    /// The vertex buffer data, and the number of vertices if the mesh doesn't use an index buffer (if it does, this value is None since we can get the vertex count from the index buffer).
+    vertices: (Vec<Vertex>, u32),
+    /// If the mesh uses an index buffer (if it doesn't, this value is None) : the index buffer data, the index format and the number of indices.
     indices: Option<(Vec<u32>, IndexFormat, u32)>,
 }
 
 impl MeshData {
-    pub fn has_index_buffer(&self) -> bool {
+    pub fn new(
+        vertices: Vec<Vertex>,
+        indices: Option<Vec<u32>>
+    ) -> Self {
+        let vertices = {
+            let len = vertices.len() as u32;
+            (vertices, len)
+        };
+        let indices = if let Some(indices) = indices {
+            let len = indices.len() as u32;
+            Some((indices, IndexFormat::Uint32, len))
+        }
+
+        else {
+            None
+        };
+
+        Self {
+            vertices,
+            indices,
+        }
+    }
+
+    pub fn get_vertex_data(&self) -> &Vec<Vertex> {
+        return &self.vertices.0;
+    }
+
+    pub fn get_vertex_count(&self) -> u32 {
+        return self.vertices.1;
+    }
+    
+    pub fn has_index_data(&self) -> bool {
         return self.indices.is_some();
+    }
+
+    pub fn get_index_data(&self) -> &Vec<u32> {
+        return &self.indices.as_ref().expect("Error:\ntry to get index data of a mesh data but its value is None.\nMaybe the mesh data is not indexed?").0;
+    }
+
+    pub fn get_index_format(&self) -> IndexFormat {
+        return self.indices.as_ref().expect("Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh data is not indexed?").1;
+    }
+
+    pub fn get_index_count(&self) -> u32 {
+        return self.indices.as_ref().expect("Error:\ntry to get index count of a mesh data but its value is None.\nMaybe the mesh data is not indexed?").2;
     }
 }
 
-type MeshId = u32;
+pub type MeshId = u32;
 
 pub struct RenderManager {
-    context: &'static GpuContext,
     meshes: HashMap<MeshId, Mesh>,
     mesh_pool: Vec<Mesh>,
     id_pool: Vec<MeshId>,
     max_id: MeshId,
+    ids_to_render: Vec<MeshId>,
 }
 
 impl RenderManager {
-    pub fn new(
-        context: &'static GpuContext,
-    ) -> Self {
+    pub fn new() -> Self {
         Self {
-            context: context,
             meshes: HashMap::new(),
             mesh_pool: vec![],
             id_pool: vec![],
             max_id: 0,
+            ids_to_render: vec![],
         }
     }
 
@@ -111,32 +170,32 @@ impl RenderManager {
             return id;
         }
 
-        if self.max_id > 0 {
+        if self.max_id == 0 {
             self.max_id += 1;
-        }
-
-        self.max_id
-    }
-
-    pub fn update_mesh(&mut self, data: MeshData, id: MeshId) {
-        if let Some(mesh) = self.meshes.get_mut(&id) {
-            mesh.update(&self.context.queue, data);
-        }
-    }
-
-    pub fn allocate_mesh(&mut self, data: MeshData) -> MeshId {
-        // Mesh pool isn't empty
-        let id = self.get_next_id();
-        
-        if let Some(mut mesh) = self.mesh_pool.pop() {
-            mesh.update(&self.context.queue, data);
-            self.meshes.insert(id, mesh);
+            return 0;
         }
         else {
-            // Aucune mesh disponible, on crée
-
+            self.max_id += 1;
+            return self.max_id - 1;
         }
+    }
+
+    pub fn update_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData, id: MeshId) -> bool {
+        if let Some(mesh) = self.meshes.get_mut(&id) {
+            mesh.update(device, queue, data);
+            return true;
+        }
+        return false;
+    }
+
+    pub fn allocate_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData) -> MeshId {
+        let id = self.get_next_id();
         
+        let mesh = self.mesh_pool.pop().unwrap_or_else(|| Mesh::new(device, queue, data));
+        self.meshes.insert(id, mesh);
+        
+        println!("Affected mesh with id: {} mesh count: {}", id, self.meshes.len());
+
         id
     }
 
@@ -146,30 +205,88 @@ impl RenderManager {
             self.id_pool.push(id);
         }
     }
+
+    pub fn mark_mesh_for_rendering(&mut self, id: MeshId) {
+        if self.meshes.contains_key(&id) {
+            self.ids_to_render.push(id);
+        }
+    }
+
+    pub fn get_meshes_to_render(&self) -> Vec<&Mesh> {
+        self.ids_to_render.iter().filter_map(|id| self.meshes.get(id)).collect()
+    }
+
+    pub fn clear_render_queue(&mut self) {
+        self.ids_to_render.clear();
+    }
 }
+
+const MESH_BUFFER_CAPACITY_MARGIN: f32 = 1.25;
 
 impl Mesh {
     pub fn new(
         device: &Device,
+        queue: &Queue,
         data: MeshData
     ) -> Self {
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
+        let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Vertex buffer"),
-            contents: bytemuck::cast_slice(&data.vertices.0),
+            size: vertex_buffer_capacity as u64 * std::mem::size_of::<Vertex>() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
-        let index_buffer: Option<(Buffer, IndexFormat, u32)> = {
-            // Si il y a, alors créer, comme au-dessus
+        queue.write_buffer(
+            &vertex_buffer,
+            0,
+            bytemuck::cast_slice(data.get_vertex_data())
+        );
+        let vertex_buffer_data = BufferData::new(
+            vertex_buffer,
+            data.get_vertex_count(),
+            vertex_buffer_capacity,
             None
-        };
+        );
+
+        let mut index_buffer_data: Option<BufferData> = None;
+
+        if data.has_index_data() {
+            let index_buffer_capacity = ((data.get_index_count() as f32) * MESH_BUFFER_CAPACITY_MARGIN) as u32;
+            let index_buffer = device.create_buffer(&BufferDescriptor {
+                label: Some("Index buffer"),
+                size: index_buffer_capacity as u64 * std::mem::size_of::<u32>() as u64,
+                usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            queue.write_buffer(
+                &index_buffer,
+                0,
+                bytemuck::cast_slice(&data.get_index_data())
+            );
+            index_buffer_data = Some(BufferData::new(
+                index_buffer,
+                data.get_index_count(),
+                index_buffer_capacity,
+                Some(data.get_index_format())
+            ));
+        }
+
+        Self {
+            vertices: vertex_buffer_data,
+            indices: index_buffer_data,
+        }
     }
 
     pub fn get_vertex_buffer(&self) -> &Buffer {
-        return &self.vertices.0;
+        return &self.vertices.data;
     }
 
     pub fn get_vertex_count(&self) -> u32 {
-        return self.vertices.1.expect("Error:\ntry to get vertex count of a mesh but its value is None.\nMaybe the mesh uses an index buffer?");
+        return self.vertices.length;
+    }
+
+    pub fn get_vertex_capacity(&self) -> u32 {
+        return self.vertices.capacity;
     }
     
     pub fn has_index_buffer(&self) -> bool {
@@ -177,24 +294,87 @@ impl Mesh {
     }
 
     pub fn get_index_buffer(&self) -> &Buffer {
-        return &self.indices.as_ref().expect("Error:\ntry to get index buffer of a mesh but its value is None.\nMaybe the mesh is not indexed?").0;
+        return &self.indices.as_ref().expect("Error:\ntry to get index buffer of a mesh but its value is None.\nMaybe the mesh is not indexed?").data;
     }
 
     pub fn get_index_format(&self) -> IndexFormat {
-        return self.indices.as_ref().expect("Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh is not indexed?").1;
+        return self.indices.as_ref().expect("Error:\ntry to get index format of a mesh's index buffer but the buffer's value is None.\nMaybe the mesh is not indexed?").format.expect("Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the index buffer is not correctly configured?");
     }
 
     pub fn get_index_count(&self) -> u32 {
-        return self.indices.as_ref().expect("Error:\ntry to get index count of a mesh but its value is None.\nMaybe the mesh is not indexed?").2;
+        return self.indices.as_ref().expect("Error:\ntry to get index count of a mesh but its value is None.\nMaybe the mesh is not indexed?").length;
     }
 
-    pub fn update(&mut self, queue: &Queue, data: MeshData) {
+    pub fn get_index_capacity(&self) -> u32 {
+        return self.indices.as_ref().expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?").capacity;
+    }
+
+    pub fn update(&mut self, device: &Device, queue: &Queue, data: MeshData) {
         // Reste à voir si le buffer a une capacité suffisante pour les données de data, et si non, on le recrée
 
         // Si le buffer a une taille suffisante, on va écrire les données + (capacité - taille) 0 pour être sûr d'overwrite complètement le buffer
-        queue.write_buffer(self.get_vertex_buffer(), 0, bytemuck::cast_slice(&data.vertices.0));
-        if let Some(index) = data.indices {
-            queue.write_buffer(self.get_index_buffer(), 0, bytemuck::cast_slice(&index.0));
+        if self.get_vertex_capacity() >= data.get_vertex_count() {
+            queue.write_buffer(
+                self.get_vertex_buffer(),
+                0,
+                bytemuck::cast_slice(data.get_vertex_data())
+            );
+        }
+        else {
+            let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
+
+            let vertex_buffer = device.create_buffer(&BufferDescriptor {
+                label: Some("Vertex buffer"),
+                size: vertex_buffer_capacity as u64 * std::mem::size_of::<Vertex>() as u64,
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            queue.write_buffer(
+                &vertex_buffer,
+                0,
+                bytemuck::cast_slice(data.get_vertex_data())
+            );
+
+            self.vertices = BufferData::new(
+                vertex_buffer,
+                data.get_vertex_count(),
+                vertex_buffer_capacity,
+                None
+            );
+        }
+
+        if data.has_index_data() {
+            if self.get_index_capacity() >= data.get_index_count() {
+                queue.write_buffer(
+                    self.get_index_buffer(),
+                    0,
+                    bytemuck::cast_slice(data.get_index_data())
+                );
+            }
+            else {
+                let indices = data.get_index_data();
+                let index_format = data.get_index_format();
+                let index_buffer_capacity = ((data.get_index_count() as f32) * MESH_BUFFER_CAPACITY_MARGIN) as u32;
+
+                let index_buffer = device.create_buffer(&BufferDescriptor {
+                    label: Some("Index buffer"),
+                    size: index_buffer_capacity as u64 * std::mem::size_of::<u32>() as u64,
+                    usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                queue.write_buffer(
+                    &index_buffer,
+                    0,
+                    bytemuck::cast_slice(&indices)
+                );
+
+                self.indices = Some(BufferData::new(
+                    index_buffer,
+                    data.get_index_count(),
+                    index_buffer_capacity,
+                    Some(index_format)
+                ));
+            }
         }
     }
 }
@@ -217,6 +397,9 @@ impl Renderer {
 
         dimensions: (u32, u32),
         cam_fovy: f32,
+
+        gpu_context: GpuContext,
+        render_manager: RenderManager,
     ) -> Self {
         Self {
             is_surface_configured,
@@ -244,7 +427,10 @@ impl Renderer {
                 cam_fovy,
                 0.1,
                 1000.0
-            )
+            ),
+
+            gpu_context,
+            render_manager,
         }
     }
 
@@ -287,7 +473,35 @@ impl Renderer {
                 multiview_mask: None,
             });
 
-            self.render_chunks(&mut render_pass);
+            if self.wireframe {
+                render_pass.set_pipeline(&self.world_wireframe_render_pipeline);
+            }
+            else {
+                render_pass.set_pipeline(&self.world_render_pipeline);
+            }
+            
+            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+
+            // self.render_chunks(&mut render_pass);
+
+            let meshes = self.render_manager.get_meshes_to_render();
+
+            // println!("RENDERING {} MESHES", meshes.len());
+
+            for mesh in meshes {
+                // println!("RENDERING MESH");
+
+                render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
+
+                if mesh.has_index_buffer() {
+                    render_pass.set_index_buffer(mesh.get_index_buffer().slice(..), mesh.get_index_format());
+                    render_pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
+                }
+                else {
+                    render_pass.draw(0..mesh.get_vertex_count(), 0..1);
+                }
+            }
             
         }
 
@@ -295,97 +509,6 @@ impl Renderer {
         queue.submit(std::iter::once(encoder.finish()));
         output.present();
     }
-
-    pub fn render_chunks(&self, render_pass: &mut RenderPass) {
-        let cam_forward = self.camera.forward();
-        let cam_eye = self.camera.eye.to_vec();
-
-        let view_proj = self.camera_uniform.get_view_proj();
-        let frustum = extract_camera_frustum_planes(view_proj);
-
-        for chunk in &self.chunks {
-            // Vertex as Vector3 in the world that is equal to the local origin of the current chunk
-            let min: Vector3<f32> = Vector3::new(
-                (chunk.0.0) as f32 * CHUNK_SIZE as f32,
-                (chunk.0.1) as f32 * CHUNK_SIZE as f32,
-                (chunk.0.2) as f32 * CHUNK_SIZE as f32,
-            );
-
-            // Vertex as Vector3 in the world that is equal to the absolute opposite of the local origin of the current chunk
-            let max = min + Vector3::new(
-                CHUNK_SIZE as f32,
-                CHUNK_SIZE as f32,
-                CHUNK_SIZE as f32
-            );
-
-            // Check if the chunk is behind the camera.
-            // This allows us to pre-filter chunks before going too further in the tests, at least for chunks that shouldn't be drawn to screen.
-            if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_eye) {
-                continue;
-            }
-
-            // Check if the chunk is outside the camera's frustum, aka outside it's field of view.
-            // This operation is a little bit more expensive than the one above.
-            // This is why we do the later first : to eliminate chunks as much as possible before doing this final test.
-            if !is_chunk_in_camera_frustum(&min, &max, &frustum) {
-                continue;
-            }
-
-            let mesh = chunk.1;
-            render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
-
-            if mesh.has_index_buffer() {
-                render_pass.set_index_buffer(mesh.get_index_buffer().slice(..), mesh.get_index_format());
-                render_pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
-            }
-            else {
-                render_pass.draw(0..mesh.get_vertex_count(), 0..1);
-            }
-        }
-    }
-}
-
-fn is_chunk_behind_camera(
-    min: &Vector3<f32>,
-    max: &Vector3<f32>,
-    cam_forward: &Vector3<f32>,
-    cam_eye: &Vector3<f32>,
-) -> bool {
-    let center = min + (max - min) * 0.5;
-    let extent = (max - min) * 0.5;
-
-    let radius = extent.x * cam_forward.x.abs()
-        + extent.y * cam_forward.y.abs()
-        + extent.z * cam_forward.z.abs();
-
-    let distance = dot(*cam_forward, center - *cam_eye);
-
-    distance + radius < 0.0
-}
-
-fn extract_camera_frustum_planes(m: Matrix4<f32>) -> [Plane; 6] {
-    [
-        Plane { normal: Vector3::new(m[0][3]+m[0][0], m[1][3]+m[1][0], m[2][3]+m[2][0]), d: m[3][3]+m[3][0] }, // left
-        Plane { normal: Vector3::new(m[0][3]-m[0][0], m[1][3]-m[1][0], m[2][3]-m[2][0]), d: m[3][3]-m[3][0] }, // right
-        Plane { normal: Vector3::new(m[0][3]+m[0][1], m[1][3]+m[1][1], m[2][3]+m[2][1]), d: m[3][3]+m[3][1] }, // bottom
-        Plane { normal: Vector3::new(m[0][3]-m[0][1], m[1][3]-m[1][1], m[2][3]-m[2][1]), d: m[3][3]-m[3][1] }, // top
-        Plane { normal: Vector3::new(m[0][3]+m[0][2], m[1][3]+m[1][2], m[2][3]+m[2][2]), d: m[3][3]+m[3][2] }, // near
-        Plane { normal: Vector3::new(m[0][3]-m[0][2], m[1][3]-m[1][2], m[2][3]-m[2][2]), d: m[3][3]-m[3][2] }, // far
-    ].map(|p| p.normalize())
-}
-
-fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[Plane; 6]) -> bool {
-    for p in planes {
-        let positive = Vector3::new(
-            if p.normal.x >= 0.0 { max.x } else { min.x },
-            if p.normal.y >= 0.0 { max.y } else { min.y },
-            if p.normal.z >= 0.0 { max.z } else { min.z },
-        );
-        if p.distance(positive) < 0.0 {
-            return false;
-        }
-    }
-    true
 }
 
 // pub fn render_world(render_pass: &mut RenderPass) {

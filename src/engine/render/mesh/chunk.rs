@@ -7,27 +7,25 @@ use crate::{
     common::geometry::{direction::Direction, vertex::Vertex},
     engine::render::{
         buffer::BufferData,
-        mesh::{face_mask::FaceMask, texto::RenderFaceTexto},
+        mesh::{face_mask::FaceMask, texto::RenderFaceTexto}, render::{MeshData, MeshId, RenderManager, Renderer},
     },
     game::world::{
         block::BlockInstance,
-        chunk::{Chunk, CHUNK_SIZE},
+        chunk::{CHUNK_SIZE, Chunk},
         padded_chunk::PaddedChunk,
         world::World,
     },
 };
 
 pub struct ChunkMesh {
-    pub vertices: Vec<Vertex>,
-    pub vertex_count: u32,
+    pub mesh_id: Option<MeshId>,
     dirty: AtomicBool,
 }
 
 impl ChunkMesh {
     pub fn new() -> ChunkMesh {
         return ChunkMesh {
-            vertices: vec![],
-            vertex_count: 0,
+            mesh_id: None, // Not yet created
             dirty: AtomicBool::new(true),
         };
     }
@@ -44,7 +42,7 @@ impl ChunkMesh {
         &mut self,
         chunk: &Chunk,
         world: &World,
-        device: &Device,
+        renderer: &mut Renderer,
         cx: i32,
         cy: i32,
         cz: i32,
@@ -366,8 +364,13 @@ impl ChunkMesh {
             }
         }
 
-        self.vertices = vertices;
-        self.vertex_count = 0;
-        self.dirty = AtomicBool::new(false);
+        self.dirty.store(false, Ordering::Relaxed);
+
+        if let Some(mesh_id) = self.mesh_id {
+            renderer.render_manager.update_mesh(&renderer.gpu_context.device, &renderer.gpu_context.queue, MeshData::new(vertices, None), mesh_id);
+        }
+        else {
+            self.mesh_id = Some(renderer.render_manager.allocate_mesh(&renderer.gpu_context.device, &renderer.gpu_context.queue, MeshData::new(vertices, None)));
+        }
     }
 }

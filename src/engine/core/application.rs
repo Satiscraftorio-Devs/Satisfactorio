@@ -3,6 +3,7 @@ use std::sync::Arc;
 use winit::event_loop::ActiveEventLoop;
 use winit::{application::ApplicationHandler, keyboard::PhysicalKey};
 
+use crate::engine::core::inputs::InputState;
 use crate::engine::core::state::State;
 use crate::engine::render::camera::Camera;
 use crate::engine::render::render::Renderer;
@@ -13,28 +14,32 @@ pub enum AppEvent {
 
 }
 
-pub struct App {
+pub struct App<I: FnMut(&mut Renderer),U: Fn(f32, &mut Renderer, &InputState)> {
     state: Option<State>,
-    update: fn(f32, &mut Renderer),
+    init: I,
+    update: U,
 }
 
-impl App {
+impl<I: FnMut(&mut Renderer), U: Fn(f32, &mut Renderer, &InputState)> App<I, U> {
     pub fn new(
-        update: fn(f32, &mut Renderer)
+        init: I,
+        update: U
     ) -> Self {
         Self {
             state: None,
-            update
+            init,
+            update,
         }
     }
 }
 
-impl ApplicationHandler<AppEvent> for App {
+impl<I: FnMut(&mut Renderer), U: Fn(f32, &mut Renderer, &InputState)> ApplicationHandler<AppEvent> for App<I, U> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         println!("resumed");
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         self.state = Some(pollster::block_on(State::new(window)).unwrap());
+        (self.init)(&mut self.state.as_mut().unwrap().renderer);
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _: AppEvent) {
@@ -63,8 +68,11 @@ impl ApplicationHandler<AppEvent> for App {
         };
 
         state.update();
-        (self.update)(state.frame_data.dt, &mut state.renderer);
+        (self.update)(state.frame_data.dt, &mut state.renderer, &state.inputs);
         state.window.request_redraw();
+
+        state.inputs.clear_keys();
+        state.inputs.set_mouse_delta((0.0, 0.0));
     }
 
     fn window_event(

@@ -21,6 +21,10 @@ impl InputState {
         return self.pressed_keys.contains(&key);
     }
 
+    pub fn get_pressed_keys(&self) -> Vec<KeyCode> {
+        return self.pressed_keys.clone();
+    }
+
     pub fn clear_keys(&mut self) {
         self.pressed_keys.clear();
     }

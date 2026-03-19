@@ -2,7 +2,7 @@ use crate::common::geometry::vertex::Vertex;
 use crate::engine::core::inputs::InputState;
 use crate::engine::render::camera::{Camera, CameraUniform};
 use crate::engine::render::mesh::world::WorldMesh;
-use crate::engine::render::render::{FrameData, GpuContext, Renderer};
+use crate::engine::render::render::{FrameData, GpuContext, RenderManager, Renderer};
 use crate::engine::render::text::TextRenderer;
 use crate::game::player::camera::CameraController;
 use cgmath::Vector3;
@@ -19,9 +19,7 @@ use winit::window::Window;
 // This will store the state of our game
 pub struct State {
     pub window: Arc<Window>,
-    pub gpu_context: GpuContext,
     pub frame_data: FrameData,
-    // pub game_state: GameState,
     pub renderer: Renderer,
     text_renderer: TextRenderer,
     pub inputs: InputState,
@@ -351,11 +349,6 @@ impl State {
             .expect("Capture souris");
         window.set_cursor_visible(false);
 
-        let player = Player::new();
-        let camera_controller = CameraController::new(16.0, 0.0025);
-        let world = World::new();
-        let world_mesh = WorldMesh::new();
-
         let frame_data = FrameData::new(
             0.0,
             0,
@@ -364,15 +357,16 @@ impl State {
             0,
         );
 
-        let mut game_state = GameState::new(
-            world,
-            world_mesh,
-            camera,
-            camera_controller,
-            player,
-        );
+        let gpu_context = GpuContext {
+            surface,
+            device,
+            queue,
+            config,
+        };
 
-        let renderer = Renderer::new(
+        let render_manager = RenderManager::new();
+
+        let mut renderer = Renderer::new(
             false,
 
             wireframe_render_pipeline,
@@ -389,28 +383,22 @@ impl State {
 
             (size.width, size.height),
             70.0,
+
+            gpu_context,
+            render_manager
         );
-        
-        game_state.init(&device);
 
         let text_renderer = TextRenderer::new(
-            &device,
-            &queue,
-            config.format,
+            &renderer.gpu_context.device,
+            &renderer.gpu_context.queue,
+            renderer.gpu_context.config.format,
         );
 
         let inputs = InputState::new();
 
-        let gpu_context = GpuContext {
-            surface,
-            device,
-            queue,
-            config,
-        };
 
         Ok(Self {
             window,
-            gpu_context: gpu_context,
             frame_data,
             renderer,
             text_renderer,
@@ -420,9 +408,9 @@ impl State {
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            self.gpu_context.config.width = width;
-            self.gpu_context.config.height = height;
-            self.gpu_context.surface.configure(&self.gpu_context.device, &self.gpu_context.config);
+            self.renderer.gpu_context.config.width = width;
+            self.renderer.gpu_context.config.height = height;
+            self.renderer.gpu_context.surface.configure(&self.renderer.gpu_context.device, &self.renderer.gpu_context.config);
             self.renderer.is_surface_configured = true;
             self.text_renderer.resize(width, height);
         }
@@ -515,7 +503,7 @@ impl State {
         // self.queue.submit(std::iter::once(encoder.finish()));
         // output.present();
 
-        self.renderer.render(&self.gpu_context.surface, &self.gpu_context.device, &self.gpu_context.queue);
+        self.renderer.render(&self.renderer.gpu_context.surface, &self.renderer.gpu_context.device, &self.renderer.gpu_context.queue);
 
         Ok(())
     }

@@ -1,6 +1,6 @@
 use winit::keyboard::KeyCode;
 
-use crate::{engine::render::camera::Camera, game::player::player::Player};
+use crate::{engine::{core::inputs::InputState, render::camera::Camera}, game::player::player::Player};
 
 pub struct CameraController {
     pub speed: f32,
@@ -62,6 +62,18 @@ impl CameraController {
             }
 
             _ => false,
+        }
+    }
+
+    pub fn process_keys(&mut self, inputs: &InputState) {
+        self.is_backward_pressed = false;
+        self.is_left_pressed = false;
+        self.is_right_pressed = false;
+        self.is_up_pressed = false;
+        self.is_down_pressed = false;
+        self.is_forward_pressed = false;
+        for key in inputs.get_pressed_keys() {
+            self.handle_key(key, true);
         }
     }
 
