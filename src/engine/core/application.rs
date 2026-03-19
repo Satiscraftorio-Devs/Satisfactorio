@@ -4,6 +4,8 @@ use winit::event_loop::ActiveEventLoop;
 use winit::{application::ApplicationHandler, keyboard::PhysicalKey};
 
 use crate::engine::core::state::State;
+use crate::engine::render::camera::Camera;
+use crate::engine::render::render::Renderer;
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 
@@ -13,11 +15,13 @@ pub enum AppEvent {
 
 pub struct App {
     state: Option<State>,
-    update: fn(&mut State),
+    update: fn(f32, &mut Renderer),
 }
 
 impl App {
-    pub fn new(update: fn(&mut State)) -> Self {
+    pub fn new(
+        update: fn(f32, &mut Renderer)
+    ) -> Self {
         Self {
             state: None,
             update
@@ -48,7 +52,8 @@ impl ApplicationHandler<AppEvent> for App {
         };
 
         if let DeviceEvent::MouseMotion { delta } = event {
-            state.game_state.camera_controller.process_mouse(delta.0, delta.1);
+            state.inputs.set_mouse_delta(delta);
+            // state.game_state.camera_controller.process_mouse(delta.0, delta.1);
         }
     }
 
@@ -58,7 +63,7 @@ impl ApplicationHandler<AppEvent> for App {
         };
 
         state.update();
-        (self.update)(state);
+        (self.update)(state.frame_data.dt, &mut state.renderer);
         state.window.request_redraw();
     }
 

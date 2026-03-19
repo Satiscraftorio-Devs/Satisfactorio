@@ -33,10 +33,9 @@ impl TextRenderer {
         self.height = height;
     }
 
-    pub fn update_text(&mut self, fps: u32, player_position: Point3<f32>) {
+    pub fn update_text(&mut self, fps: u32) {
         self.current_text = format!(
-            "FPS: {}\nPlayer position: ({:.2}, {:.2}, {:.2})",
-            fps, player_position.x, player_position.y, player_position.z
+            "FPS: {}\n", fps
         );
     }
 

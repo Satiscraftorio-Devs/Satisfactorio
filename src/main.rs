@@ -4,10 +4,10 @@ mod game;
 
 use winit::event_loop::EventLoop;
 
-use crate::engine::core::{application::App, state::State};
+use crate::engine::{core::application::App, render::{camera::Camera, render::Renderer}};
 
-fn update(state: &mut State) {
-    
+fn update(delta_time: f32, renderer: &mut Renderer) {
+    println!("dt: {}", delta_time);
 }
 
 fn main() {

@@ -1,7 +1,8 @@
 use crate::common::geometry::vertex::Vertex;
+use crate::engine::core::inputs::InputState;
 use crate::engine::render::camera::{Camera, CameraUniform};
 use crate::engine::render::mesh::world::WorldMesh;
-use crate::engine::render::render::{FrameData, RenderContext, Renderer, render_gizmo, render_world};
+use crate::engine::render::render::{FrameData, GpuContext, Renderer};
 use crate::engine::render::text::TextRenderer;
 use crate::game::player::camera::CameraController;
 use cgmath::Vector3;
@@ -18,14 +19,12 @@ use winit::window::Window;
 // This will store the state of our game
 pub struct State {
     pub window: Arc<Window>,
-    surface: wgpu::Surface<'static>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    frame_data: FrameData,
+    pub gpu_context: GpuContext,
+    pub frame_data: FrameData,
     // pub game_state: GameState,
-    renderer: Renderer,
+    pub renderer: Renderer,
     text_renderer: TextRenderer,
+    pub inputs: InputState,
 }
 
 impl State {
@@ -386,7 +385,10 @@ impl State {
             camera_bind_group,
             
             gizmo_render_pipeline,
-            gizmo_buffer
+            gizmo_buffer,
+
+            (size.width, size.height),
+            70.0,
         );
         
         game_state.init(&device);
@@ -397,24 +399,30 @@ impl State {
             config.format,
         );
 
-        Ok(Self {
+        let inputs = InputState::new();
+
+        let gpu_context = GpuContext {
             surface,
             device,
             queue,
             config,
+        };
+
+        Ok(Self {
             window,
+            gpu_context: gpu_context,
             frame_data,
-            game_state,
             renderer,
             text_renderer,
+            inputs,
         })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            self.config.width = width;
-            self.config.height = height;
-            self.surface.configure(&self.device, &self.config);
+            self.gpu_context.config.width = width;
+            self.gpu_context.config.height = height;
+            self.gpu_context.surface.configure(&self.gpu_context.device, &self.gpu_context.config);
             self.renderer.is_surface_configured = true;
             self.text_renderer.resize(width, height);
         }
@@ -436,19 +444,15 @@ impl State {
             self.frame_data.fps_timer = self.frame_data.fps_timer - 1.0;
 
             println!(
-                "FPS: {} dt: {}s\n>>> INFO: Position joueur: x={:.2}, y={:.2}, z={:.2} | position caméra: x={:.2}, y={:.2}, z={:.2}",
+                "FPS: {} dt: {}s",
                 self.frame_data.fps, self.frame_data.dt,
-                self.game_state.player.pos.x, self.game_state.player.pos.y, self.game_state.player.pos.z,
-                self.game_state.camera.eye.x, self.game_state.camera.eye.y, self.game_state.camera.eye.z
             );
         }
     }
 
     pub fn update(&mut self) {
         self.frame_update();
-        self.game_state.update(&self.queue, &mut self.renderer, self.frame_data.dt);
-        
-        self.text_renderer.update_text(self.frame_data.fps, self.game_state.player.pos);
+        self.text_renderer.update_text(self.frame_data.fps);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -511,21 +515,26 @@ impl State {
         // self.queue.submit(std::iter::once(encoder.finish()));
         // output.present();
 
-        self.renderer.render(&self.surface, &self.device, &self.queue);
+        self.renderer.render(&self.gpu_context.surface, &self.gpu_context.device, &self.gpu_context.queue);
 
         Ok(())
     }
 
     pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
-        if code == KeyCode::Escape && is_pressed {
+        if !is_pressed {
+            return;
+        }
+
+        if code == KeyCode::Escape {
             event_loop.exit();
         }
-        else if code == KeyCode::Digit1 && is_pressed {
+        else if code == KeyCode::Digit1 {
             self.renderer.wireframe = !self.renderer.wireframe;
             self.window.request_redraw();
         }
         else {
-            self.game_state.camera_controller.handle_key(code, is_pressed);
+            self.inputs.set_key_press(code);
+            // self.game_state.camera_controller.handle_key(code, is_pressed);
         }
     }
 }
