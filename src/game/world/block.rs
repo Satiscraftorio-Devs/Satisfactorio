@@ -19,4 +19,8 @@ impl BlockInstance {
     pub fn is_air(&self) -> bool {
         return self.id == BlockInstance::air().id;
     }
+
+    pub fn is_solid(&self) -> bool {
+        return self.id != BlockInstance::air().id;
+    }
 }
