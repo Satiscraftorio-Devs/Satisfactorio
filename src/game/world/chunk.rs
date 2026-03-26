@@ -26,7 +26,7 @@ impl Chunk {
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 // Todo: génération aléatoire
-                let y = (x + z).clamp(0, CHUNK_SIZE-1);
+                let y = 0;
                 chunk.set_block_from_xyz(x, y, z, block.clone());
             }
         }

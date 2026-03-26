@@ -34,105 +34,22 @@ impl ChunkMesh {
         return self.dirty.load(Ordering::Relaxed);
     }
 
-    #[inline]
-    fn is_solid(chunk: &PaddedChunk, x: i32, y: i32, z: i32) -> bool {
-        // println!("{} {} {}", x, y, z);
-        !chunk.get_block_from_xyz(x, y, z).is_air()
-    }
-
-    #[inline]
-    fn vertex_ao(side1: bool, side2: bool, corner: bool) -> i32 {
-        let value = if side1 && side2 {
-            0
-        } else {
-            3 - (side1 as i32 + side2 as i32 + corner as i32)
-        };
-
-        print!("ao: {}, ", value);
-
-        value
-    }
-
-    pub fn get_vertex_ao(
+    pub fn get_v_ao(
         chunk: &PaddedChunk,
-        x: i32,
-        y: i32,
-        z: i32,
-        dx: i32,
-        dy: i32,
-        dz: i32,
-        ux: i32,
-        uy: i32,
-        uz: i32,
-    ) -> i32 {
+        pos: [i32; 3],
+        neighbors: [[i32; 3]; 3],
+    ) -> u8 {
+        let corner_solid = chunk.get_block_from_chunk_xyz(pos[0] + neighbors[0][0], pos[1] + neighbors[0][1], pos[2] + neighbors[0][2]).is_solid() as u8;
+        let side1_solid = chunk.get_block_from_chunk_xyz(pos[0] + neighbors[1][0], pos[1] + neighbors[1][1], pos[2] + neighbors[1][2]).is_solid() as u8;
+        let side2_solid = chunk.get_block_from_chunk_xyz(pos[0] + neighbors[2][0], pos[1] + neighbors[2][1], pos[2] + neighbors[2][2]).is_solid() as u8;
 
-        let side1 = ChunkMesh::is_solid(chunk, x + dx, y + dy, z + dz);
-        let side2 = ChunkMesh::is_solid(chunk, x + ux, y + uy, z + uz);
-        let corner = ChunkMesh::is_solid(chunk, x + dx + ux, y + dy + uy, z + dz + uz);
-
-        ChunkMesh::vertex_ao(side1, side2, corner)
-    }
-
-    fn build_pos(
-        base: [i32; 3],
-        e_d: [i32; 3],
-        e_u: [i32; 3],
-        e_v: [i32; 3],
-        d: i32,
-        u: i32,
-        v: i32,
-    ) -> [i32; 3] {
-        println!(
-            "base: {} {} {} e_d: {} {} {} e_u: {} {} {} e_v: {} {} {} d: {} u: {} v: {}",
-            base[0], base[1], base[2], e_d[0], e_d[1], e_d[2], e_u[0], e_u[1], e_u[2], e_v[0], e_v[1], e_v[2], d, u, v
-        );
-        [
-            base[0] + d * e_d[0] + u * e_u[0] + v * e_v[0],
-            base[1] + d * e_d[1] + u * e_u[1] + v * e_v[1],
-            base[2] + d * e_d[2] + u * e_u[2] + v * e_v[2],
-        ]
-    }
-
-    fn negate(v: [i32; 3]) -> [i32; 3] {
-        [-v[0], -v[1], -v[2]]
+        ChunkMesh::AO_TABLE[(side1_solid | (side2_solid << 1) | (corner_solid << 2)) as usize]
     }
 
     const AO_TABLE: [u8; 8] = [
         3, 2, 2, 0,
         2, 1, 1, 0,
     ];
-
-    fn get_vertex_ao_generic(
-        chunk: &PaddedChunk,
-        pos: [i32; 3],
-        dir1: [i32; 3],
-        dir2: [i32; 3],
-    ) -> u8 {
-
-        println!("pos: {} {} {}", pos[0], pos[1], pos[2]);
-        println!("s1: {} {} {}", dir1[0], dir1[1], dir1[2]);
-        println!("s2: {} {} {}", dir2[0], dir2[1], dir2[2]);
-
-        let s1 = chunk.get_block_from_chunk_xyz(
-            pos[0] + dir1[0],
-            pos[1] + dir1[1],
-            pos[2] + dir1[2],
-        ).is_solid() as usize;
-
-        let s2 = chunk.get_block_from_chunk_xyz(
-            pos[0] + dir2[0],
-            pos[1] + dir2[1],
-            pos[2] + dir2[2],
-        ).is_solid() as usize;
-
-        let c = chunk.get_block_from_chunk_xyz(
-            pos[0] + dir1[0] + dir2[0],
-            pos[1] + dir1[1] + dir2[1],
-            pos[2] + dir1[2] + dir2[2],
-        ).is_solid() as usize;
-
-        ChunkMesh::AO_TABLE[s1 | (s2 << 1) | (c << 2)]
-    }
 
     pub fn make_greedy_axis(
         padded_chunk: &PaddedChunk,
@@ -160,39 +77,378 @@ impl ChunkMesh {
         let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] =
             [[FaceMask::empty(); CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
-        for d in 0..LAST_PADDED_CHUNK_AXIS_INDEX {
+        // [AXIS][DIRECTION][VERTEX][COORDINATE]
+        const vertex_positions: [[[[i32; 3]; 4]; 2]; 3] = [
+            // X axis
+            [
+                // Direction +
+                [
+                    [0, 0, 1],
+                    [0, 0, 0],
+                    [0, 1, 1],
+                    [0, 1, 0],
+                ],
+                // Direction -
+                [
+                    [1, 0, 0],
+                    [1, 0, 1],
+                    [1, 1, 0],
+                    [1, 1, 1],
+                ]
+            ],
+            // Y axis
+            [
+                // Direction +
+                [
+                    [0, 0, 1],
+                    [1, 0, 1],
+                    [0, 0, 0],
+                    [1, 0, 0],
+                ],
+                // Direction -
+                [
+                    [1, 1, 1],
+                    [0, 1, 1],
+                    [1, 1, 0],
+                    [0, 1, 0],
+                ]
+            ],
+            // Z axis
+            [
+                // Direction +
+                [
+                    [0, 0, 0],
+                    [1, 0, 0],
+                    [0, 1, 0],
+                    [1, 1, 0],
+                ],
+                // Direction -
+                [
+                    [1, 0, 1],
+                    [0, 0, 1],
+                    [1, 1, 1],
+                    [0, 1, 1],
+                ]
+            ],
+        ];
+
+        // [AXIS][DIRECTION][VERTEX][NEIGHBOR][COORDINATE]
+        const neighbor_delta_positions: [[[[[i32; 3]; 3]; 4]; 2]; 3] = [
+            // X axis
+            [
+                // +
+                [
+                    // Bottom left
+                    [
+                        // Corner
+                        [0, -1, 1],
+                        // Side 1
+                        [0, -1, 0],
+                        // Side 2
+                        [0, 0, 1]
+                    ],
+                    // Bottom right
+                    [
+                        // Corner
+                        [0, -1, -1],
+                        // Side 1
+                        [0, 0, -1],
+                        // Side 2
+                        [0, -1, 0]
+                    ],
+                    // Top left
+                    [
+                        // Corner
+                        [0, 1, 1],
+                        // Side 1
+                        [0, 0, 1],
+                        // Side 2
+                        [0, 1, 0]
+                    ],
+                    // Top right
+                    [
+                        // Corner
+                        [0, 1, -1],
+                        // Side 1
+                        [0, 1, 0],
+                        // Side 2
+                        [0, 0, -1]
+                    ],
+                ],
+                // -
+                [
+                    // Bottom left
+                    [
+                        // Corner
+                        [0, -1, -1],
+                        // Side 1
+                        [0, -1, 0],
+                        // Side 2
+                        [0, 0, -1]
+                    ],
+                    // Bottom right
+                    [
+                        // Corner
+                        [0, -1, 1],
+                        // Side 1
+                        [0, 0, 1],
+                        // Side 2
+                        [0, -1, 0]
+                    ],
+                    // Top left
+                    [
+                        // Corner
+                        [0, 1, -1],
+                        // Side 1
+                        [0, 0, -1],
+                        // Side 2
+                        [0, 1, 0]
+                    ],
+                    // Top right
+                    [
+                        // Corner
+                        [0, 1, 1],
+                        // Side 1
+                        [0, 1, 0],
+                        // Side 2
+                        [0, 0, 1]
+                    ],
+                ]
+            ],
+            // Y axis
+            [
+                // +
+                [
+                    // Bottom left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Bottom right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                ],
+                // -
+                [
+                    // Bottom left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Bottom right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                ]
+            ],
+            // Z axis
+            [
+                // +
+                [
+                    // Bottom left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Bottom right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                ],
+                // -
+                [
+                    // Bottom left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Bottom right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top left
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                    // Top right
+                    [
+                        // Corner
+                        [0, 0, 0],
+                        // Side 1
+                        [0, 0, 0],
+                        // Side 2
+                        [0, 0, 0]
+                    ],
+                ]
+            ],
+        ];
+
+        // [DIRECTION][VERTEX][COORDINATE]
+        let axis_based_face_vertex_positions = vertex_positions[axis as usize];
+        // [DIRECTION][VERTEX][NEIGHBOR][COORDINATE]
+        let axis_based_neighbor_delta_positions = neighbor_delta_positions[axis as usize];
+
+        for d in 0..=LAST_CHUNK_AXIS_INDEX {
             // === MASK BUILD ===
             for u in 0..=LAST_CHUNK_AXIS_INDEX {
                 for v in 0..=LAST_CHUNK_AXIS_INDEX {
-                    println!("--- POS {} {} {}", d, u, v);
-                    let pos = ChunkMesh::build_pos([0, 0, 0], e_d, e_u, e_v, d, u, v);
-                    let pos_next = ChunkMesh::build_pos([0, 0, 0], e_d, e_u, e_v, d + 1, u, v);
+                    let pos = add_i32_vec3(mul_i32_vec3(e_d, d), add_i32_vec3(mul_i32_vec3(e_u, u), mul_i32_vec3(e_v, v)));
+                    let pos_next = add_i32_vec3(mul_i32_vec3(e_d, d + 1), add_i32_vec3(mul_i32_vec3(e_u, u), mul_i32_vec3(e_v, v)));
 
-                    // println!("pos {} {} {}", pos[0], pos[1], pos[2]);
-                    // println!("pos next {} {} {}", pos_next[0], pos_next[1], pos_next[2]);
-                    
+                    // println!("d: {} d+1: {}", d, d+1);
+
                     let previous = padded_chunk.get_block_from_chunk_xyz(pos[0], pos[1], pos[2]);
                     let current = padded_chunk.get_block_from_chunk_xyz(pos_next[0], pos_next[1], pos_next[2]);
 
-                    match (previous.is_air(), current.is_air()) {
+                    match (previous.is_solid(), current.is_solid()) {
                         (true, true) | (false, false) => {}
-                        (true, false) => {
-                            mask[u as usize][v as usize] =
-                                FaceMask::from(false, current.id, Direction::Left);
-                        }
                         (false, true) => {
+                            // +
+                            let vertex_0_position = axis_based_face_vertex_positions[0][0];
+                            let vertex_1_position = axis_based_face_vertex_positions[0][1];
+                            let vertex_2_position = axis_based_face_vertex_positions[0][2];
+                            let vertex_3_position = axis_based_face_vertex_positions[0][3];
+
+                            let vertex_0_neighbors = axis_based_neighbor_delta_positions[0][0];
+                            let vertex_1_neighbors = axis_based_neighbor_delta_positions[0][1];
+                            let vertex_2_neighbors = axis_based_neighbor_delta_positions[0][2];
+                            let vertex_3_neighbors = axis_based_neighbor_delta_positions[0][3];
+
+                            let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_0_neighbors);
+                            let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_1_neighbors);
+                            let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_2_neighbors);
+                            let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_3_neighbors);
+
+                            let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
+
                             mask[u as usize][v as usize] =
-                                FaceMask::from(false, previous.id, Direction::Right);
+                                FaceMask::from(false, current.id, Direction::Left, ao_packed);
+                        }
+                        (true, false) => {
+                            // -
+                            let vertex_0_position = axis_based_face_vertex_positions[1][0];
+                            let vertex_1_position = axis_based_face_vertex_positions[1][1];
+                            let vertex_2_position = axis_based_face_vertex_positions[1][2];
+                            let vertex_3_position = axis_based_face_vertex_positions[1][3];
+
+                            let vertex_0_neighbors = axis_based_neighbor_delta_positions[1][0];
+                            let vertex_1_neighbors = axis_based_neighbor_delta_positions[1][1];
+                            let vertex_2_neighbors = axis_based_neighbor_delta_positions[1][2];
+                            let vertex_3_neighbors = axis_based_neighbor_delta_positions[1][3];
+
+                            let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_0_neighbors);
+                            let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_1_neighbors);
+                            let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_2_neighbors);
+                            let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, pos, vertex_3_neighbors);
+
+                            let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
+
+                            mask[u as usize][v as usize] =
+                                FaceMask::from(false, previous.id, Direction::Right, ao_packed);
                         }
                     }
                 }
             }
-            if d == 0 || d >= LAST_PADDED_CHUNK_AXIS_INDEX - 1 {
-                continue;
-            } 
+
             // === GREEDY ===
-            for u in 0..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                let mut v = 0;
+            for u in 1..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                let mut v = 1;
 
                 while v <= LAST_CHUNK_AXIS_INDEX_USIZE {
                     let face = mask[u][v];
@@ -236,31 +492,27 @@ impl ChunkMesh {
                     let w_i32 = width as i32;
                     let h_i32 = height as i32;
 
-                    println!("d: {} u: {} v: {} w: {} h: {}", d, u_i32, v_i32, w_i32, h_i32);
-
-                    println!("--- Ps");
                     // === POSITIONS ===
-                    let p0 = ChunkMesh::build_pos([0, 0, 0], e_d, e_u, e_v, d, u_i32, v_i32);
-                    let p1 = ChunkMesh::build_pos([0, 0, 0], e_d, e_u, e_v, d, u_i32 + w_i32, v_i32);
-                    let p2 = ChunkMesh::build_pos([0, 0, 0], e_d, e_u, e_v, d, u_i32 + w_i32, v_i32 + h_i32);
-                    let p3 = ChunkMesh::build_pos([0, 0, 0], e_d, e_u, e_v, d, u_i32, v_i32 + h_i32);
+                    let local_position_v0 = axis_based_face_vertex_positions[face.get_face().is_negative() as usize][0];
+                    let local_position_v1 = add_i32_vec3(axis_based_face_vertex_positions[face.get_face().is_negative() as usize][1], mul_i32_vec3(e_u, w_i32));
+                    let local_position_v2 = add_i32_vec3(axis_based_face_vertex_positions[face.get_face().is_negative() as usize][2], mul_i32_vec3(e_v, h_i32));
+                    let local_position_v3 = add_i32_vec3(axis_based_face_vertex_positions[face.get_face().is_negative() as usize][3], add_i32_vec3(mul_i32_vec3(e_u, w_i32), mul_i32_vec3(e_v, h_i32)));
+                    // let p0 = ChunkMesh::build_pos(base, e_d, e_u, e_v, d, u_i32, v_i32);
+                    // let p1 = ChunkMesh::build_pos(base, e_d, e_u, e_v, d, u_i32 + w_i32, v_i32);
+                    // let p2 = ChunkMesh::build_pos(base, e_d, e_u, e_v, d, u_i32 + w_i32, v_i32 + h_i32);
+                    // let p3 = ChunkMesh::build_pos(base, e_d, e_u, e_v, d, u_i32, v_i32 + h_i32);
 
-                    // === AO directions ===
-                    let du = e_u;
-                    let dv = e_v;
+                    let vertex_0_ao = face.get_ao() >> 6;
+                    let vertex_1_ao = (face.get_ao() >> 4) & 0b11;
+                    let vertex_2_ao = (face.get_ao() >> 2) & 0b11;
+                    let vertex_3_ao = (face.get_ao() >> 0) & 0b11;
 
-                    println!("AOs");
-                    let ao0 = ChunkMesh::get_vertex_ao_generic(padded_chunk, [d, u_i32, v_i32], ChunkMesh::negate(du), ChunkMesh::negate(dv));
-                    let ao1 = ChunkMesh::get_vertex_ao_generic(padded_chunk, [d, u_i32, v_i32], du, ChunkMesh::negate(dv));
-                    let ao2 = ChunkMesh::get_vertex_ao_generic(padded_chunk, [d, u_i32, v_i32], du, dv);
-                    let ao3 = ChunkMesh::get_vertex_ao_generic(padded_chunk, [d, u_i32, v_i32], ChunkMesh::negate(du), dv);
+                    let v1 = Vertex::new(local_position_v0[0] as f32, local_position_v0[1] as f32, local_position_v0[2] as f32, 0, vertex_0_ao as i32);
+                    let v2 = Vertex::new(local_position_v1[0] as f32, local_position_v1[1] as f32, local_position_v1[2] as f32, 0, vertex_1_ao as i32);
+                    let v3 = Vertex::new(local_position_v2[0] as f32, local_position_v2[1] as f32, local_position_v2[2] as f32, 0, vertex_2_ao as i32);
+                    let v4 = Vertex::new(local_position_v3[0] as f32, local_position_v3[1] as f32, local_position_v3[2] as f32, 0, vertex_3_ao as i32);
 
-                    let v1 = Vertex::new(p0[0] as f32, p0[1] as f32, p0[2] as f32, 0, ao0 as i32);
-                    let v2 = Vertex::new(p2[0] as f32, p2[1] as f32, p2[2] as f32, 0, ao2 as i32);
-                    let v3 = Vertex::new(p1[0] as f32, p1[1] as f32, p1[2] as f32, 0, ao1 as i32);
-                    let v4 = Vertex::new(p3[0] as f32, p3[1] as f32, p3[2] as f32, 0, ao3 as i32);
-
-                    let flip = ao0 + ao2 > ao1 + ao3;
+                    let flip = (vertex_0_ao + vertex_3_ao) > (vertex_1_ao + vertex_2_ao);
 
                     if !flip {
                         vertices.extend_from_slice(&[v1, v2, v3, v1, v4, v2]);
@@ -664,4 +916,12 @@ impl ChunkMesh {
             self.mesh_id = Some(renderer.render_manager.allocate_mesh(&renderer.gpu_context.device, &renderer.gpu_context.queue, MeshData::new(vertices, None)));
         }
     }
+}
+
+fn mul_i32_vec3(v: [i32; 3], scalar: i32) -> [i32; 3] {
+    [v[0] * scalar, v[1] * scalar, v[2] * scalar]
+}
+
+fn add_i32_vec3(a: [i32; 3], b: [i32; 3]) -> [i32; 3] {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
