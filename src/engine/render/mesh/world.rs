@@ -1,9 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use wgpu::Device;
 
-use crate::{engine::render::mesh::chunk::ChunkMesh, game::{player::player::Player, world::world::World}};
+use crate::{engine::render::mesh::chunk::ChunkMesh, game::world::world::World};
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), Arc<ChunkMesh>>,
@@ -16,25 +17,38 @@ impl WorldMesh {
         };
     }
 
-    /// Builds simultaneously every single chunk within the player's both horizontal and vertical render distance only if it needs it (if dirty == true).
-    pub fn update(&mut self, device: &Device, world: &World, player: &Player) {
-        self.meshes = world
-            .get_player_rendered_chunks(player)
-            .into_par_iter()
-            .map(|chunk| {
-                let key = (chunk.x, chunk.y, chunk.z);
+    pub fn update(
+        &mut self,
+        device: &Device,
+        world: &mut World,
+        chunks_to_rebuild: &[(i32, i32, i32)],
+    ) {
+        let mesh_keys: Vec<_> = self.meshes.keys().cloned().collect();
+        for key in mesh_keys {
+            if !world.get_chunk_data(key.0, key.1, key.2).is_some() {
+                self.meshes.remove(&key);
+            }
+        }
 
-                if let Some(existing) = self.meshes.get(&key) {
-                    if existing.is_dirty() {
-                        return (key, Arc::clone(existing));
-                    }
+        if chunks_to_rebuild.is_empty() {
+            return;
+        }
+
+        let rebuilt_chunks: Vec<_> = chunks_to_rebuild
+            .par_iter()
+            .filter_map(|&(cx, cy, cz)| {
+                if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {
+                    let mut mesh = ChunkMesh::new();
+                    mesh.make_greedy(&chunk_data.chunk, world, device, cx, cy, cz);
+                    return Some(((cx, cy, cz), Arc::new(mesh)));
                 }
-
-                let mut mesh = ChunkMesh::new();
-                mesh.make_greedy(chunk, world, device, key.0, key.1, key.2);
-                // let mesh = ChunkMesh::make(chunk, world, cx, cy, cz);
-                return (key, Arc::new(mesh));
+                None
             })
             .collect();
+
+        for (key, mesh) in rebuilt_chunks {
+            world.mark_chunk_clean(key.0, key.1, key.2);
+            self.meshes.insert(key, mesh);
+        }
     }
 }

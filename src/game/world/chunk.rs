@@ -9,6 +9,34 @@ pub const CHUNK_SIZE_SQR: i32 = CHUNK_SIZE * CHUNK_SIZE;
 pub const CHUNK_BLOCK_NUMBER: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 pub const LAST_CHUNK_AXIS_INDEX: i32 = CHUNK_SIZE - 1;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum ChunkState {
+    Pending,
+    Ready,
+}
+
+pub struct ChunkData {
+    pub chunk: Chunk,
+    pub state: ChunkState,
+    pub is_dirty: bool,
+}
+
+impl ChunkData {
+    pub fn new(chunk: Chunk) -> Self {
+        Self {
+            chunk,
+            state: ChunkState::Ready,
+            is_dirty: true,
+        }
+    }
+
+    pub fn set_dirty(&mut self) {
+        if self.state == ChunkState::Ready {
+            self.is_dirty = true;
+        }
+    }
+}
+
 pub struct Chunk {
     blocks: [BlockInstance; CHUNK_BLOCK_NUMBER],
     pub x: i32,
@@ -41,12 +69,12 @@ impl Chunk {
 
                 let valeur = perlin.get([nx, nz]);
 
-                let y_f32 = base_height as f64 + valeur * amplitude;
-                let y_max = y_f32 as i32;
+                let terrain_height = base_height as f64 + valeur * amplitude;
+                let terrain_y = terrain_height as i32;
 
-                for y in 0..CHUNK_SIZE - y_max {
-                    let wy = y as f64 + cy as f64 * CHUNK_SIZE as f64;
-                    if (0..CHUNK_SIZE).contains(&y) && wy < 64.0 {
+                for y in 0..CHUNK_SIZE {
+                    let wy = y as i32 + cy as i32 * CHUNK_SIZE;
+                    if wy < terrain_y {
                         chunk.set_block_from_xyz(x, y, z, block.clone());
                     }
                 }

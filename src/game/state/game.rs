@@ -1,13 +1,13 @@
 use std::time::Instant;
 
-use cgmath::{num_traits::ToPrimitive, InnerSpace, Vector3};
+use cgmath::num_traits::ToPrimitive;
 use wgpu::{Device, Queue};
 
 use crate::{
     engine::render::{camera::Camera, mesh::world::WorldMesh, render::Renderer},
     game::{
         player::{camera::CameraController, player::Player},
-        world::{chunk::Chunk, world::World},
+        world::world::World,
     },
 };
 
@@ -39,16 +39,7 @@ impl GameState {
     pub fn init(&mut self, device: &Device) {
         let world_start = Instant::now();
 
-        let [min_x, max_x, min_y, max_y, min_z, max_z] = self.player.get_rendered_chunk_range();
-
-        for x in min_x..=max_x {
-            for y in min_y..=max_y {
-                for z in min_z..=max_z {
-                    let chunk = Chunk::generate(x, y, z, &self.world.perlin);
-                    self.world.set_chunk(x, y, z, chunk);
-                }
-            }
-        }
+        let chunks_to_rebuild = self.world.update(&self.player);
 
         println!(
             "Time to make the world: {:.3}ms.",
@@ -57,7 +48,8 @@ impl GameState {
 
         let mesh_start = Instant::now();
 
-        self.world_mesh.update(&device, &self.world, &self.player);
+        self.world_mesh
+            .update(device, &mut self.world, &chunks_to_rebuild);
 
         println!(
             "Time to make meshes: {:.3}ms.",
@@ -65,7 +57,7 @@ impl GameState {
         );
     }
 
-    pub fn update(&mut self, queue: &Queue, renderer: &mut Renderer, dt: f32) {
+    pub fn update(&mut self, queue: &Queue, renderer: &mut Renderer, device: &Device, dt: f32) {
         self.player.update(
             dt,
             &mut self.camera,
@@ -74,5 +66,9 @@ impl GameState {
             &renderer.camera_buffer,
             queue,
         );
+
+        let chunks_to_rebuild = self.world.update(&self.player);
+        self.world_mesh
+            .update(device, &mut self.world, &chunks_to_rebuild);
     }
 }

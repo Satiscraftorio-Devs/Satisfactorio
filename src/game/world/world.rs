@@ -1,20 +1,18 @@
-use noise::{NoiseFn, Perlin, Seedable};
+use noise::{Perlin, Seedable};
 use rand::prelude::*;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
-use crate::{
-    engine::render::mesh::world::WorldMesh,
-    game::{
-        player::player::Player,
-        world::{
-            block::BlockInstance,
-            chunk::{Chunk, CHUNK_SIZE},
-        },
+use crate::game::{
+    player::player::Player,
+    world::{
+        block::BlockInstance,
+        chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
     },
 };
 
 pub struct World {
-    chunks: HashMap<(i32, i32, i32), Chunk>,
+    chunks: HashMap<(i32, i32, i32), ChunkData>,
     pub perlin: Perlin,
     seed: u32,
 }
@@ -31,56 +29,105 @@ impl World {
     }
 
     #[inline(always)]
-    pub fn get_chunk(&self, cx: i32, cy: i32, cz: i32) -> Option<&Chunk> {
+    pub fn get_chunk_data(&self, cx: i32, cy: i32, cz: i32) -> Option<&ChunkData> {
         return self.chunks.get(&(cx, cy, cz));
     }
 
     #[inline(always)]
-    pub fn set_chunk(&mut self, cx: i32, cy: i32, cz: i32, chunk: Chunk) {
-        self.chunks.insert((cx, cy, cz), chunk);
+    pub fn get_chunk(&self, cx: i32, cy: i32, cz: i32) -> Option<&Chunk> {
+        return self.chunks.get(&(cx, cy, cz)).map(|d| &d.chunk);
     }
 
-    pub fn update(&mut self, player: &Player, world_mesh: &mut WorldMesh) {
-        let ([min_cx, max_cx, min_cy, max_cy, min_cz, max_cz], chunk_number) =
-            player.get_rendered_chunk_data();
+    #[inline(always)]
+    pub fn get_chunk_mut(&mut self, cx: i32, cy: i32, cz: i32) -> Option<&mut ChunkData> {
+        return self.chunks.get_mut(&(cx, cy, cz));
+    }
 
-        let mut chunks: Vec<&Chunk> = Vec::new();
-        chunks.reserve_exact(chunk_number as usize);
+    pub fn update(&mut self, player: &Player) -> Vec<(i32, i32, i32)> {
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
 
+        let mut needed_keys: Vec<(i32, i32, i32)> = Vec::new();
         for x in min_cx..=max_cx {
             for y in min_cy..=max_cy {
                 for z in min_cz..=max_cz {
-                    if let Some(_chunk) = self.get_chunk(x, y, z) {
-                        if let Some(chunk_mesh) = world_mesh.meshes.get(&(x, y, z)) {
-                            chunk_mesh.set_dirty();
-                        }
-                    } else {
-                        let chunk = Chunk::generate(x, y, z, &self.perlin);
-                        self.set_chunk(x, y, z, chunk);
-                    }
+                    needed_keys.push((x, y, z));
                 }
             }
         }
+
+        let mut chunks_to_rebuild = Vec::new();
+
+        let current_keys = self.chunks.keys().cloned().collect();
+        for key in current_keys {
+            if !needed_keys.contains(&key) {
+                self.chunks.remove(&key);
+            }
+        }
+
+        let missing_keys = needed_keys
+            .iter()
+            .filter(|k| !self.chunks.contains_key(k))
+            .cloned()
+            .collect();
+
+        if !missing_keys.is_empty() {
+            let perlin = &self.perlin;
+            let new_chunks: Vec<_> = missing_keys
+                .into_par_iter()
+                .map(|(cx, cy, cz)| {
+                    let chunk = Chunk::generate(cx, cy, cz, perlin);
+                    ((cx, cy, cz), ChunkData::new(chunk))
+                })
+                .collect();
+
+            for (key, data) in new_chunks {
+                chunks_to_rebuild.push(key);
+                self.chunks.insert(key, data);
+            }
+        }
+
+        for key in &needed_keys {
+            if let Some(data) = self.chunks.get_mut(key) {
+                if data.state == ChunkState::Ready {
+                    data.set_dirty();
+                    chunks_to_rebuild.push(*key);
+                }
+            }
+        }
+
+        return chunks_to_rebuild;
     }
 
     pub fn get_player_rendered_chunks(&self, player: &Player) -> Vec<&Chunk> {
-        let ([min_cx, max_cx, min_cy, max_cy, min_cz, max_cz], chunk_number) =
-            player.get_rendered_chunk_data();
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
 
         let mut chunks: Vec<&Chunk> = Vec::new();
-        chunks.reserve_exact(chunk_number as usize);
 
         for x in min_cx..=max_cx {
             for y in min_cy..=max_cy {
                 for z in min_cz..=max_cz {
-                    if let Some(chunk) = self.get_chunk(x, y, z) {
-                        chunks.push(chunk);
+                    if let Some(data) = self.get_chunk_data(x, y, z) {
+                        chunks.push(&data.chunk);
                     }
                 }
             }
         }
 
         return chunks;
+    }
+
+    pub fn get_dirty_chunks(&self) -> Vec<(i32, i32, i32)> {
+        self.chunks
+            .iter()
+            .filter(|(_, data)| data.is_dirty)
+            .map(|(key, _)| *key)
+            .collect()
+    }
+
+    pub fn mark_chunk_clean(&mut self, cx: i32, cy: i32, cz: i32) {
+        if let Some(data) = self.chunks.get_mut(&(cx, cy, cz)) {
+            data.is_dirty = false;
+        }
     }
 
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
@@ -94,10 +141,9 @@ impl World {
         let cby: i32 = y.rem_euclid(CHUNK_SIZE);
         let cbz: i32 = z.rem_euclid(CHUNK_SIZE);
 
-        if let Some(chunk) = self.get_chunk(cx, cy, cz) {
-            return chunk.get_block_from_xyz(cbx, cby, cbz);
+        if let Some(data) = self.get_chunk_data(cx, cy, cz) {
+            return data.chunk.get_block_from_xyz(cbx, cby, cbz);
         } else {
-            // If the chunk does not exist / is not found, return air (useful for rendering purpose mainly)
             return BlockInstance::air();
         }
     }
@@ -122,8 +168,8 @@ impl World {
             );
         }
 
-        if let Some(chunk) = self.get_chunk(cx, cy, cz) {
-            return chunk.get_block_from_xyz(lx, ly, lz);
+        if let Some(data) = self.get_chunk_data(cx, cy, cz) {
+            return data.chunk.get_block_from_xyz(lx, ly, lz);
         } else {
             return BlockInstance::air();
         }

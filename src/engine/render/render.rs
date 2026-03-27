@@ -84,7 +84,7 @@ impl Renderer {
             gizmo_render_pipeline,
             gizmo_buffer,
 
-            wireframe: false
+            wireframe: false,
         }
     }
 }
@@ -149,11 +149,10 @@ fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[
 pub fn render_world(render_pass: &mut RenderPass, context: &RenderContext) {
     if context.renderer.wireframe {
         render_pass.set_pipeline(&context.renderer.world_wireframe_render_pipeline);
-    }
-    else {
+    } else {
         render_pass.set_pipeline(&context.renderer.world_render_pipeline);
     }
-    
+
     render_pass.set_bind_group(0, &context.renderer.diffuse_bind_group, &[]);
     render_pass.set_bind_group(1, &context.renderer.camera_bind_group, &[]);
 
@@ -193,6 +192,10 @@ pub fn render_world(render_pass: &mut RenderPass, context: &RenderContext) {
         // This operation is a little bit more expensive than the one above.
         // This is why we do the later first : to eliminate chunks as much as possible before doing this final test.
         if !is_chunk_in_camera_frustum(&min, &max, &frustum) {
+            continue;
+        }
+
+        if chunk_vertex_number == 0 {
             continue;
         }
 

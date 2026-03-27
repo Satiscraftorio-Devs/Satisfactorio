@@ -1,13 +1,15 @@
 use crate::common::geometry::vertex::Vertex;
 use crate::engine::render::camera::{Camera, CameraUniform};
 use crate::engine::render::mesh::world::WorldMesh;
-use crate::engine::render::render::{FrameData, RenderContext, Renderer, render_gizmo, render_world};
+use crate::engine::render::render::{
+    render_gizmo, render_world, FrameData, RenderContext, Renderer,
+};
 use crate::engine::render::text::TextRenderer;
 use crate::game::player::camera::CameraController;
-use cgmath::Vector3;
 use crate::game::player::player::Player;
 use crate::game::state::game::GameState;
 use crate::game::world::world::World;
+use cgmath::Vector3;
 use std::sync::Arc;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
@@ -190,48 +192,49 @@ impl State {
                 immediate_size: 0,
             });
 
-        let wireframe_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::buffer_layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    // 4.
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                // cull_mode: None,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Line,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview_mask: None,
-            cache: None,
-        });
+        let wireframe_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[Vertex::buffer_layout()],
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        // 4.
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    // cull_mode: None,
+                    cull_mode: Some(wgpu::Face::Back),
+                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                    polygon_mode: wgpu::PolygonMode::Line,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview_mask: None,
+                cache: None,
+            });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
@@ -319,7 +322,7 @@ impl State {
                 multiview_mask: None,
                 cache: None,
             });
-            
+
         let gizmo = [
             Vertex::new_with_rgb(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0),
             Vertex::new_with_rgb(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0),
@@ -357,45 +360,26 @@ impl State {
         let world = World::new();
         let world_mesh = WorldMesh::new();
 
-        let frame_data = FrameData::new(
-            0.0,
-            0,
-            0.0,
-            Instant::now(),
-            0,
-        );
+        let frame_data = FrameData::new(0.0, 0, 0.0, Instant::now(), 0);
 
-        let mut game_state = GameState::new(
-            world,
-            world_mesh,
-            camera,
-            camera_controller,
-            player,
-        );
+        let mut game_state = GameState::new(world, world_mesh, camera, camera_controller, player);
 
         let renderer = Renderer::new(
             false,
-
             wireframe_render_pipeline,
             render_pipeline,
             diffuse_bind_group,
             diffuse_texture,
-            
             camera_uniform,
             camera_buffer,
             camera_bind_group,
-            
             gizmo_render_pipeline,
-            gizmo_buffer
+            gizmo_buffer,
         );
-        
+
         game_state.init(&device);
 
-        let text_renderer = TextRenderer::new(
-            &device,
-            &queue,
-            config.format,
-        );
+        let text_renderer = TextRenderer::new(&device, &queue, config.format);
 
         Ok(Self {
             surface,
@@ -435,20 +419,26 @@ impl State {
             self.frame_data.frame_count = 0;
             self.frame_data.fps_timer = self.frame_data.fps_timer - 1.0;
 
-            println!(
-                "FPS: {} dt: {}s\n>>> INFO: Position joueur: x={:.2}, y={:.2}, z={:.2} | position caméra: x={:.2}, y={:.2}, z={:.2}",
-                self.frame_data.fps, self.frame_data.dt,
-                self.game_state.player.pos.x, self.game_state.player.pos.y, self.game_state.player.pos.z,
-                self.game_state.camera.eye.x, self.game_state.camera.eye.y, self.game_state.camera.eye.z
-            );
+            // println!(
+            //     "FPS: {} dt: {}s\n>>> INFO: Position joueur: x={:.2}, y={:.2}, z={:.2} | position caméra: x={:.2}, y={:.2}, z={:.2}",
+            //     self.frame_data.fps, self.frame_data.dt,
+            //     self.game_state.player.pos.x, self.game_state.player.pos.y, self.game_state.player.pos.z,
+            //     self.game_state.camera.eye.x, self.game_state.camera.eye.y, self.game_state.camera.eye.z
+            // );
         }
     }
 
     pub fn update(&mut self) {
         self.frame_update();
-        self.game_state.update(&self.queue, &mut self.renderer, self.frame_data.dt);
-        
-        self.text_renderer.update_text(self.frame_data.fps, self.game_state.player.pos);
+        self.game_state.update(
+            &self.queue,
+            &mut self.renderer,
+            &self.device,
+            self.frame_data.dt,
+        );
+
+        self.text_renderer
+            .update_text(self.frame_data.fps, self.game_state.player.pos);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -494,17 +484,15 @@ impl State {
                 multiview_mask: None,
             });
 
-            let render_context = RenderContext::new(
-                &self.frame_data,
-                &self.game_state,
-                &self.renderer
-            );
+            let render_context =
+                RenderContext::new(&self.frame_data, &self.game_state, &self.renderer);
 
             render_world(&mut render_pass, &render_context);
             render_gizmo(&mut render_pass, &render_context);
-            
+
             self.text_renderer.prepare(&self.device, &self.queue);
-            self.text_renderer.render(&self.device, &self.queue, &mut render_pass);
+            self.text_renderer
+                .render(&self.device, &self.queue, &mut render_pass);
         }
 
         // submit will accept anything that implements IntoIter
@@ -517,13 +505,13 @@ impl State {
     pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
         if code == KeyCode::Escape && is_pressed {
             event_loop.exit();
-        }
-        else if code == KeyCode::Digit1 && is_pressed {
+        } else if code == KeyCode::Digit1 && is_pressed {
             self.renderer.wireframe = !self.renderer.wireframe;
             self.window.request_redraw();
-        }
-        else {
-            self.game_state.camera_controller.handle_key(code, is_pressed);
+        } else {
+            self.game_state
+                .camera_controller
+                .handle_key(code, is_pressed);
         }
     }
 }

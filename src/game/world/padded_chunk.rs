@@ -57,21 +57,21 @@ impl PaddedChunk {
     }
 
     /// Abstraction of `get_block_from_i` but with components.
-    /// 
+    ///
     /// Prefer using `get_block_from_i` whenever possible, as it saves computing power and time.
     #[inline(always)]
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
         return self.get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
     }
-    
+
     #[inline(always)]
     pub fn get_block_from_i(&self, i: usize) -> BlockInstance {
         return self.blocks[i];
     }
 
     /// Abstraction of `set_block_from_i` but with components.
-    /// 
-    /// Prefer using `set_block_from_i` whenever possible, as it saves computing power and time. 
+    ///
+    /// Prefer using `set_block_from_i` whenever possible, as it saves computing power and time.
     #[inline(always)]
     fn set_block_from_xyz(&mut self, x: i32, y: i32, z: i32, block: BlockInstance) {
         self.set_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize, block);

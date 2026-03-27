@@ -8,9 +8,9 @@ use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
 use wgpu::{Buffer, Queue};
 
 /// Must be odd for semantic reasons (otherwise it will render one chunk more than this value)
-const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 7;
+const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 9;
 /// Must be odd for semantic reasons (otherwise it will render one chunk more than this value)
-const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 1;
+const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 7;
 
 pub struct Player {
     uuid: i32,
