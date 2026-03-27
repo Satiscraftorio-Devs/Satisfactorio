@@ -9,7 +9,6 @@ use crate::game::player::camera::CameraController;
 use crate::game::player::player::Player;
 use crate::game::state::game::GameState;
 use crate::game::world::world::World;
-use cgmath::Vector3;
 use std::sync::Arc;
 use std::time::Instant;
 use wgpu::util::DeviceExt;

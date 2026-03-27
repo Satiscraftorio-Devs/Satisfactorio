@@ -1,6 +1,4 @@
-use cgmath::num_traits::ToPrimitive;
-use noise::{NoiseFn, Perlin, Seedable};
-use std::f32::consts::PI;
+use noise::{NoiseFn, Perlin};
 
 use crate::game::world::block::BlockInstance;
 

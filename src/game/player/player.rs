@@ -109,7 +109,7 @@ impl Player {
         self.set_pos(Point3 { x: x, y: y, z: z });
     }
 
-    pub fn break_block_at(block_pos: Point3<f32>) {}
+    pub fn break_block_at(_block_pos: Point3<f32>) {}
 
     /// returns ``[min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]``
     pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
