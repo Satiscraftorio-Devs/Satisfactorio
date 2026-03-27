@@ -44,7 +44,7 @@ impl GameState {
         for x in min_x..=max_x {
             for y in min_y..=max_y {
                 for z in min_z..=max_z {
-                    let chunk = Chunk::generate(x, y, z);
+                    let chunk = Chunk::generate(x, y, z, &self.world.perlin);
                     self.world.set_chunk(x, y, z, chunk);
                 }
             }
