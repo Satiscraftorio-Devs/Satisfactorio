@@ -165,79 +165,79 @@ impl PaddedChunk {
         if let Some(neg_x) = neg_x {
             self.fill_neg_x(neg_x);
         } else {
-            self.fill_neg_x_as_solid();
+            self.fill_neg_x_as_air();
         }
         if let Some(pos_x) = pos_x {
             self.fill_pos_x(pos_x);
         } else {
-            self.fill_pos_x_as_solid();
+            self.fill_pos_x_as_air();
         }
         if let Some(neg_y) = neg_y {
             self.fill_neg_y(neg_y);
         } else {
-            self.fill_neg_y_as_solid();
+            self.fill_neg_y_as_air();
         }
         if let Some(pos_y) = pos_y {
             self.fill_pos_y(pos_y);
         } else {
-            self.fill_pos_y_as_solid();
+            self.fill_pos_y_as_air();
         }
         if let Some(neg_z) = neg_z {
             self.fill_neg_z(neg_z);
         } else {
-            self.fill_neg_z_as_solid();
+            self.fill_neg_z_as_air();
         }
         if let Some(pos_z) = pos_z {
             self.fill_pos_z(pos_z);
         } else {
-            self.fill_pos_z_as_solid();
+            self.fill_pos_z_as_air();
         }
     }
 
-    fn fill_neg_x_as_solid(&mut self) {
+    fn fill_neg_x_as_air(&mut self) {
         for y in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
             for z in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
-                self.set_block_from_xyz(0, y, z, BlockInstance::new(1));
+                self.set_block_from_xyz(0, y, z, BlockInstance::air());
             }
         }
     }
 
-    fn fill_pos_x_as_solid(&mut self) {
+    fn fill_pos_x_as_air(&mut self) {
         for y in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
             for z in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
-                self.set_block_from_xyz(LAST_PADDED_CHUNK_AXIS_INDEX, y, z, BlockInstance::new(1));
+                self.set_block_from_xyz(LAST_PADDED_CHUNK_AXIS_INDEX, y, z, BlockInstance::air());
             }
         }
     }
 
-    fn fill_neg_y_as_solid(&mut self) {
+    fn fill_neg_y_as_air(&mut self) {
         for x in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
             for z in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
-                self.set_block_from_xyz(x, 0, z, BlockInstance::new(1));
+                self.set_block_from_xyz(x, 0, z, BlockInstance::air());
             }
         }
     }
 
-    fn fill_pos_y_as_solid(&mut self) {
+    fn fill_pos_y_as_air(&mut self) {
         for x in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
             for z in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
-                self.set_block_from_xyz(x, LAST_PADDED_CHUNK_AXIS_INDEX, z, BlockInstance::new(1));
+                self.set_block_from_xyz(x, LAST_PADDED_CHUNK_AXIS_INDEX, z, BlockInstance::air());
             }
         }
     }
 
-    fn fill_neg_z_as_solid(&mut self) {
+    fn fill_neg_z_as_air(&mut self) {
         for x in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
             for y in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
-                self.set_block_from_xyz(x, y, 0, BlockInstance::new(1));
+                self.set_block_from_xyz(x, y, 0, BlockInstance::air());
             }
         }
     }
 
-    fn fill_pos_z_as_solid(&mut self) {
+    fn fill_pos_z_as_air(&mut self) {
         for x in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
             for y in FIRST_PADDED_CHUNK_CENTER_INDEX..=LAST_PADDED_CHUNK_CENTER_INDEX {
-                self.set_block_from_xyz(x, y, LAST_PADDED_CHUNK_AXIS_INDEX, BlockInstance::new(1));
+                self.set_block_from_xyz(x, y, LAST_PADDED_CHUNK_AXIS_INDEX, BlockInstance::air());
             }
         }
     }

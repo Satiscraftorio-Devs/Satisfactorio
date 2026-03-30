@@ -23,6 +23,17 @@ enum Corner {
     BottomRight,
 }
 
+impl Corner {
+    pub fn get_opposite_horizontal(&self) -> Self {
+        match *self {
+            Self::BottomLeft => Self::BottomRight,
+            Self::BottomRight => Self::BottomLeft,
+            Self::TopLeft => Self::TopRight,
+            Self::TopRight => Self::TopLeft,
+        }
+    }
+}
+
 pub struct ChunkMesh {
     pub mesh_id: Option<MeshId>,
     dirty: AtomicBool,
@@ -55,21 +66,15 @@ impl ChunkMesh {
             .get_block_from_chunk_xyz(pos[0] + neighbors[2].0, pos[1] + neighbors[2].1, pos[2] + neighbors[2].2)
             .is_solid() as u8;
 
-        let occlusion = corner_solid + side1_solid + side2_solid;
-        match occlusion {
-            0 => 3,
-            1 => 2,
-            2 => 1,
-            3 => 0,
-            _ => 0,
+        if side1_solid == 1 && side2_solid == 1 {
+            return 0;
+        }
+        else {
+            return 3 - (side1_solid + side2_solid + corner_solid);
         }
     }
 
     fn get_ao_offsets(face: Direction, corner: Corner) -> [(i32, i32, i32); 3] {
-        // if face != Direction::Right {
-        //     return [(0, 0, 0); 3];
-        // }
-
         let (u, v, normal) = match face {
             Direction::Left => ((0, 1, 0), (0, 0, 1), (-1, 0, 0)),
             Direction::Below => ((1, 0, 0), (0, 0, 1), (0, -1, 0)),
@@ -88,12 +93,20 @@ impl ChunkMesh {
         };
 
         // voisins
-        let side1 = (u.0 * su + normal.0, u.1 * su + normal.1, u.2 * su + normal.2);
-        let side2 = (v.0 * sv + normal.0, v.1 * sv + normal.1, v.2 * sv + normal.2);
+        let side1 = (
+            u.0 * su + normal.0,
+            u.1 * su + normal.1,
+            u.2 * su + normal.2
+        );
+        let side2 = (
+            v.0 * sv + normal.0,
+            v.1 * sv + normal.1,
+            v.2 * sv + normal.2
+        );
         let corner = (
-            u.0 * su + v.0 * sv + normal.0,
-            u.1 * su + v.1 * sv + normal.1,
-            u.2 * su + v.2 * sv + normal.2,
+            side1.0 + side2.0 - normal.0,
+            side1.1 + side2.1 - normal.1,
+            side1.2 + side2.2 - normal.2,
         );
 
         [corner, side1, side2]
@@ -138,11 +151,12 @@ impl ChunkMesh {
                     match (previous.is_solid(), current.is_solid()) {
                         (true, true) | (false, false) => {}
                         (false, true) => {
-                            // +
-                            let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
-                            let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
-                            let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopLeft);
-                            let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopRight);
+                            // -
+                            // continue;
+                            let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomLeft);
+                            let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomRight);
+                            let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopLeft);
+                            let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopRight);
 
                             let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_0_neighbors);
                             let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_1_neighbors);
@@ -155,20 +169,21 @@ impl ChunkMesh {
                                 false,
                                 current.id,
                                 match axis {
-                                    0 => Direction::Right,
-                                    1 => Direction::Above,
-                                    2 => Direction::Front,
+                                    0 => Direction::Left,
+                                    1 => Direction::Below,
+                                    2 => Direction::Back,
                                     _ => unreachable!(),
                                 },
                                 ao_packed,
                             );
                         }
                         (true, false) => {
-                            // -
-                            let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomLeft);
-                            let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomRight);
-                            let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopLeft);
-                            let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopRight);
+                            // +
+                            // continue;
+                            let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
+                            let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
+                            let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopLeft);
+                            let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopRight);
 
                             let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_0_neighbors);
                             let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_1_neighbors);
@@ -181,9 +196,9 @@ impl ChunkMesh {
                                 false,
                                 previous.id,
                                 match axis {
-                                    0 => Direction::Left,
-                                    1 => Direction::Below,
-                                    2 => Direction::Back,
+                                    0 => Direction::Right,
+                                    1 => Direction::Above,
+                                    2 => Direction::Front,
                                     _ => unreachable!(),
                                 },
                                 ao_packed,
@@ -255,8 +270,8 @@ impl ChunkMesh {
                     // AO packed: BottomLeft@6, BottomRight@4, TopLeft@2, TopRight@0
                     // vertex: v0=BottomLeft, v1=TopLeft, v2=BottomRight, v3=TopRight
                     let vertex_0_ao = face.get_ao() >> 6; // BottomLeft -> BottomLeft
-                    let vertex_1_ao = (face.get_ao() >> 2) & 0b11; // TopLeft -> TopLeft
-                    let vertex_2_ao = (face.get_ao() >> 4) & 0b11; // BottomRight -> BottomRight
+                    let vertex_1_ao = (face.get_ao() >> 4) & 0b11; // TopLeft -> TopLeft
+                    let vertex_2_ao = (face.get_ao() >> 2) & 0b11; // BottomRight -> BottomRight
                     let vertex_3_ao = face.get_ao() & 0b11; // TopRight -> TopRight
 
                     let v0 = Vertex::new(
@@ -288,11 +303,12 @@ impl ChunkMesh {
                         (vertex_3_ao as i32) as f32,
                     );
 
-                    let flip = face.get_face().is_negative();
+                    let reverse_faces = face.get_face().is_negative();
 
-                    if !flip {
+                    if reverse_faces {
                         vertices.extend_from_slice(&[v0, v1, v2, v2, v1, v3]);
-                    } else {
+                    }
+                    else {
                         vertices.extend_from_slice(&[v1, v0, v3, v3, v0, v2]);
                     }
 
