@@ -42,8 +42,8 @@ var s_diffuse: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // return textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    let ambient: f32 = 0.1;
-    var ao = clamp(in.ao + ambient, 0.0, 1.0);
+    // AO: 0 = fully occluded (dark), 3 = fully lit (bright)
+    let ao = clamp((3.0 - in.ao) / 3.0 * 0.7 + 0.3, 0.0, 1.0);
     return vec4<f32>(
         in.color[0] * ao,
         in.color[1] * ao,
