@@ -84,6 +84,15 @@ impl ChunkMesh {
             Direction::Front => ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
         };
 
+        let (u, v) = match face {
+            Direction::Above | Direction::Below => {
+                (u, v)
+            }
+            _ => {
+                (v, u)
+            }
+        };
+
         // signe selon le coin
         let (su, sv) = match corner {
             Corner::BottomLeft => (-1, -1),
