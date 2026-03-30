@@ -1,6 +1,5 @@
 use std::f32::consts::FRAC_PI_2;
 
-use cgmath::Vector3;
 use winit::keyboard::KeyCode;
 
 use crate::engine::render::camera::Camera;

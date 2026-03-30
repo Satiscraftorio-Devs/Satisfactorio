@@ -6,8 +6,6 @@ use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, 
 use crate::engine::render::text::TextRenderer;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
-use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::KeyCode;
 use winit::window::Window;
 
 pub struct State {

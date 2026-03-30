@@ -7,7 +7,7 @@ use crate::game::{
     player::player::Player,
     world::{
         block::BlockInstance,
-        chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
+        chunk::{Chunk, ChunkData, CHUNK_SIZE},
     },
 };
 

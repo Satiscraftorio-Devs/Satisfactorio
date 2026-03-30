@@ -52,7 +52,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
     }
 
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
-        let Some(state) = self.engine_state.as_mut() else {
+        let Some(_state) = self.engine_state.as_mut() else {
             return;
         };
 
