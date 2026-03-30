@@ -43,6 +43,10 @@ impl World {
         return self.chunks.get_mut(&(cx, cy, cz));
     }
 
+    pub fn set_chunk(&mut self, cx: i32, cy: i32, cz: i32, chunk: Chunk) {
+        self.chunks.insert((cx, cy, cz), ChunkData::new(chunk));
+    }
+
     pub fn update(&mut self, player: &Player) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
 
@@ -64,11 +68,7 @@ impl World {
             }
         }
 
-        let missing_keys: Vec<_> = needed_keys
-            .iter()
-            .filter(|k| !self.chunks.contains_key(k))
-            .cloned()
-            .collect();
+        let missing_keys: Vec<_> = needed_keys.iter().filter(|k| !self.chunks.contains_key(k)).cloned().collect();
 
         if !missing_keys.is_empty() {
             let perlin = &self.perlin;
@@ -108,11 +108,7 @@ impl World {
     }
 
     pub fn get_dirty_chunks(&self) -> Vec<(i32, i32, i32)> {
-        self.chunks
-            .iter()
-            .filter(|(_, data)| data.is_dirty)
-            .map(|(key, _)| *key)
-            .collect()
+        self.chunks.iter().filter(|(_, data)| data.is_dirty).map(|(key, _)| *key).collect()
     }
 
     pub fn mark_chunk_clean(&mut self, cx: i32, cy: i32, cz: i32) {
@@ -122,12 +118,10 @@ impl World {
     }
 
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
-        // Chunk coordinates
         let cx: i32 = x.div_euclid(CHUNK_SIZE);
         let cy: i32 = y.div_euclid(CHUNK_SIZE);
         let cz: i32 = z.div_euclid(CHUNK_SIZE);
 
-        // Chunk block coordinates
         let cbx: i32 = x.rem_euclid(CHUNK_SIZE);
         let cby: i32 = y.rem_euclid(CHUNK_SIZE);
         let cbz: i32 = z.rem_euclid(CHUNK_SIZE);
@@ -139,24 +133,9 @@ impl World {
         }
     }
 
-    pub fn get_local_block_from_xyz(
-        &self,
-        lx: i32,
-        ly: i32,
-        lz: i32,
-        cx: i32,
-        cy: i32,
-        cz: i32,
-    ) -> BlockInstance {
-        if !(0..CHUNK_SIZE).contains(&lx)
-            || !(0..CHUNK_SIZE).contains(&ly)
-            || !(0..CHUNK_SIZE).contains(&lz)
-        {
-            return self.get_block_from_xyz(
-                lx + cx * CHUNK_SIZE,
-                ly + cy * CHUNK_SIZE,
-                lz + cz * CHUNK_SIZE,
-            );
+    pub fn get_local_block_from_xyz(&self, lx: i32, ly: i32, lz: i32, cx: i32, cy: i32, cz: i32) -> BlockInstance {
+        if !(0..CHUNK_SIZE).contains(&lx) || !(0..CHUNK_SIZE).contains(&ly) || !(0..CHUNK_SIZE).contains(&lz) {
+            return self.get_block_from_xyz(lx + cx * CHUNK_SIZE, ly + cy * CHUNK_SIZE, lz + cz * CHUNK_SIZE);
         }
 
         if let Some(data) = self.get_chunk_data(cx, cy, cz) {

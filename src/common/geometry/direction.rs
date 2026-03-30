@@ -1,18 +1,18 @@
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
-    /// +Y
-    Above = 0,
+    /// -X
+    Left = 0,
     /// -Y
     Below = 1,
-    /// -X
-    Left  = 2,
+    /// -Z
+    Back = 2,
     /// +X
     Right = 3,
+    /// +Y
+    Above = 4,
     /// +Z
-    Front = 4,
-    /// -Z
-    Back  = 5,
+    Front = 5,
 }
 
 impl Direction {
@@ -25,5 +25,15 @@ impl Direction {
     #[inline(always)]
     pub const fn to_u8(self) -> u8 {
         self as u8
+    }
+
+    #[inline(always)]
+    pub const fn is_positive(self) -> bool {
+        self as u8 >= 3
+    }
+
+    #[inline(always)]
+    pub const fn is_negative(self) -> bool {
+        (self as u8) < 3
     }
 }

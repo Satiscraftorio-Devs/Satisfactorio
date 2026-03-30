@@ -1,22 +1,17 @@
-mod engine;
 mod common;
+mod engine;
 mod game;
 
 use winit::event_loop::EventLoop;
 
-use crate::engine::core::application::App;
+use crate::{engine::core::application::App, game::state::game::GameState};
 
-fn main() -> anyhow::Result<()> {
-    println!("Hello, world!");
-
+fn main() {
     env_logger::init();
 
-    let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new();
+    let event_loop = EventLoop::with_user_event().build().expect("Failed starting event loop");
+    let game_state = GameState::new();
+    let mut app = App::new(game_state);
 
-    event_loop.run_app(&mut app)?;
-
-    Ok(())
+    event_loop.run_app(&mut app).expect("Failed starting app");
 }
-
-// Tutoriel à voir : https://sotrh.github.io/learn-wgpu/beginner/tutorial7-instancing/

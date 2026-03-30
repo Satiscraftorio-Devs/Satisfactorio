@@ -1,2 +1,3 @@
 pub mod application;
-mod state;
+pub mod inputs;
+pub mod state;

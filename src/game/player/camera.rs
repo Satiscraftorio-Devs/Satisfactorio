@@ -1,6 +1,10 @@
+use std::f32::consts::FRAC_PI_2;
+
+use cgmath::Vector3;
 use winit::keyboard::KeyCode;
 
-use crate::{engine::render::camera::Camera, game::player::player::Player};
+use crate::engine::render::camera::Camera;
+use crate::game::player::player::Player;
 
 pub struct CameraController {
     pub speed: f32,
@@ -11,8 +15,8 @@ pub struct CameraController {
     pub is_right_pressed: bool,
     pub is_up_pressed: bool,
     pub is_down_pressed: bool,
-    pub mouse_delta_x: f32,
-    pub mouse_delta_y: f32,
+    mouse_delta_x: f32,
+    mouse_delta_y: f32,
 }
 
 impl CameraController {
@@ -33,7 +37,6 @@ impl CameraController {
 
     pub fn handle_key(&mut self, code: KeyCode, is_pressed: bool) -> bool {
         match code {
-            // ZQSD + WASD
             KeyCode::KeyW | KeyCode::KeyZ => {
                 self.is_forward_pressed = is_pressed;
                 true
@@ -50,8 +53,6 @@ impl CameraController {
                 self.is_right_pressed = is_pressed;
                 true
             }
-
-            // Vertical (optionnel)
             KeyCode::Space => {
                 self.is_up_pressed = is_pressed;
                 true
@@ -60,7 +61,6 @@ impl CameraController {
                 self.is_down_pressed = is_pressed;
                 true
             }
-
             _ => false,
         }
     }
@@ -71,17 +71,13 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, player: &Player) {
-        // 1. Sync position joueur → camera (TOUJOURS)
-        camera.eye = player.pos;
+        camera.set_position(player.pos);
 
-        // 2. Rotation souris (yaw/pitch) UNIQUEMENT
         camera.yaw += self.mouse_delta_x * self.mouse_sensitivity;
         camera.pitch -= self.mouse_delta_y * self.mouse_sensitivity;
         self.mouse_delta_x = 0.0;
         self.mouse_delta_y = 0.0;
 
-        // Clamp pitch
-        let max_pitch = std::f32::consts::FRAC_PI_2 - 0.01;
-        camera.pitch = camera.pitch.clamp(-max_pitch, max_pitch);
+        camera.pitch = camera.pitch.clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
 }
