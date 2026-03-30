@@ -12,10 +12,7 @@ pub struct CameraController {
 
 impl CameraController {
     pub fn new(speed: f32, mouse_sensitivity: f32) -> Self {
-        Self {
-            speed,
-            mouse_sensitivity,
-        }
+        Self { speed, mouse_sensitivity }
     }
 
     pub fn get_delta_position(&self, camera: &Camera, inputs: &InputState) -> Vector3<f32> {
@@ -24,7 +21,7 @@ impl CameraController {
         let up = camera.up();
 
         let mut delta_position = Vector3::new(0.0, 0.0, 0.0);
-        
+
         // ZQSD + WASD
         if inputs.is_key_pressed(KeyCode::KeyW) || inputs.is_key_pressed(KeyCode::KeyZ) {
             delta_position += forward;
@@ -48,7 +45,6 @@ impl CameraController {
         }
 
         delta_position * self.speed
-
     }
 
     pub fn get_delta_mouse_position(&self, inputs: &InputState) -> (f32, f32) {
@@ -62,7 +58,7 @@ impl CameraController {
 
     pub fn update_camera(&mut self, dt: f32, camera: &mut Camera, inputs: &InputState) {
         camera.position += self.get_delta_position(camera, inputs) * dt;
-        
+
         const CLAMPED_PITCH: f32 = FRAC_PI_2 - 0.01;
         let (yaw, pitch) = self.get_delta_mouse_position(inputs);
 

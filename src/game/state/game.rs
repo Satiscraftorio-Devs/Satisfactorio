@@ -1,8 +1,24 @@
 use std::time::Instant;
 
-use cgmath::{EuclideanSpace, Matrix4, Vector3, dot, num_traits::ToPrimitive};
+use cgmath::{dot, num_traits::ToPrimitive, EuclideanSpace, Matrix4, Vector3};
 
-use crate::{common::geometry::plane::Plane, engine::{core::{application::AppState, inputs::InputState}, render::{mesh::world::WorldMesh, render::{EngineFrameData, GameFrameData, RenderOptions, Renderer}}}, game::{player::player::Player, world::{chunk::{CHUNK_SIZE_F, Chunk}, world::World}}};
+use crate::{
+    common::geometry::plane::Plane,
+    engine::{
+        core::{application::AppState, inputs::InputState},
+        render::{
+            mesh::world::WorldMesh,
+            render::{EngineFrameData, GameFrameData, RenderOptions, Renderer},
+        },
+    },
+    game::{
+        player::player::Player,
+        world::{
+            chunk::{Chunk, CHUNK_SIZE_F},
+            world::World,
+        },
+    },
+};
 
 pub struct GameState {
     pub world: World,
@@ -49,14 +65,8 @@ impl AppState for GameState {
             mesh_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0
         );
     }
-    
-    fn update(
-        &mut self,
-        frame: &EngineFrameData,
-        inputs: &InputState,
-        render_options: &RenderOptions,
-        data: &mut GameFrameData,
-    ) {
+
+    fn update(&mut self, frame: &EngineFrameData, inputs: &InputState, render_options: &RenderOptions, data: &mut GameFrameData) {
         self.player.update(frame.dt, inputs);
 
         let view_proj = self.player.camera.get_view_proj(render_options);
@@ -66,18 +76,10 @@ impl AppState for GameState {
 
         for mesh in self.world_mesh.meshes.iter() {
             // Represents the vector that goes from the world origin to the chunk's opposite boundaries
-            let chunk_vector = Vector3::new(
-                CHUNK_SIZE_F,
-                CHUNK_SIZE_F,
-                CHUNK_SIZE_F
-            );
+            let chunk_vector = Vector3::new(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F);
 
             // Vertex as Vector3 in the world that is equal to the local origin of the current chunk
-            let min = Vector3::new(
-                (mesh.0.0) as f32,
-                (mesh.0.1) as f32,
-                (mesh.0.2) as f32,
-            ) * CHUNK_SIZE_F;
+            let min = Vector3::new((mesh.0 .0) as f32, (mesh.0 .1) as f32, (mesh.0 .2) as f32) * CHUNK_SIZE_F;
 
             // Vertex as Vector3 in the world that is equal to the absolute opposite of the local origin of the current chunk
             let max = min + chunk_vector;
@@ -112,18 +114,11 @@ impl AppState for GameState {
     }
 }
 
-fn is_chunk_behind_camera(
-    min: &Vector3<f32>,
-    max: &Vector3<f32>,
-    cam_forward: &Vector3<f32>,
-    cam_eye: &Vector3<f32>,
-) -> bool {
+fn is_chunk_behind_camera(min: &Vector3<f32>, max: &Vector3<f32>, cam_forward: &Vector3<f32>, cam_eye: &Vector3<f32>) -> bool {
     let center = min + (max - min) * 0.5;
     let extent = (max - min) * 0.5;
 
-    let radius = extent.x * cam_forward.x.abs()
-        + extent.y * cam_forward.y.abs()
-        + extent.z * cam_forward.z.abs();
+    let radius = extent.x * cam_forward.x.abs() + extent.y * cam_forward.y.abs() + extent.z * cam_forward.z.abs();
 
     let distance = dot(*cam_forward, center - *cam_eye);
 
@@ -132,13 +127,32 @@ fn is_chunk_behind_camera(
 
 fn extract_camera_frustum_planes(m: Matrix4<f32>) -> [Plane; 6] {
     [
-        Plane { normal: Vector3::new(m[0][3]+m[0][0], m[1][3]+m[1][0], m[2][3]+m[2][0]), d: m[3][3]+m[3][0] }, // left
-        Plane { normal: Vector3::new(m[0][3]-m[0][0], m[1][3]-m[1][0], m[2][3]-m[2][0]), d: m[3][3]-m[3][0] }, // right
-        Plane { normal: Vector3::new(m[0][3]+m[0][1], m[1][3]+m[1][1], m[2][3]+m[2][1]), d: m[3][3]+m[3][1] }, // bottom
-        Plane { normal: Vector3::new(m[0][3]-m[0][1], m[1][3]-m[1][1], m[2][3]-m[2][1]), d: m[3][3]-m[3][1] }, // top
-        Plane { normal: Vector3::new(m[0][3]+m[0][2], m[1][3]+m[1][2], m[2][3]+m[2][2]), d: m[3][3]+m[3][2] }, // near
-        Plane { normal: Vector3::new(m[0][3]-m[0][2], m[1][3]-m[1][2], m[2][3]-m[2][2]), d: m[3][3]-m[3][2] }, // far
-    ].map(|p| p.normalize())
+        Plane {
+            normal: Vector3::new(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0]),
+            d: m[3][3] + m[3][0],
+        }, // left
+        Plane {
+            normal: Vector3::new(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0]),
+            d: m[3][3] - m[3][0],
+        }, // right
+        Plane {
+            normal: Vector3::new(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1]),
+            d: m[3][3] + m[3][1],
+        }, // bottom
+        Plane {
+            normal: Vector3::new(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1]),
+            d: m[3][3] - m[3][1],
+        }, // top
+        Plane {
+            normal: Vector3::new(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2]),
+            d: m[3][3] + m[3][2],
+        }, // near
+        Plane {
+            normal: Vector3::new(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2]),
+            d: m[3][3] - m[3][2],
+        }, // far
+    ]
+    .map(|p| p.normalize())
 }
 
 fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[Plane; 6]) -> bool {

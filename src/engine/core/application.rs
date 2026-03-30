@@ -20,29 +20,29 @@ pub trait AppState {
     // ...
 }
 
-pub struct App<S : AppState> {
+pub struct App<S: AppState> {
     engine_state: Option<State>,
     app_state: S,
-    app_state_init: bool
+    app_state_init: bool,
 }
 
-impl<S : AppState> App<S> {
+impl<S: AppState> App<S> {
     pub fn new(app_state: S) -> Self {
         Self {
             engine_state: None,
             app_state: app_state,
-            app_state_init: false
+            app_state_init: false,
         }
     }
 }
 
-impl<S : AppState> ApplicationHandler<AppEvent> for App<S> {
+impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         println!("resumed");
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         self.engine_state = Some(pollster::block_on(State::new(window)).unwrap());
-        
+
         if !self.app_state_init {
             self.app_state.init(&mut self.engine_state.as_mut().unwrap().renderer);
             self.app_state_init = true;
@@ -53,12 +53,7 @@ impl<S : AppState> ApplicationHandler<AppEvent> for App<S> {
         println!("EVENT RECEIVED");
     }
 
-    fn device_event(
-        &mut self,
-        _event_loop: &ActiveEventLoop,
-        _device_id: DeviceId,
-        event: DeviceEvent,
-    ) {
+    fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
         let Some(state) = self.engine_state.as_mut() else {
             return;
         };
@@ -83,7 +78,7 @@ impl<S : AppState> ApplicationHandler<AppEvent> for App<S> {
             &state.renderer.render_options,
             &mut state.game_frame_data,
         );
-        
+
         for id in state.game_frame_data.visible_meshes.iter() {
             state.renderer.render_manager.mark_mesh_for_rendering(*id);
         }
@@ -94,12 +89,7 @@ impl<S : AppState> ApplicationHandler<AppEvent> for App<S> {
         state.inputs.set_mouse_delta((0.0, 0.0));
     }
 
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        event: WindowEvent,
-    ) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: winit::window::WindowId, event: WindowEvent) {
         let Some(state) = self.engine_state.as_mut() else {
             return;
         };
@@ -115,18 +105,16 @@ impl<S : AppState> ApplicationHandler<AppEvent> for App<S> {
             }
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => state.resize(size.width, size.height),
-            WindowEvent::RedrawRequested => {
-                match state.render() {
-                    Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                        let size: winit::dpi::PhysicalSize<u32> = state.window.inner_size();
-                        state.resize(size.width, size.height);
-                    }
-                    Err(e) => {
-                        log::error!("Unable to render {}", e);
-                    }
+            WindowEvent::RedrawRequested => match state.render() {
+                Ok(_) => {}
+                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                    let size: winit::dpi::PhysicalSize<u32> = state.window.inner_size();
+                    state.resize(size.width, size.height);
                 }
-            }
+                Err(e) => {
+                    log::error!("Unable to render {}", e);
+                }
+            },
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {

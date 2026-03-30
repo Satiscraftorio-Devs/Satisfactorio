@@ -7,8 +7,7 @@ use crate::game::world::{
 pub const PADDED_CHUNK_SIZE: i32 = CHUNK_SIZE + 2;
 pub const PADDED_CHUNK_SIZE_DOUBLE: usize = (PADDED_CHUNK_SIZE * 2) as usize;
 pub const PADDED_CHUNK_SIZE_SQR: i32 = PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE;
-pub const PADDED_CHUNK_BLOCK_NUMBER: usize =
-    (PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE) as usize;
+pub const PADDED_CHUNK_BLOCK_NUMBER: usize = (PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE) as usize;
 pub const FIRST_PADDED_CHUNK_CENTER_INDEX: i32 = 1;
 pub const LAST_PADDED_CHUNK_CENTER_INDEX: i32 = PADDED_CHUNK_SIZE - 2;
 pub const FIRST_PADDED_CHUNK_AXIS_INDEX: i32 = 0;
@@ -76,9 +75,7 @@ impl PaddedChunk {
             return BlockInstance::air();
         }
 
-        return self.get_block_from_i(
-            ((x + 1) + (y + 1) * PADDED_CHUNK_SIZE + (z + 1) * PADDED_CHUNK_SIZE_SQR) as usize,
-        );
+        return self.get_block_from_i(((x + 1) + (y + 1) * PADDED_CHUNK_SIZE + (z + 1) * PADDED_CHUNK_SIZE_SQR) as usize);
     }
 
     /// Abstraction of `get_block_from_i` but with components.
@@ -87,8 +84,7 @@ impl PaddedChunk {
     #[inline(always)]
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
         // println!("xyz: {} {} {} {} {} {} {}", x, y, z, x, y * PADDED_CHUNK_SIZE, z * PADDED_CHUNK_SIZE_SQR, x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR);
-        return self
-            .get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
+        return self.get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
     }
 
     #[inline(always)]
@@ -101,10 +97,7 @@ impl PaddedChunk {
     /// Prefer using `set_block_from_i` whenever possible, as it saves computing power and time.
     #[inline(always)]
     fn set_block_from_xyz(&mut self, x: i32, y: i32, z: i32, block: BlockInstance) {
-        self.set_block_from_i(
-            (x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize,
-            block,
-        );
+        self.set_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize, block);
     }
 
     #[inline(always)]

@@ -3,7 +3,7 @@ pub struct Updatable<T> {
     current: T,
 }
 
-impl<T : Clone> Updatable<T> {
+impl<T: Clone> Updatable<T> {
     pub fn new(value: T) -> Self {
         Self {
             current: value.clone(),

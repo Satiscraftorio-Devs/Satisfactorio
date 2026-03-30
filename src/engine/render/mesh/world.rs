@@ -1,8 +1,14 @@
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::{engine::render::{mesh::chunk::ChunkMesh, render::Renderer}, game::{player::player::Player, world::world::World}};
+use crate::{
+    engine::render::{mesh::chunk::ChunkMesh, render::Renderer},
+    game::{player::player::Player, world::world::World},
+};
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), Arc<ChunkMesh>>,
@@ -10,9 +16,7 @@ pub struct WorldMesh {
 
 impl WorldMesh {
     pub fn new() -> WorldMesh {
-        return WorldMesh {
-            meshes: HashMap::new(),
-        };
+        return WorldMesh { meshes: HashMap::new() };
     }
 
     /// Builds simultaneously every single chunk within the player's both horizontal and vertical render distance only if it needs it (if dirty == true).

@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 
 /// The color to display the world in, in RGB format.
-/// 
+///
 /// Components must be between 0 and 1 inclusive.
 pub const BASE_VERTEX_COLOR: [f32; 3] = [0.1, 0.7, 0.9]; // Gris neutre
 
@@ -22,7 +22,7 @@ impl Vertex {
             color: BASE_VERTEX_COLOR,
             uv: uv,
             ao: ao,
-        }
+        };
     }
 
     pub fn new_with_rgb(x: f32, y: f32, z: f32, r: f32, g: f32, b: f32, uv: u32, ao: f32) -> Vertex {
@@ -30,8 +30,8 @@ impl Vertex {
             position: [x, y, z],
             color: [r, g, b],
             uv: uv,
-            ao: ao
-        }
+            ao: ao,
+        };
     }
 
     pub fn buffer_layout() -> wgpu::VertexBufferLayout<'static> {
@@ -59,7 +59,7 @@ impl Vertex {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress * 2 + mem::size_of::<f32>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32,
-                }
+                },
             ],
         }
     }

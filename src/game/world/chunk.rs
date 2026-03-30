@@ -12,12 +12,17 @@ pub struct Chunk {
     blocks: [BlockInstance; CHUNK_BLOCK_NUMBER],
     pub x: i32,
     pub y: i32,
-    pub z: i32
+    pub z: i32,
 }
 
 impl Chunk {
     pub fn generate(cx: i32, cy: i32, cz: i32) -> Chunk {
-        let mut chunk = Chunk { blocks: [BlockInstance::air(); CHUNK_BLOCK_NUMBER], x: cx, y: cy, z: cz };
+        let mut chunk = Chunk {
+            blocks: [BlockInstance::air(); CHUNK_BLOCK_NUMBER],
+            x: cx,
+            y: cy,
+            z: cz,
+        };
         let block = BlockInstance::new(1);
 
         // On génère pour l'instant un flat sur la couche y: 0 avec un id bidon pour qu'on ne le mélange pas à l'air et qu'on crée des blocs solides et visibles
@@ -36,13 +41,13 @@ impl Chunk {
         // chunk.set_block_from_xyz(1, 3, 2, block.clone());
         // chunk.set_block_from_xyz(1, 2, 3, block.clone());
         // chunk.set_block_from_xyz(2, 4, 2, block.clone());
-        
+
         return chunk;
     }
 
     /// Abstraction of `get_block_from_i` but with components.
-    /// 
-    /// Prefer using `get_block_from_i` whenever possible, as it saves computing power and time. 
+    ///
+    /// Prefer using `get_block_from_i` whenever possible, as it saves computing power and time.
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
         return self.get_block_from_i((x + y * CHUNK_SIZE + z * CHUNK_SIZE_SQR) as usize);
     }
@@ -52,8 +57,8 @@ impl Chunk {
     }
 
     /// Abstraction of `set_block_from_i` but with components.
-    /// 
-    /// Prefer using `set_block_from_i` whenever possible, as it saves computing power and time. 
+    ///
+    /// Prefer using `set_block_from_i` whenever possible, as it saves computing power and time.
     #[inline(always)]
     pub fn set_block_from_xyz(&mut self, x: i32, y: i32, z: i32, block: BlockInstance) {
         self.set_block_from_i((x + y * CHUNK_SIZE + z * CHUNK_SIZE_SQR) as usize, block);

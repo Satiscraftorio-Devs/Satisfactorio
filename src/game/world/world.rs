@@ -1,6 +1,15 @@
 use std::collections::HashMap;
 
-use crate::{engine::render::mesh::world::WorldMesh, game::{player::player::Player, world::{block::BlockInstance, chunk::{CHUNK_SIZE, Chunk}}}};
+use crate::{
+    engine::render::mesh::world::WorldMesh,
+    game::{
+        player::player::Player,
+        world::{
+            block::BlockInstance,
+            chunk::{Chunk, CHUNK_SIZE},
+        },
+    },
+};
 
 pub struct World {
     chunks: HashMap<(i32, i32, i32), Chunk>,
@@ -8,9 +17,7 @@ pub struct World {
 
 impl World {
     pub fn new() -> World {
-        return World {
-            chunks: HashMap::new()
-        };
+        return World { chunks: HashMap::new() };
     }
 
     #[inline(always)]
@@ -36,8 +43,7 @@ impl World {
                         if let Some(chunk_mesh) = world_mesh.meshes.get(&(x, y, z)) {
                             chunk_mesh.set_dirty();
                         }
-                    }
-                    else {
+                    } else {
                         let chunk = Chunk::generate(x, y, z);
                         self.set_chunk(x, y, z, chunk);
                     }
@@ -78,28 +84,20 @@ impl World {
 
         if let Some(chunk) = self.get_chunk(cx, cy, cz) {
             return chunk.get_block_from_xyz(cbx, cby, cbz);
-        }
-        else {
+        } else {
             // If the chunk does not exist / is not found, return air (useful for rendering purpose mainly)
             return BlockInstance::air();
         }
     }
 
     pub fn get_local_block_from_xyz(&self, lx: i32, ly: i32, lz: i32, cx: i32, cy: i32, cz: i32) -> BlockInstance {
-        if !(0..CHUNK_SIZE).contains(&lx)
-            || !(0..CHUNK_SIZE).contains(&ly)
-            || !(0..CHUNK_SIZE).contains(&lz) {
-            return self.get_block_from_xyz(
-                lx + cx * CHUNK_SIZE,
-                ly + cy * CHUNK_SIZE,
-                lz + cz * CHUNK_SIZE
-            );   
+        if !(0..CHUNK_SIZE).contains(&lx) || !(0..CHUNK_SIZE).contains(&ly) || !(0..CHUNK_SIZE).contains(&lz) {
+            return self.get_block_from_xyz(lx + cx * CHUNK_SIZE, ly + cy * CHUNK_SIZE, lz + cz * CHUNK_SIZE);
         }
-        
+
         if let Some(chunk) = self.get_chunk(cx, cy, cz) {
             return chunk.get_block_from_xyz(lx, ly, lz);
-        }
-        else {
+        } else {
             return BlockInstance::air();
         }
     }

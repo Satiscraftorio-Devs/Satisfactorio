@@ -2,11 +2,11 @@
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     /// -X
-    Left  = 0,
+    Left = 0,
     /// -Y
     Below = 1,
     /// -Z
-    Back  = 2,
+    Back = 2,
     /// +X
     Right = 3,
     /// +Y

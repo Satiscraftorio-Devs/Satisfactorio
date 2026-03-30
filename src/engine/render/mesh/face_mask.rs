@@ -9,7 +9,7 @@ const AO_MASK: u64 = 0xFF; // 8 bits
 
 #[derive(Clone, Copy)]
 pub struct FaceMask {
-    pub data: u64
+    pub data: u64,
 }
 
 impl FaceMask {
@@ -30,12 +30,7 @@ impl FaceMask {
     }
 
     pub fn to(&self) -> (bool, u32, Direction, u8) {
-        (
-            self.get_visited(),
-            self.get_block_id(),
-            self.get_face(),
-            self.get_ao()
-        )
+        (self.get_visited(), self.get_block_id(), self.get_face(), self.get_ao())
     }
 
     #[inline(always)]
@@ -45,8 +40,7 @@ impl FaceMask {
 
     #[inline(always)]
     pub fn set_visited(&mut self, v: bool) {
-        self.data ^= (-(v as i64) as u64 ^ self.data)
-            & (1 << VISITED_SHIFT);
+        self.data ^= (-(v as i64) as u64 ^ self.data) & (1 << VISITED_SHIFT);
     }
 
     #[inline(always)]
@@ -56,9 +50,7 @@ impl FaceMask {
 
     #[inline(always)]
     pub fn set_block_id(&mut self, id: u32) {
-        self.data =
-            (self.data & !(BLOCK_ID_MASK << BLOCK_ID_SHIFT))
-            | ((id as u64) << BLOCK_ID_SHIFT);
+        self.data = (self.data & !(BLOCK_ID_MASK << BLOCK_ID_SHIFT)) | ((id as u64) << BLOCK_ID_SHIFT);
     }
 
     #[inline(always)]
@@ -68,16 +60,12 @@ impl FaceMask {
 
     #[inline(always)]
     pub fn set_face(&mut self, face: Direction) {
-        self.data =
-            (self.data & !FACE_MASK)
-            | (face as u64);
+        self.data = (self.data & !FACE_MASK) | (face as u64);
     }
 
     #[inline(always)]
     pub fn set_ao(&mut self, ao: u8) {
-        self.data =
-            (self.data & !(AO_MASK << AO_SHIFT))
-            | (((ao as u64) & AO_MASK) << AO_SHIFT);
+        self.data = (self.data & !(AO_MASK << AO_SHIFT)) | (((ao as u64) & AO_MASK) << AO_SHIFT);
     }
 
     #[inline(always)]
@@ -102,4 +90,3 @@ impl FaceMask {
         self.set_ao(ao);
     }
 }
-

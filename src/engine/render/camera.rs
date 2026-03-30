@@ -2,7 +2,6 @@ use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3};
 
 use crate::engine::render::render::RenderOptions;
 
-
 // #[rustfmt::skip]
 // pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::from_cols(
 //     cgmath::Vector4::new(1.0, 0.0, 0.0, 0.0),
@@ -20,10 +19,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(
-        position: cgmath::Point3<f32>,
-        fovy: f32,
-    ) -> Camera {
+    pub fn new(position: cgmath::Point3<f32>, fovy: f32) -> Camera {
         Camera {
             position,
             fovy: fovy,

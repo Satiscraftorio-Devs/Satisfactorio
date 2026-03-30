@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Instant};
 
-use wgpu::{BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPipeline, TextureView, wgt::BufferDescriptor};
+use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPipeline, TextureView};
 
 use crate::{
     common::geometry::vertex::Vertex,
@@ -17,7 +17,7 @@ pub struct EngineFrameData {
 
 pub struct GameFrameData {
     pub camera: RenderCamera,
-    pub visible_meshes: Vec<MeshId>
+    pub visible_meshes: Vec<MeshId>,
 }
 
 impl GameFrameData {
@@ -41,16 +41,8 @@ pub struct RenderOptions {
 }
 
 impl RenderOptions {
-    pub fn new(
-        aspect: f32,
-        znear: f32,
-        zfar: f32,
-    ) -> Self {
-        Self {
-            aspect,
-            znear,
-            zfar
-        }
+    pub fn new(aspect: f32, znear: f32, zfar: f32) -> Self {
+        Self { aspect, znear, zfar }
     }
 }
 
@@ -71,14 +63,14 @@ pub struct Renderer {
     pub wireframe: bool,
 
     pub chunks: HashMap<(i32, i32, i32), Mesh>,
-    
+
     pub gpu_context: GpuContext,
     pub render_manager: RenderManager,
 
     pub render_options: RenderOptions,
 
     pub depth_texture: wgpu::Texture,
-    pub depth_view: TextureView
+    pub depth_view: TextureView,
 }
 
 impl EngineFrameData {
@@ -108,12 +100,7 @@ pub struct BufferData {
 }
 
 impl BufferData {
-    pub fn new(
-        data: Buffer,
-        length: u32,
-        capacity: u32,
-        format: Option<IndexFormat>
-    ) -> Self {
+    pub fn new(data: Buffer, length: u32, capacity: u32, format: Option<IndexFormat>) -> Self {
         Self {
             data,
             length,
@@ -136,10 +123,7 @@ pub struct MeshData {
 }
 
 impl MeshData {
-    pub fn new(
-        vertices: Vec<Vertex>,
-        indices: Option<Vec<u32>>
-    ) -> Self {
+    pub fn new(vertices: Vec<Vertex>, indices: Option<Vec<u32>>) -> Self {
         let vertices = {
             let len = vertices.len() as u32;
             (vertices, len)
@@ -147,15 +131,11 @@ impl MeshData {
         let indices = if let Some(indices) = indices {
             let len = indices.len() as u32;
             Some((indices, IndexFormat::Uint32, len))
-        }
-        else {
+        } else {
             None
         };
 
-        Self {
-            vertices,
-            indices,
-        }
+        Self { vertices, indices }
     }
 
     pub fn get_vertex_data(&self) -> &Vec<Vertex> {
@@ -165,21 +145,35 @@ impl MeshData {
     pub fn get_vertex_count(&self) -> u32 {
         return self.vertices.1;
     }
-    
+
     pub fn has_index_data(&self) -> bool {
         return self.indices.is_some();
     }
 
     pub fn get_index_data(&self) -> &Vec<u32> {
-        return &self.indices.as_ref().expect("Error:\ntry to get index data of a mesh data but its value is None.\nMaybe the mesh data is not indexed?").0;
+        return &self
+            .indices
+            .as_ref()
+            .expect("Error:\ntry to get index data of a mesh data but its value is None.\nMaybe the mesh data is not indexed?")
+            .0;
     }
 
     pub fn get_index_format(&self) -> IndexFormat {
-        return self.indices.as_ref().expect("Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh data is not indexed?").1;
+        return self
+            .indices
+            .as_ref()
+            .expect(
+                "Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh data is not indexed?",
+            )
+            .1;
     }
 
     pub fn get_index_count(&self) -> u32 {
-        return self.indices.as_ref().expect("Error:\ntry to get index count of a mesh data but its value is None.\nMaybe the mesh data is not indexed?").2;
+        return self
+            .indices
+            .as_ref()
+            .expect("Error:\ntry to get index count of a mesh data but its value is None.\nMaybe the mesh data is not indexed?")
+            .2;
     }
 }
 
@@ -212,8 +206,7 @@ impl RenderManager {
         if self.max_id == 0 {
             self.max_id += 1;
             return 0;
-        }
-        else {
+        } else {
             self.max_id += 1;
             return self.max_id - 1;
         }
@@ -229,10 +222,10 @@ impl RenderManager {
 
     pub fn allocate_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData) -> MeshId {
         let id = self.get_next_id();
-        
+
         let mesh = self.mesh_pool.pop().unwrap_or_else(|| Mesh::new(device, queue, data));
         self.meshes.insert(id, mesh);
-        
+
         println!("Affected mesh with id: {} mesh count: {}", id, self.meshes.len());
 
         id
@@ -263,11 +256,7 @@ impl RenderManager {
 const MESH_BUFFER_CAPACITY_MARGIN: f32 = 1.25;
 
 impl Mesh {
-    pub fn new(
-        device: &Device,
-        queue: &Queue,
-        data: MeshData
-    ) -> Self {
+    pub fn new(device: &Device, queue: &Queue, data: MeshData) -> Self {
         let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Vertex buffer"),
@@ -275,17 +264,8 @@ impl Mesh {
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        queue.write_buffer(
-            &vertex_buffer,
-            0,
-            bytemuck::cast_slice(data.get_vertex_data())
-        );
-        let vertex_buffer_data = BufferData::new(
-            vertex_buffer,
-            data.get_vertex_count(),
-            vertex_buffer_capacity,
-            None
-        );
+        queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(data.get_vertex_data()));
+        let vertex_buffer_data = BufferData::new(vertex_buffer, data.get_vertex_count(), vertex_buffer_capacity, None);
 
         let mut index_buffer_data: Option<BufferData> = None;
 
@@ -297,16 +277,12 @@ impl Mesh {
                 usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            queue.write_buffer(
-                &index_buffer,
-                0,
-                bytemuck::cast_slice(&data.get_index_data())
-            );
+            queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&data.get_index_data()));
             index_buffer_data = Some(BufferData::new(
                 index_buffer,
                 data.get_index_count(),
                 index_buffer_capacity,
-                Some(data.get_index_format())
+                Some(data.get_index_format()),
             ));
         }
 
@@ -327,13 +303,17 @@ impl Mesh {
     pub fn get_vertex_capacity(&self) -> u32 {
         return self.vertices.capacity;
     }
-    
+
     pub fn has_index_buffer(&self) -> bool {
         return self.indices.is_some();
     }
 
     pub fn get_index_buffer(&self) -> &Buffer {
-        return &self.indices.as_ref().expect("Error:\ntry to get index buffer of a mesh but its value is None.\nMaybe the mesh is not indexed?").data;
+        return &self
+            .indices
+            .as_ref()
+            .expect("Error:\ntry to get index buffer of a mesh but its value is None.\nMaybe the mesh is not indexed?")
+            .data;
     }
 
     pub fn get_index_format(&self) -> IndexFormat {
@@ -341,11 +321,19 @@ impl Mesh {
     }
 
     pub fn get_index_count(&self) -> u32 {
-        return self.indices.as_ref().expect("Error:\ntry to get index count of a mesh but its value is None.\nMaybe the mesh is not indexed?").length;
+        return self
+            .indices
+            .as_ref()
+            .expect("Error:\ntry to get index count of a mesh but its value is None.\nMaybe the mesh is not indexed?")
+            .length;
     }
 
     pub fn get_index_capacity(&self) -> u32 {
-        return self.indices.as_ref().expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?").capacity;
+        return self
+            .indices
+            .as_ref()
+            .expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?")
+            .capacity;
     }
 
     pub fn update(&mut self, device: &Device, queue: &Queue, data: MeshData) {
@@ -353,13 +341,8 @@ impl Mesh {
 
         // Si le buffer a une taille suffisante, on va écrire les données + (capacité - taille) 0 pour être sûr d'overwrite complètement le buffer
         if self.get_vertex_capacity() >= data.get_vertex_count() {
-            queue.write_buffer(
-                self.get_vertex_buffer(),
-                0,
-                bytemuck::cast_slice(data.get_vertex_data())
-            );
-        }
-        else {
+            queue.write_buffer(self.get_vertex_buffer(), 0, bytemuck::cast_slice(data.get_vertex_data()));
+        } else {
             let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
 
             let vertex_buffer = device.create_buffer(&BufferDescriptor {
@@ -368,29 +351,15 @@ impl Mesh {
                 usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            queue.write_buffer(
-                &vertex_buffer,
-                0,
-                bytemuck::cast_slice(data.get_vertex_data())
-            );
+            queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(data.get_vertex_data()));
 
-            self.vertices = BufferData::new(
-                vertex_buffer,
-                data.get_vertex_count(),
-                vertex_buffer_capacity,
-                None
-            );
+            self.vertices = BufferData::new(vertex_buffer, data.get_vertex_count(), vertex_buffer_capacity, None);
         }
 
         if data.has_index_data() {
             if self.get_index_capacity() >= data.get_index_count() {
-                queue.write_buffer(
-                    self.get_index_buffer(),
-                    0,
-                    bytemuck::cast_slice(data.get_index_data())
-                );
-            }
-            else {
+                queue.write_buffer(self.get_index_buffer(), 0, bytemuck::cast_slice(data.get_index_data()));
+            } else {
                 let indices = data.get_index_data();
                 let index_format = data.get_index_format();
                 let index_buffer_capacity = ((data.get_index_count() as f32) * MESH_BUFFER_CAPACITY_MARGIN) as u32;
@@ -401,17 +370,13 @@ impl Mesh {
                     usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
                     mapped_at_creation: false,
                 });
-                queue.write_buffer(
-                    &index_buffer,
-                    0,
-                    bytemuck::cast_slice(&indices)
-                );
+                queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&indices));
 
                 self.indices = Some(BufferData::new(
                     index_buffer,
                     data.get_index_count(),
                     index_buffer_capacity,
-                    Some(index_format)
+                    Some(index_format),
                 ));
             }
         }
@@ -439,7 +404,7 @@ impl Renderer {
         render_manager: RenderManager,
 
         depth_texture: wgpu::Texture,
-        depth_view: TextureView
+        depth_view: TextureView,
     ) -> Self {
         Self {
             is_surface_configured,
@@ -462,14 +427,10 @@ impl Renderer {
             gpu_context,
             render_manager,
 
-            render_options: RenderOptions::new(
-                (dimensions.0 as f32) / (dimensions.1 as f32),
-                0.1,
-                1000.0
-            ),
+            render_options: RenderOptions::new((dimensions.0 as f32) / (dimensions.1 as f32), 0.1, 1000.0),
 
             depth_texture,
-            depth_view
+            depth_view,
         }
     }
 
@@ -482,22 +443,15 @@ impl Renderer {
         let device = &self.gpu_context.device;
         let queue = &self.gpu_context.queue;
 
-        queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&camera.get_view_proj_raw())
-        );
+        queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera.get_view_proj_raw()));
 
         let output = surface.get_current_texture().unwrap();
 
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -531,11 +485,10 @@ impl Renderer {
 
             if self.wireframe {
                 render_pass.set_pipeline(&self.world_wireframe_render_pipeline);
-            }
-            else {
+            } else {
                 render_pass.set_pipeline(&self.world_render_pipeline);
             }
-            
+
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
@@ -556,8 +509,7 @@ impl Renderer {
                 if mesh.has_index_buffer() {
                     render_pass.set_index_buffer(mesh.get_index_buffer().slice(..), mesh.get_index_format());
                     render_pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
-                }
-                else {
+                } else {
                     render_pass.draw(0..mesh.get_vertex_count(), 0..1);
                 }
             }
@@ -566,7 +518,6 @@ impl Renderer {
             render_pass.set_pipeline(&self.gizmo_render_pipeline);
             render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
             render_pass.draw(0..6, 0..1);
-            
         }
 
         // submit will accept anything that implements IntoIter

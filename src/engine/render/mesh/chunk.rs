@@ -10,13 +10,8 @@ use crate::{
     },
     game::world::{
         block::BlockInstance,
-        chunk::{
-            Chunk, CHUNK_SIZE, CHUNK_USIZE, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE,
-        },
-        padded_chunk::{
-            self, PaddedChunk, LAST_PADDED_CHUNK_AXIS_INDEX, LAST_PADDED_CHUNK_AXIS_INDEX_USIZE,
-            PADDED_CHUNK_SIZE,
-        },
+        chunk::{Chunk, CHUNK_SIZE, CHUNK_USIZE, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE},
+        padded_chunk::{self, PaddedChunk, LAST_PADDED_CHUNK_AXIS_INDEX, LAST_PADDED_CHUNK_AXIS_INDEX_USIZE, PADDED_CHUNK_SIZE},
         world::World,
     },
 };
@@ -51,25 +46,13 @@ impl ChunkMesh {
 
     pub fn get_v_ao(chunk: &PaddedChunk, pos: Vector3<i32>, neighbors: [(i32, i32, i32); 3]) -> u8 {
         let corner_solid = chunk
-            .get_block_from_chunk_xyz(
-                pos[0] + neighbors[0].0,
-                pos[1] + neighbors[0].1,
-                pos[2] + neighbors[0].2,
-            )
+            .get_block_from_chunk_xyz(pos[0] + neighbors[0].0, pos[1] + neighbors[0].1, pos[2] + neighbors[0].2)
             .is_solid() as u8;
         let side1_solid = chunk
-            .get_block_from_chunk_xyz(
-                pos[0] + neighbors[1].0,
-                pos[1] + neighbors[1].1,
-                pos[2] + neighbors[1].2,
-            )
+            .get_block_from_chunk_xyz(pos[0] + neighbors[1].0, pos[1] + neighbors[1].1, pos[2] + neighbors[1].2)
             .is_solid() as u8;
         let side2_solid = chunk
-            .get_block_from_chunk_xyz(
-                pos[0] + neighbors[2].0,
-                pos[1] + neighbors[2].1,
-                pos[2] + neighbors[2].2,
-            )
+            .get_block_from_chunk_xyz(pos[0] + neighbors[2].0, pos[1] + neighbors[2].1, pos[2] + neighbors[2].2)
             .is_solid() as u8;
 
         let occlusion = corner_solid + side1_solid + side2_solid;
@@ -105,16 +88,8 @@ impl ChunkMesh {
         };
 
         // voisins
-        let side1 = (
-            u.0 * su + normal.0,
-            u.1 * su + normal.1,
-            u.2 * su + normal.2,
-        );
-        let side2 = (
-            v.0 * sv + normal.0,
-            v.1 * sv + normal.1,
-            v.2 * sv + normal.2,
-        );
+        let side1 = (u.0 * su + normal.0, u.1 * su + normal.1, u.2 * su + normal.2);
+        let side2 = (v.0 * sv + normal.0, v.1 * sv + normal.1, v.2 * sv + normal.2);
         let corner = (
             u.0 * su + v.0 * sv + normal.0,
             u.1 * su + v.1 * sv + normal.1,
@@ -124,14 +99,7 @@ impl ChunkMesh {
         [corner, side1, side2]
     }
 
-    pub fn make_greedy_axis(
-        padded_chunk: &PaddedChunk,
-        vertices: &mut Vec<Vertex>,
-        cx: i32,
-        cy: i32,
-        cz: i32,
-        axis: i32,
-    ) {
+    pub fn make_greedy_axis(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32, axis: i32) {
         let base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
 
         // Base locale
@@ -164,43 +132,24 @@ impl ChunkMesh {
                     let previous_pos = e_d * (d - 1) + e_u * u + e_v * v;
                     let current_pos = e_d * d + e_u * u + e_v * v;
 
-                    let previous = padded_chunk.get_block_from_chunk_xyz(
-                        previous_pos[0],
-                        previous_pos[1],
-                        previous_pos[2],
-                    );
-                    let current = padded_chunk.get_block_from_chunk_xyz(
-                        current_pos[0],
-                        current_pos[1],
-                        current_pos[2],
-                    );
+                    let previous = padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
+                    let current = padded_chunk.get_block_from_chunk_xyz(current_pos[0], current_pos[1], current_pos[2]);
 
                     match (previous.is_solid(), current.is_solid()) {
                         (true, true) | (false, false) => {}
                         (false, true) => {
                             // +
-                            let vertex_0_neighbors =
-                                ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
-                            let vertex_1_neighbors =
-                                ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
-                            let vertex_2_neighbors =
-                                ChunkMesh::get_ao_offsets(faces[0], Corner::TopLeft);
-                            let vertex_3_neighbors =
-                                ChunkMesh::get_ao_offsets(faces[0], Corner::TopRight);
+                            let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
+                            let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
+                            let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopLeft);
+                            let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopRight);
 
-                            let vertex_0_ao =
-                                ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_0_neighbors);
-                            let vertex_1_ao =
-                                ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_1_neighbors);
-                            let vertex_2_ao =
-                                ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_2_neighbors);
-                            let vertex_3_ao =
-                                ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_3_neighbors);
+                            let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_0_neighbors);
+                            let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_1_neighbors);
+                            let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_2_neighbors);
+                            let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_3_neighbors);
 
-                            let ao_packed = (vertex_0_ao << 6)
-                                | (vertex_1_ao << 4)
-                                | (vertex_2_ao << 2)
-                                | (vertex_3_ao << 0);
+                            let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
 
                             mask[u as usize][v as usize] = FaceMask::from(
                                 false,
@@ -226,10 +175,7 @@ impl ChunkMesh {
                             let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_2_neighbors);
                             let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_3_neighbors);
 
-                            let ao_packed = (vertex_0_ao << 6)
-                                | (vertex_1_ao << 4)
-                                | (vertex_2_ao << 2)
-                                | (vertex_3_ao << 0);
+                            let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
 
                             mask[u as usize][v as usize] = FaceMask::from(
                                 false,
@@ -356,15 +302,7 @@ impl ChunkMesh {
         }
     }
 
-    pub fn make_greedy(
-        &mut self,
-        chunk: &Chunk,
-        world: &World,
-        renderer: &mut Renderer,
-        cx: i32,
-        cy: i32,
-        cz: i32,
-    ) {
+    pub fn make_greedy(&mut self, chunk: &Chunk, world: &World, renderer: &mut Renderer, cx: i32, cy: i32, cz: i32) {
         let mut vertices: Vec<Vertex> = vec![];
         let padded_chunk = PaddedChunk::new(chunk, world);
 
