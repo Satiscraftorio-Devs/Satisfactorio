@@ -1,5 +1,6 @@
 use std::{collections::HashMap, time::Instant};
 
+use rayon::vec;
 use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPipeline, TextureView};
 
 use crate::{
@@ -221,7 +222,15 @@ impl RenderManager {
     pub fn allocate_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData) -> MeshId {
         let id = self.get_next_id();
 
-        let mesh = self.mesh_pool.pop().unwrap_or_else(|| Mesh::new(device, queue, data));
+        let mesh = {
+            if let Some(mut mesh) = self.mesh_pool.pop() {
+                mesh.update(device, queue, data);
+                mesh
+            }
+            else {
+                Mesh::new(device, queue, data)
+            }
+        };
         self.meshes.insert(id, mesh);
 
         println!("Affected mesh with id: {} mesh count: {}", id, self.meshes.len());
@@ -302,6 +311,14 @@ impl Mesh {
         return self.vertices.capacity;
     }
 
+    pub fn set_vertex_count(&mut self, count: u32) {
+        self.vertices.length = count;
+    }
+
+    pub fn set_vertex_capacity(&mut self, capacity: u32) {
+        self.vertices.capacity = capacity;
+    }
+
     pub fn has_index_buffer(&self) -> bool {
         return self.indices.is_some();
     }
@@ -333,11 +350,28 @@ impl Mesh {
             .expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?")
             .capacity;
     }
+    
+    pub fn set_index_count(&mut self, count: u32) {
+        if self.indices.is_none() {
+            return;
+        }
+        self.indices.as_mut().unwrap().length = count;
+    }
+
+    pub fn set_index_capacity(&mut self, capacity: u32) {
+        if self.indices.is_none() {
+            return;
+        }
+        self.indices.as_mut().unwrap().capacity = capacity;
+    }
 
     pub fn update(&mut self, device: &Device, queue: &Queue, data: MeshData) {
         if self.get_vertex_capacity() >= data.get_vertex_count() {
             queue.write_buffer(self.get_vertex_buffer(), 0, bytemuck::cast_slice(data.get_vertex_data()));
+            self.set_vertex_count(data.get_vertex_count());
         } else {
+            self.get_vertex_buffer().destroy();
+
             let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
 
             let vertex_buffer = device.create_buffer(&BufferDescriptor {
@@ -348,13 +382,20 @@ impl Mesh {
             });
             queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(data.get_vertex_data()));
 
+            self.set_vertex_capacity(vertex_buffer_capacity);
+            self.set_vertex_count(data.get_vertex_count());
+
             self.vertices = BufferData::new(vertex_buffer, data.get_vertex_count(), vertex_buffer_capacity, None);
         }
 
         if data.has_index_data() {
             if self.get_index_capacity() >= data.get_index_count() {
                 queue.write_buffer(self.get_index_buffer(), 0, bytemuck::cast_slice(data.get_index_data()));
-            } else {
+                self.set_index_count(data.get_index_count());
+            }
+            else {
+                self.get_index_buffer().destroy();
+
                 let indices = data.get_index_data();
                 let index_format = data.get_index_format();
                 let index_buffer_capacity = ((data.get_index_count() as f32) * MESH_BUFFER_CAPACITY_MARGIN) as u32;
@@ -366,6 +407,9 @@ impl Mesh {
                     mapped_at_creation: false,
                 });
                 queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&indices));
+
+                self.set_index_capacity(index_buffer_capacity);
+                self.set_index_count(data.get_index_count());
 
                 self.indices = Some(BufferData::new(
                     index_buffer,

@@ -42,7 +42,7 @@ impl AppState for GameState {
     fn init(&mut self, renderer: &mut Renderer) {
         let world_start = Instant::now();
 
-        let chunks_to_rebuild = self.world.update(&self.player);
+        let chunks_to_rebuild = self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
         println!(
             "Time to make the world: {:.3}ms.",
@@ -64,7 +64,7 @@ impl AppState for GameState {
 
         self.camera.aspect = render_options.aspect;
 
-        let chunks_to_rebuild = self.world.update(&self.player);
+        let chunks_to_rebuild = self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
         self.world_mesh.update(renderer, &self.world, &self.player, &chunks_to_rebuild);
 
         let view_proj = self.camera.get_view_proj();

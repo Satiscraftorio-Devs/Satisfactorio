@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub struct WorldMesh {
-    pub meshes: HashMap<(i32, i32, i32), Arc<ChunkMesh>>,
+    pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
 }
 
 impl WorldMesh {
@@ -27,12 +27,17 @@ impl WorldMesh {
         for &(cx, cy, cz) in chunks_to_rebuild {
             if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {
                 let key = (cx, cy, cz);
-                let mut mesh = ChunkMesh::new();
-                {
+                if let Some(mesh) = self.meshes.get_mut(&key) {
                     let mut rm = shared_rm.lock().unwrap();
                     mesh.make_greedy(&chunk_data.chunk, world, &mut *rm, cx, cy, cz);
                 }
-                self.meshes.insert(key, Arc::new(mesh));
+                else
+                {
+                    let mut mesh = ChunkMesh::new();
+                    let mut rm = shared_rm.lock().unwrap();
+                    mesh.make_greedy(&chunk_data.chunk, world, &mut *rm, cx, cy, cz);
+                    self.meshes.insert(key, mesh);
+                }
             }
         }
     }

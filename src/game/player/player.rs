@@ -5,8 +5,8 @@ use crate::game::player::camera::CameraController;
 use crate::game::world::chunk::CHUNK_SIZE;
 use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
 
-const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 25;
-const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 15;
+const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 5;
+const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 3;
 
 pub struct Player {
     uuid: i32,

@@ -3,13 +3,13 @@ use rand::prelude::*;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
-use crate::game::{
+use crate::{engine::render::{mesh::world::WorldMesh, render::RenderManager}, game::{
     player::player::Player,
     world::{
         block::BlockInstance,
-        chunk::{Chunk, ChunkData, CHUNK_SIZE},
+        chunk::{CHUNK_SIZE, Chunk, ChunkData},
     },
-};
+}};
 
 pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
@@ -47,7 +47,7 @@ impl World {
         self.chunks.insert((cx, cy, cz), ChunkData::new(chunk));
     }
 
-    pub fn update(&mut self, player: &Player) -> Vec<(i32, i32, i32)> {
+    pub fn update(&mut self, render_manager: &mut RenderManager, world_mesh: &mut WorldMesh, player: &Player) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
 
         let mut needed_keys: Vec<(i32, i32, i32)> = Vec::new();
@@ -64,12 +64,18 @@ impl World {
         let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
         for key in current_keys {
             if !needed_keys.contains(&key) {
+                println!("Unloading chunk at ({}, {}, {})", key.0, key.1, key.2);
                 self.chunks.remove(&key);
+                if let Some(mesh) = world_mesh.meshes.remove(&key) {
+                    if mesh.mesh_id.is_none() {
+                        continue;
+                    }
+                    render_manager.release_mesh(mesh.mesh_id.unwrap());
+                }
             }
         }
 
         let missing_keys: Vec<_> = needed_keys.iter().filter(|k| !self.chunks.contains_key(k)).cloned().collect();
-
         if !missing_keys.is_empty() {
             let perlin = &self.perlin;
             let new_chunks: Vec<_> = missing_keys

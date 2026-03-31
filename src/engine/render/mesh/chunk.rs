@@ -287,7 +287,8 @@ impl ChunkMesh {
 
                     if reverse_faces {
                         vertices.extend_from_slice(&[v0, v1, v2, v2, v1, v3]);
-                    } else {
+                    }
+                    else {
                         vertices.extend_from_slice(&[v1, v0, v3, v3, v0, v2]);
                     }
 
