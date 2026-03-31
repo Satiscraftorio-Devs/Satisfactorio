@@ -211,14 +211,6 @@ impl RenderManager {
         }
     }
 
-    pub fn update_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData, id: MeshId) -> bool {
-        if let Some(mesh) = self.meshes.get_mut(&id) {
-            mesh.update(device, queue, data);
-            return true;
-        }
-        return false;
-    }
-
     pub fn allocate_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData) -> MeshId {
         let id = self.get_next_id();
 
@@ -236,6 +228,14 @@ impl RenderManager {
         println!("Affected mesh with id: {} mesh count: {}", id, self.meshes.len());
 
         id
+    }
+
+    pub fn update_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData, id: MeshId) -> bool {
+        if let Some(mesh) = self.meshes.get_mut(&id) {
+            mesh.update(device, queue, data);
+            return true;
+        }
+        return false;
     }
 
     pub fn release_mesh(&mut self, id: MeshId) {
@@ -533,8 +533,13 @@ impl Renderer {
 
             let meshes = self.render_manager.get_meshes_to_render();
 
+            let mut rendered_mesh_count = meshes.len();
+
+            println!("Rendering {} meshes", meshes.len());
+
             for mesh in meshes {
                 if mesh.get_vertex_count() == 0 || mesh.get_vertex_capacity() == 0 {
+                    rendered_mesh_count -= 1;
                     continue;
                 }
 
@@ -547,6 +552,8 @@ impl Renderer {
                     render_pass.draw(0..mesh.get_vertex_count(), 0..1);
                 }
             }
+
+            println!("Actually drawn meshes: {}", rendered_mesh_count);
 
             render_pass.set_pipeline(&self.gizmo_render_pipeline);
             render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));

@@ -8,6 +8,9 @@ use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
 const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 5;
 const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 3;
 
+const DEBUG_HORIZONTAL_SIMULATION_DISTANCE: u16 = DEBUG_HORIZONTAL_RENDER_DISTANCE + 2;
+const DEBUG_VERTICAL_SIMULATION_DISTANCE: u16 = DEBUG_VERTICAL_RENDER_DISTANCE + 2;
+
 pub struct Player {
     uuid: i32,
     pub pos: cgmath::Point3<f32>,
@@ -15,6 +18,8 @@ pub struct Player {
     yaw: f32,
     pub horizontal_render_distance: u16,
     pub vertical_render_distance: u16,
+    pub horizontal_simulation_distance: u16,
+    pub vertical_simulation_distance: u16,
 }
 
 impl Player {
@@ -26,6 +31,8 @@ impl Player {
             yaw: 0.0,
             horizontal_render_distance: DEBUG_HORIZONTAL_RENDER_DISTANCE,
             vertical_render_distance: DEBUG_VERTICAL_RENDER_DISTANCE,
+            horizontal_simulation_distance: DEBUG_HORIZONTAL_SIMULATION_DISTANCE,
+            vertical_simulation_distance: DEBUG_VERTICAL_SIMULATION_DISTANCE,
         };
     }
 
@@ -90,6 +97,24 @@ impl Player {
     }
 
     pub fn break_block_at(_block_pos: Point3<f32>) {}
+
+    pub fn get_simulation_chunk_range(&self) -> [i32; 6] {
+        let halfed_hrd = self.horizontal_simulation_distance.to_f32().unwrap().div_euclid(2.0);
+        let halfed_vrd = self.vertical_simulation_distance.to_f32().unwrap().div_euclid(2.0);
+
+        let cx = self.pos.x.div_euclid(CHUNK_SIZE as f32);
+        let cy = self.pos.y.div_euclid(CHUNK_SIZE as f32);
+        let cz = self.pos.z.div_euclid(CHUNK_SIZE as f32);
+
+        let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
+        let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();
+        let min_cy = (cy - halfed_vrd).floor().to_i32().unwrap();
+        let max_cy = (cy + halfed_vrd).floor().to_i32().unwrap();
+        let min_cz = (cz - halfed_hrd).floor().to_i32().unwrap();
+        let max_cz = (cz + halfed_hrd).floor().to_i32().unwrap();
+
+        return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
+    }
 
     pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
         let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);

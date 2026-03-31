@@ -47,23 +47,21 @@ impl World {
         self.chunks.insert((cx, cy, cz), ChunkData::new(chunk));
     }
 
-    pub fn update(&mut self, render_manager: &mut RenderManager, world_mesh: &mut WorldMesh, player: &Player) -> Vec<(i32, i32, i32)> {
-        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
+    pub fn update(&mut self, render_manager: &mut RenderManager, world_mesh: &mut WorldMesh, player: &Player) {
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_simulation_chunk_range();
+        let mut needed_simulation_keys: Vec<(i32, i32, i32)> = Vec::new();
 
-        let mut needed_keys: Vec<(i32, i32, i32)> = Vec::new();
         for x in min_cx..=max_cx {
             for y in min_cy..=max_cy {
                 for z in min_cz..=max_cz {
-                    needed_keys.push((x, y, z));
+                    needed_simulation_keys.push((x, y, z));
                 }
             }
         }
 
-        let mut chunks_to_rebuild = Vec::new();
-
         let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
         for key in current_keys {
-            if !needed_keys.contains(&key) {
+            if !needed_simulation_keys.contains(&key) {
                 println!("Unloading chunk at ({}, {}, {})", key.0, key.1, key.2);
                 self.chunks.remove(&key);
                 if let Some(mesh) = world_mesh.meshes.remove(&key) {
@@ -75,7 +73,7 @@ impl World {
             }
         }
 
-        let missing_keys: Vec<_> = needed_keys.iter().filter(|k| !self.chunks.contains_key(k)).cloned().collect();
+        let missing_keys: Vec<_> = needed_simulation_keys.iter().filter(|k| !self.chunks.contains_key(k)).cloned().collect();
         if !missing_keys.is_empty() {
             let perlin = &self.perlin;
             let new_chunks: Vec<_> = missing_keys
@@ -87,12 +85,9 @@ impl World {
                 .collect();
 
             for (key, data) in new_chunks {
-                chunks_to_rebuild.push(key);
                 self.chunks.insert(key, data);
             }
         }
-
-        return chunks_to_rebuild;
     }
 
     pub fn get_player_rendered_chunks(&self, player: &Player) -> Vec<&Chunk> {
