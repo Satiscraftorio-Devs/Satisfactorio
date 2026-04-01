@@ -106,6 +106,10 @@ impl ChunkMesh {
     }
 
     pub fn make_greedy_axis(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32, axis: i32) {
+        // if axis != 1 {
+        //     return;
+        // }
+       
         let base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
 
         let mut e_d = [0; 3];
@@ -165,6 +169,8 @@ impl ChunkMesh {
                                 },
                                 ao_packed,
                             );
+
+                            // println!("1 visited: {}", mask[u as usize][v as usize].get_visited());
                         }
                         (true, false) => {
                             let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
@@ -190,6 +196,8 @@ impl ChunkMesh {
                                 },
                                 ao_packed,
                             );
+
+                            // println!("2 visited: {}", mask[u as usize][v as usize].get_visited());
                         }
                     }
                 }
@@ -212,7 +220,7 @@ impl ChunkMesh {
                     let mut height = 1;
 
                     for iu in u..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if mask[iu][v].get_visited() || mask[iu][v].data != face.data {
+                        if mask[iu][v].get_visited() || !mask[iu][v].can_merge_with(&face) {
                             break;
                         }
                         width += 1;
@@ -221,7 +229,7 @@ impl ChunkMesh {
 
                     'expand: for iv in v..=LAST_CHUNK_AXIS_INDEX_USIZE {
                         for iu in u..(u + width) {
-                            if mask[iu][iv].get_visited() || mask[iu][iv].data != face.data {
+                            if mask[iu][iv].get_visited() || !mask[iu][iv].can_merge_with(&face) {
                                 break 'expand;
                             }
                         }
@@ -253,6 +261,10 @@ impl ChunkMesh {
                     let vertex_1_ao = (face.get_ao() >> 4) & 0b11;
                     let vertex_2_ao = (face.get_ao() >> 2) & 0b11;
                     let vertex_3_ao = face.get_ao() & 0b11;
+                    // let vertex_0_ao = mask[u][v].get_ao_corner(2);
+                    // let vertex_1_ao = mask[u][v].get_ao_corner(3);
+                    // let vertex_2_ao = mask[u + width - 1][v].get_ao_corner(0);
+                    // let vertex_3_ao = mask[u + width - 1][v].get_ao_corner(1);
 
                     let v0 = Vertex::new(
                         local_position_v0[0] as f32,

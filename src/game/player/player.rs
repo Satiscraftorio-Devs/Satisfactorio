@@ -5,8 +5,8 @@ use crate::game::player::camera::CameraController;
 use crate::game::world::chunk::CHUNK_SIZE;
 use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
 
-const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 5;
-const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 3;
+const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 3;
+const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 1;
 
 const DEBUG_HORIZONTAL_SIMULATION_DISTANCE: u16 = DEBUG_HORIZONTAL_RENDER_DISTANCE + 2;
 const DEBUG_VERTICAL_SIMULATION_DISTANCE: u16 = DEBUG_VERTICAL_RENDER_DISTANCE + 2;

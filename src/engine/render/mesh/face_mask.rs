@@ -89,4 +89,9 @@ impl FaceMask {
 
         self.set_ao(ao);
     }
+
+    #[inline(always)]
+    pub fn can_merge_with(&self, other: &FaceMask) -> bool {
+        self.get_block_id() == other.get_block_id() && self.get_face() == other.get_face()
+    }
 }

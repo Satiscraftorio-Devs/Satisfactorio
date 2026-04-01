@@ -535,7 +535,7 @@ impl Renderer {
 
             let mut rendered_mesh_count = meshes.len();
 
-            println!("Rendering {} meshes", meshes.len());
+            // println!("Rendering {} meshes", meshes.len());
 
             for mesh in meshes {
                 if mesh.get_vertex_count() == 0 || mesh.get_vertex_capacity() == 0 {
@@ -553,7 +553,7 @@ impl Renderer {
                 }
             }
 
-            println!("Actually drawn meshes: {}", rendered_mesh_count);
+            // println!("Actually drawn meshes: {}", rendered_mesh_count);
 
             render_pass.set_pipeline(&self.gizmo_render_pipeline);
             render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
