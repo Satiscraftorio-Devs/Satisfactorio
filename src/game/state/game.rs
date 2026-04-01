@@ -60,12 +60,29 @@ impl AppState for GameState {
     }
 
     fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer) {
+        let game_update_start = Instant::now();
+        
         self.player.update(frame.dt, &mut self.camera, &mut self.camera_controller);
 
         self.camera.aspect = render_options.aspect;
 
+        // let world_update_start = Instant::now();
+
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
+
+        // println!(
+        //     "Time to update world: {:.3}ms.",
+        //     world_update_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0
+        // );
+
+        let mesh_update_start = Instant::now();
+
         self.world_mesh.update(renderer, &self.world, &self.player);
+
+        // println!(
+        //     "Time to update meshes: {:.3}ms.",
+        //     mesh_update_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0
+        // );
 
         let view_proj = self.camera.get_view_proj();
         data.camera.update_view_proj(view_proj);
@@ -73,7 +90,15 @@ impl AppState for GameState {
         let cam_position = self.camera.eye.to_vec();
         let cam_forward = self.camera.forward();
 
+        let mesh_start = Instant::now();
+
+        let rendered_chunks = self.player.get_rendered_chunk_keys();
+
         for mesh in self.world_mesh.meshes.iter() {
+            if !rendered_chunks.contains(mesh.0) {
+                continue;
+            }
+
             let chunk_vector = Vector3::new(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F);
 
             let min = Vector3::new((mesh.0 .0) as f32, (mesh.0 .1) as f32, (mesh.0 .2) as f32) * CHUNK_SIZE_F;
@@ -86,6 +111,13 @@ impl AppState for GameState {
 
             data.visible_meshes.push(mesh.1.mesh_id.unwrap());
         }
+
+        // println!("Mesh culling took {:.3}ms.", mesh_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0);
+
+        // println!(
+        //     "Game update took {:.3}ms.",
+        //     game_update_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0
+        // );
     }
 
     fn fixed_update(&mut self, _frame: &EngineFrameData, _render_options: &RenderOptions, _data: &mut GameFrameData) {}

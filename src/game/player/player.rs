@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::engine::render::camera::Camera;
+use crate::{common::utils::updatable::Updatable, engine::render::camera::Camera};
 use crate::game::player::camera::CameraController;
 use crate::game::world::chunk::CHUNK_SIZE;
 use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
@@ -13,7 +13,7 @@ const DEBUG_VERTICAL_SIMULATION_DISTANCE: u16 = DEBUG_VERTICAL_RENDER_DISTANCE +
 
 pub struct Player {
     uuid: i32,
-    pub pos: cgmath::Point3<f32>,
+    pub pos: Updatable<cgmath::Point3<f32>>,
     pub vel: cgmath::Vector3<f32>,
     yaw: f32,
     pub horizontal_render_distance: u16,
@@ -26,7 +26,7 @@ impl Player {
     pub fn new() -> Player {
         return Player {
             uuid: -1,
-            pos: cgmath::Point3::new(0.0, 0.0, 0.0),
+            pos: Updatable::new(cgmath::Point3::new(0.0, 0.0, 0.0)),
             vel: cgmath::Vector3::new(0.0, 0.0, 0.0),
             yaw: 0.0,
             horizontal_render_distance: DEBUG_HORIZONTAL_RENDER_DISTANCE,
@@ -67,7 +67,7 @@ impl Player {
             self.vel = Vector3::new(0.0, 0.0, 0.0);
         }
 
-        self.pos += self.vel;
+        self.pos.update(self.pos.current() + self.vel);
         self.yaw = camera.yaw % (2.0 * PI);
 
         camera_controller.update_camera(camera, self);
@@ -79,11 +79,11 @@ impl Player {
     }
 
     pub fn get_pos(&self) -> cgmath::Point3<f32> {
-        self.pos
+        self.pos.current().clone()
     }
 
     pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
-        self.pos = pos;
+        self.pos.update(pos);
     }
 
     pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
@@ -102,9 +102,9 @@ impl Player {
         let halfed_hrd = self.horizontal_simulation_distance.to_f32().unwrap().div_euclid(2.0);
         let halfed_vrd = self.vertical_simulation_distance.to_f32().unwrap().div_euclid(2.0);
 
-        let cx = self.pos.x.div_euclid(CHUNK_SIZE as f32);
-        let cy = self.pos.y.div_euclid(CHUNK_SIZE as f32);
-        let cz = self.pos.z.div_euclid(CHUNK_SIZE as f32);
+        let cx = self.pos.current().x.div_euclid(CHUNK_SIZE as f32);
+        let cy = self.pos.current().y.div_euclid(CHUNK_SIZE as f32);
+        let cz = self.pos.current().z.div_euclid(CHUNK_SIZE as f32);
 
         let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
         let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();
@@ -116,13 +116,45 @@ impl Player {
         return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
     }
 
+    pub fn get_rendered_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_rendered_chunk_range();
+
+        let mut keys: Vec<(i32, i32, i32)> = Vec::new();
+
+        for x in min_cx..=max_cx {
+            for y in min_cy..=max_cy {
+                for z in min_cz..=max_cz {
+                    keys.push((x, y, z));
+                }
+            }
+        }
+
+        return keys;
+    }
+
+    pub fn get_simulation_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_simulation_chunk_range();
+
+        let mut keys: Vec<(i32, i32, i32)> = Vec::new();
+
+        for x in min_cx..=max_cx {
+            for y in min_cy..=max_cy {
+                for z in min_cz..=max_cz {
+                    keys.push((x, y, z));
+                }
+            }
+        }
+
+        return keys;
+    }
+
     pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
         let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);
         let halfed_vrd = self.vertical_render_distance.to_f32().unwrap().div_euclid(2.0);
 
-        let cx = self.pos.x.div_euclid(CHUNK_SIZE as f32);
-        let cy = self.pos.y.div_euclid(CHUNK_SIZE as f32);
-        let cz = self.pos.z.div_euclid(CHUNK_SIZE as f32);
+        let cx = self.pos.current().x.div_euclid(CHUNK_SIZE as f32);
+        let cy = self.pos.current().y.div_euclid(CHUNK_SIZE as f32);
+        let cz = self.pos.current().z.div_euclid(CHUNK_SIZE as f32);
 
         let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
         let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();
@@ -138,9 +170,9 @@ impl Player {
         let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);
         let halfed_vrd = self.vertical_render_distance.to_f32().unwrap().div_euclid(2.0);
 
-        let cx = self.pos.x.div_euclid(CHUNK_SIZE as f32);
-        let cy = self.pos.y.div_euclid(CHUNK_SIZE as f32);
-        let cz = self.pos.z.div_euclid(CHUNK_SIZE as f32);
+        let cx = self.pos.current().x.div_euclid(CHUNK_SIZE as f32);
+        let cy = self.pos.current().y.div_euclid(CHUNK_SIZE as f32);
+        let cz = self.pos.current().z.div_euclid(CHUNK_SIZE as f32);
 
         let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
         let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();

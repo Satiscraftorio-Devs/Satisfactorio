@@ -70,7 +70,7 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, player: &Player) {
-        camera.set_position(player.pos);
+        camera.set_position(player.pos.current().clone());
 
         camera.yaw += self.mouse_delta_x * self.mouse_sensitivity;
         camera.pitch -= self.mouse_delta_y * self.mouse_sensitivity;
