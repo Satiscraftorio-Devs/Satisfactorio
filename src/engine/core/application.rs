@@ -125,6 +125,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
             } => {
                 if code == KeyCode::Escape && key_state.is_pressed() {
                     event_loop.exit();
+                    std::process::exit(0); // Brutal, à changer quand on aura fait l'asynchrone sur le greedy meshing
                 } else if code == KeyCode::Digit1 && key_state.is_pressed() {
                     state.renderer.wireframe = !state.renderer.wireframe;
                     state.window.request_redraw();

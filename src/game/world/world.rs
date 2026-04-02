@@ -1,8 +1,7 @@
 use crate::game::world::chunk_generator::ChunkGenerator;
-use cgmath::num_traits::ToPrimitive;
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::ParallelIterator;
 use std::{collections::HashMap, time::Instant};
 
 use crate::{
@@ -62,7 +61,7 @@ impl World {
             return;
         }
 
-        let world_update_start = Instant::now();
+        let _world_update_start = Instant::now();
 
         let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
 

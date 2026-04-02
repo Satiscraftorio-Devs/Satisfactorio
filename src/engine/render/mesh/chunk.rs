@@ -102,8 +102,8 @@ impl ChunkMesh {
         //     return;
         // }
 
-        let base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
-       
+        let _base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
+
         let chunk_origin = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
 
         // Local bases
@@ -137,7 +137,6 @@ impl ChunkMesh {
 
         // D loop must occur CHUNK_SIZE + 1 times since for N blocs there are N + 1 possible faces (pointing out of the chunk and in between each block)
         for d in 0..=CHUNK_SIZE {
-            
             // MASKING + AO
             for u in 0..=LAST_CHUNK_AXIS_INDEX {
                 for v in 0..=LAST_CHUNK_AXIS_INDEX {

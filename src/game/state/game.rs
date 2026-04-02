@@ -1,19 +1,21 @@
-use std::{thread::sleep, time::{Duration, Instant}};
+use std::{thread::sleep, time::Duration};
 
-use cgmath::{EuclideanSpace, Matrix4, Vector3, dot, num_traits::ToPrimitive};
+use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 
 use crate::{
-    common::geometry::plane::Plane, engine::{
+    common::geometry::plane::Plane,
+    engine::{
         core::application::AppState,
         render::{
             camera::Camera,
             mesh::world::WorldMesh,
             render::{EngineFrameData, GameFrameData, RenderOptions, Renderer},
         },
-    }, game::{
+    },
+    game::{
         player::{camera::CameraController, player::Player},
         world::{chunk::CHUNK_SIZE_F, world::World},
-    }
+    },
 };
 use winit::keyboard::KeyCode;
 
@@ -37,7 +39,7 @@ impl GameState {
             world_mesh: WorldMesh::new(),
             camera: Camera::new(cgmath::Point3::new(16.0, 16.0, 16.0), 1.0),
             camera_controller: CameraController::new(32.0, 0.004),
-            delay_ms: 0.0
+            delay_ms: 0.0,
         }
     }
 }
@@ -49,7 +51,6 @@ impl AppState for GameState {
     }
 
     fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer) {
-
         self.delay_ms += frame.dt;
 
         if self.delay_ms < DT_CAP {
@@ -89,8 +90,8 @@ impl AppState for GameState {
             // If any of the above is true, we do not render the chunk.
             // We do the frustum check after the first one because it is more expansive,
             // and the first one would already eliminate ~50% of the chunks very quickly.
-            if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position)
-            || !is_chunk_in_camera_frustum(&min, &max, &cam_frustum) {
+            if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) || !is_chunk_in_camera_frustum(&min, &max, &cam_frustum)
+            {
                 continue;
             }
 
@@ -123,13 +124,32 @@ fn is_chunk_behind_camera(min: &Vector3<f32>, max: &Vector3<f32>, cam_forward: &
 
 fn extract_camera_frustum_planes(m: Matrix4<f32>) -> [Plane; 6] {
     [
-        Plane { normal: Vector3::new(m[0][3]+m[0][0], m[1][3]+m[1][0], m[2][3]+m[2][0]), d: m[3][3]+m[3][0] }, // left
-        Plane { normal: Vector3::new(m[0][3]-m[0][0], m[1][3]-m[1][0], m[2][3]-m[2][0]), d: m[3][3]-m[3][0] }, // right
-        Plane { normal: Vector3::new(m[0][3]+m[0][1], m[1][3]+m[1][1], m[2][3]+m[2][1]), d: m[3][3]+m[3][1] }, // bottom
-        Plane { normal: Vector3::new(m[0][3]-m[0][1], m[1][3]-m[1][1], m[2][3]-m[2][1]), d: m[3][3]-m[3][1] }, // top
-        Plane { normal: Vector3::new(m[0][3]+m[0][2], m[1][3]+m[1][2], m[2][3]+m[2][2]), d: m[3][3]+m[3][2] }, // near
-        Plane { normal: Vector3::new(m[0][3]-m[0][2], m[1][3]-m[1][2], m[2][3]-m[2][2]), d: m[3][3]-m[3][2] }, // far
-    ].map(|p| p.normalize())
+        Plane {
+            normal: Vector3::new(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0]),
+            d: m[3][3] + m[3][0],
+        }, // left
+        Plane {
+            normal: Vector3::new(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0]),
+            d: m[3][3] - m[3][0],
+        }, // right
+        Plane {
+            normal: Vector3::new(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1]),
+            d: m[3][3] + m[3][1],
+        }, // bottom
+        Plane {
+            normal: Vector3::new(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1]),
+            d: m[3][3] - m[3][1],
+        }, // top
+        Plane {
+            normal: Vector3::new(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2]),
+            d: m[3][3] + m[3][2],
+        }, // near
+        Plane {
+            normal: Vector3::new(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2]),
+            d: m[3][3] - m[3][2],
+        }, // far
+    ]
+    .map(|p| p.normalize())
 }
 
 fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[Plane; 6]) -> bool {

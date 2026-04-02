@@ -4,8 +4,6 @@ use std::{
     time::Instant,
 };
 
-use cgmath::num_traits::ToPrimitive;
-
 use crate::{
     engine::render::{mesh::chunk::ChunkMesh, render::Renderer},
     game::{player::player::Player, world::world::World},
@@ -34,7 +32,7 @@ impl WorldMesh {
 
         let shared_rm = Arc::new(Mutex::new(renderer));
 
-        let world_mesh_make_start = Instant::now();
+        let _world_mesh_make_start = Instant::now();
 
         for &(cx, cy, cz) in needed_rendered_keys.iter() {
             if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {

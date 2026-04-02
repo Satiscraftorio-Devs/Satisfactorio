@@ -1,6 +1,5 @@
 use std::{collections::HashMap, time::Instant};
 
-use rayon::vec;
 use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPipeline, TextureView};
 
 use crate::{
