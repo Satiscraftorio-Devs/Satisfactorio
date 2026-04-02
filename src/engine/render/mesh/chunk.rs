@@ -22,32 +22,17 @@ enum Corner {
     BottomRight,
 }
 
-impl Corner {
-    pub fn get_opposite_horizontal(&self) -> Self {
-        match *self {
-            Self::BottomLeft => Self::BottomRight,
-            Self::BottomRight => Self::BottomLeft,
-            Self::TopLeft => Self::TopRight,
-            Self::TopRight => Self::TopLeft,
-        }
-    }
-}
-
 pub struct ChunkMesh {
-    pub mesh_id: Option<MeshId>,
+    pub id: Option<MeshId>,
     dirty: AtomicBool,
 }
 
 impl ChunkMesh {
     pub fn new() -> ChunkMesh {
         return ChunkMesh {
-            mesh_id: None,
+            id: None,
             dirty: AtomicBool::new(true),
         };
-    }
-
-    pub fn set_dirty(&self) {
-        self.dirty.store(true, Ordering::Relaxed);
     }
 
     pub fn is_dirty(&self) -> bool {
@@ -55,6 +40,7 @@ impl ChunkMesh {
     }
 
     pub fn get_v_ao(chunk: &PaddedChunk, pos: Vector3<i32>, neighbors: [(i32, i32, i32); 3]) -> u8 {
+        // Check if neighbors exists
         let corner_solid = chunk
             .get_block_from_chunk_xyz(pos[0] + neighbors[0].0, pos[1] + neighbors[0].1, pos[2] + neighbors[0].2)
             .is_solid() as u8;
@@ -65,25 +51,29 @@ impl ChunkMesh {
             .get_block_from_chunk_xyz(pos[0] + neighbors[2].0, pos[1] + neighbors[2].1, pos[2] + neighbors[2].2)
             .is_solid() as u8;
 
+        // If the corner is surround by side1 and side2, it is necessarly opaque, whether corner is solid or not.
         if side1_solid == 1 && side2_solid == 1 {
             return 0;
-        } else {
+        }
+        // If not, each neighbor bring the light down equally
+        else {
             return 3 - (side1_solid + side2_solid + corner_solid);
         }
     }
 
+    /// Don't know how, but it's working though
     fn get_ao_offsets(face: Direction, corner: Corner) -> [(i32, i32, i32); 3] {
         let (u, v, normal) = match face {
             Direction::Left => ((0, 1, 0), (0, 0, 1), (-1, 0, 0)),
-            Direction::Below => ((1, 0, 0), (0, 0, 1), (0, -1, 0)),
+            Direction::Bottom => ((1, 0, 0), (0, 0, 1), (0, -1, 0)),
             Direction::Back => ((1, 0, 0), (0, 1, 0), (0, 0, -1)),
             Direction::Right => ((0, 1, 0), (0, 0, 1), (1, 0, 0)),
-            Direction::Above => ((1, 0, 0), (0, 0, 1), (0, 1, 0)),
+            Direction::Top => ((1, 0, 0), (0, 0, 1), (0, 1, 0)),
             Direction::Front => ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
         };
 
         let (u, v) = match face {
-            Direction::Above | Direction::Below => (u, v),
+            Direction::Top | Direction::Bottom => (u, v),
             _ => (v, u),
         };
 
@@ -105,13 +95,19 @@ impl ChunkMesh {
         [corner, side1, side2]
     }
 
+    /// Makes the greedy mesh for a single axis, in both directions (+, -).
+    /// Axis : 0 = X, 1 = Y, Z = 2
     pub fn make_greedy_axis(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32, axis: i32) {
         // if axis != 1 {
         //     return;
         // }
        
-        let base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
+        let chunk_origin = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
 
+        // Local bases
+        // D is the main axis (for axis = 0, it is X)
+        // U is the secondary axis (for axis = 0, it is Y)
+        // V is the tertiary axis (for axis = 0, it is Z)
         let mut e_d = [0; 3];
         let mut e_u = [0; 3];
         let mut e_v = [0; 3];
@@ -127,14 +123,20 @@ impl ChunkMesh {
         let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] =
             [[FaceMask::empty(); CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
+        // Faces enum's dictionary based on the axis used
+        // [0]s are positive axis
+        // [1]s are negative axis
         let faces: [Direction; 2] = match axis {
             0 => [Direction::Right, Direction::Left],
-            1 => [Direction::Above, Direction::Below],
+            1 => [Direction::Top, Direction::Bottom],
             2 => [Direction::Front, Direction::Back],
             _ => unreachable!(),
         };
 
+        // D loop must occur CHUNK_SIZE + 1 times since for N blocs there are N + 1 possible faces (pointing out of the chunk and in between each block)
         for d in 0..=CHUNK_SIZE {
+            
+            // MASKING + AO
             for u in 0..=LAST_CHUNK_AXIS_INDEX {
                 for v in 0..=LAST_CHUNK_AXIS_INDEX {
                     let previous_pos = e_d * (d - 1) + e_u * u + e_v * v;
@@ -144,6 +146,7 @@ impl ChunkMesh {
                     let current = padded_chunk.get_block_from_chunk_xyz(current_pos[0], current_pos[1], current_pos[2]);
 
                     match (previous.is_solid(), current.is_solid()) {
+                        // If both blocks are either plain or air, making faces is useless
                         (true, true) | (false, false) => {}
                         (false, true) => {
                             let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomLeft);
@@ -158,12 +161,13 @@ impl ChunkMesh {
 
                             let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
 
+                            // We mark the mask as unvisited so the mesher will know we need to make a face out of this
                             mask[u as usize][v as usize] = FaceMask::from(
                                 false,
                                 current.id,
                                 match axis {
                                     0 => Direction::Left,
-                                    1 => Direction::Below,
+                                    1 => Direction::Bottom,
                                     2 => Direction::Back,
                                     _ => unreachable!(),
                                 },
@@ -185,12 +189,13 @@ impl ChunkMesh {
 
                             let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
 
+                            // We mark the mask as unvisited so the mesher will know we need to make a face out of this
                             mask[u as usize][v as usize] = FaceMask::from(
                                 false,
                                 previous.id,
                                 match axis {
                                     0 => Direction::Right,
-                                    1 => Direction::Above,
+                                    1 => Direction::Top,
                                     2 => Direction::Front,
                                     _ => unreachable!(),
                                 },
@@ -203,6 +208,7 @@ impl ChunkMesh {
                 }
             }
 
+            // MESHING
             for u in 0..=LAST_CHUNK_AXIS_INDEX_USIZE {
                 let mut v = 0;
 
@@ -219,17 +225,20 @@ impl ChunkMesh {
                     let mut width = 1;
                     let mut height = 1;
 
-                    for iu in u..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if mask[iu][v].get_visited() || !mask[iu][v].can_merge_with(&face) {
+                    // Expansion in the U axis
+                    for u_2 in u..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        if mask[u_2][v].get_visited() || !mask[u_2][v].can_merge_with(&face) {
                             break;
                         }
                         width += 1;
-                        mask[iu][v].set_visited(true);
+                        mask[u_2][v].set_visited(true);
                     }
 
-                    'expand: for iv in v..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        for iu in u..(u + width) {
-                            if mask[iu][iv].get_visited() || !mask[iu][iv].can_merge_with(&face) {
+                    // Expansion in the V axis
+                    'expand: for v_2 in v..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        // For each time we increment in the V axis, we must verify that every block in the U axis is compatible. If not, we stop the expansion.
+                        for u_2 in u..(u + width) {
+                            if mask[u_2][v_2].get_visited() || !mask[u_2][v_2].can_merge_with(&face) {
                                 break 'expand;
                             }
                         }
@@ -237,7 +246,7 @@ impl ChunkMesh {
                         height += 1;
 
                         for iu in u..(u + width) {
-                            mask[iu][iv].set_visited(true);
+                            mask[iu][v_2].set_visited(true);
                         }
                     }
 
@@ -246,7 +255,7 @@ impl ChunkMesh {
                     let w_i32 = width as i32;
                     let h_i32 = height as i32;
 
-                    let block_pos = base + e_v * v_i32 + e_u * u_i32 + e_d * d;
+                    let block_pos = chunk_origin + e_v * v_i32 + e_u * u_i32 + e_d * d;
 
                     let e_u_w = e_u * w_i32;
                     let e_v_h = e_v * h_i32;
@@ -257,14 +266,14 @@ impl ChunkMesh {
                     let local_position_v2 = block_pos + e_u_w;
                     let local_position_v3 = block_pos + e_uv_wh;
 
+                    // Bottom left
+                    // Bottom right
+                    // Top left
+                    // Top right
                     let vertex_0_ao = face.get_ao() >> 6;
                     let vertex_1_ao = (face.get_ao() >> 4) & 0b11;
                     let vertex_2_ao = (face.get_ao() >> 2) & 0b11;
                     let vertex_3_ao = face.get_ao() & 0b11;
-                    // let vertex_0_ao = mask[u][v].get_ao_corner(2);
-                    // let vertex_1_ao = mask[u][v].get_ao_corner(3);
-                    // let vertex_2_ao = mask[u + width - 1][v].get_ao_corner(0);
-                    // let vertex_3_ao = mask[u + width - 1][v].get_ao_corner(1);
 
                     let v0 = Vertex::new(
                         local_position_v0[0] as f32,
@@ -295,6 +304,7 @@ impl ChunkMesh {
                         (vertex_3_ao as i32) as f32,
                     );
 
+                    // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
                     let reverse_faces = face.get_face().is_negative();
 
                     if reverse_faces {
@@ -310,6 +320,10 @@ impl ChunkMesh {
         }
     }
 
+    /// Makes the greedy mesh of a chunk.
+    /// Very expensive operation.
+    /// Should not be called each frame/frequently.
+    /// Limit usage to necessary.
     pub fn make_greedy(&mut self, chunk: &Chunk, world: &World, renderer: &mut Renderer, cx: i32, cy: i32, cz: i32) {
         let mut vertices: Vec<Vertex> = vec![];
         let padded_chunk = PaddedChunk::new(chunk, world);
@@ -320,7 +334,7 @@ impl ChunkMesh {
 
         self.dirty.store(false, Ordering::Relaxed);
 
-        if let Some(mesh_id) = self.mesh_id {
+        if let Some(mesh_id) = self.id {
             renderer.render_manager.update_mesh(
                 &renderer.gpu_context.device,
                 &renderer.gpu_context.queue,
@@ -328,7 +342,7 @@ impl ChunkMesh {
                 mesh_id,
             );
         } else {
-            self.mesh_id = Some(renderer.render_manager.allocate_mesh(
+            self.id = Some(renderer.render_manager.allocate_mesh(
                 &renderer.gpu_context.device,
                 &renderer.gpu_context.queue,
                 MeshData::new(vertices, None),

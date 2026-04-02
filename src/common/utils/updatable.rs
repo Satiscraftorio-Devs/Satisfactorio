@@ -1,4 +1,5 @@
-pub struct Updatable<T> {
+/// A simple yet effective struct to get track of the last 2 values used.
+pub struct Updatable<T: Clone> {
     last: T,
     current: T,
 }
@@ -28,7 +29,7 @@ impl<T: Clone> Updatable<T> {
     }
 }
 
-impl<T: PartialEq> Updatable<T> {
+impl<T: Clone + PartialEq> Updatable<T> {
     #[inline(always)]
     pub fn has_changed(&self) -> bool {
         self.current != self.last

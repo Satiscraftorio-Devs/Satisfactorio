@@ -4,13 +4,13 @@ pub enum Direction {
     /// -X
     Left = 0,
     /// -Y
-    Below = 1,
+    Bottom = 1,
     /// -Z
     Back = 2,
     /// +X
     Right = 3,
     /// +Y
-    Above = 4,
+    Top = 4,
     /// +Z
     Front = 5,
 }

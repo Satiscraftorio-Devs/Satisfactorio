@@ -53,31 +53,20 @@ impl World {
             return;
         }
         
-        let world_update_start = Instant::now();
-        
         let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
-
-        // println!("Time to get needed simulation keys: {:3}ms.", world_update_start.elapsed().as_millis());
-
-        let world_update_start = Instant::now();
 
         let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
         for key in current_keys {
             if !needed_simulation_keys.contains(&key) {
-                // println!("Unloading chunk at ({}, {}, {})", key.0, key.1, key.2);
                 self.chunks.remove(&key);
                 if let Some(mesh) = world_mesh.meshes.remove(&key) {
-                    if mesh.mesh_id.is_none() {
+                    if mesh.id.is_none() {
                         continue;
                     }
-                    render_manager.release_mesh(mesh.mesh_id.unwrap());
+                    render_manager.release_mesh(mesh.id.unwrap());
                 }
             }
         }
-
-        // println!("Time to unload chunks: {:3}ms.", world_update_start.elapsed().as_millis());
-
-        let world_update_start = Instant::now();
 
         let missing_keys: Vec<_> = needed_simulation_keys.iter().filter(|k| !self.chunks.contains_key(k)).cloned().collect();
         if !missing_keys.is_empty() {
@@ -93,10 +82,7 @@ impl World {
             for (key, data) in new_chunks {
                 self.chunks.insert(key, data);
             }
-            // println!("chunks: {}", self.chunks.len());
         }
-
-        // println!("Time to generate new chunks: {:3}ms.", world_update_start.elapsed().as_millis());
     }
 
     pub fn get_player_rendered_chunks(&self, player: &Player) -> Vec<&Chunk> {

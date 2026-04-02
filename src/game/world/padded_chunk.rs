@@ -31,6 +31,7 @@ impl PaddedChunk {
         let mut src_i = 0usize;
         let mut dst_i = (1 + PADDED_CHUNK_SIZE + PADDED_CHUNK_SIZE_SQR) as usize; // (1,1,1)
 
+        // Heart
         for _z in 0..CHUNK_SIZE {
             for _y in 0..CHUNK_SIZE {
                 for _x in 0..CHUNK_SIZE {
@@ -48,6 +49,7 @@ impl PaddedChunk {
             dst_i += PADDED_CHUNK_SIZE_DOUBLE;
         }
 
+        // Edges
         padded_chunk.fill_edges(
             world.get_chunk(chunk.x - 1, chunk.y, chunk.z),
             world.get_chunk(chunk.x + 1, chunk.y, chunk.z),
@@ -56,6 +58,12 @@ impl PaddedChunk {
             world.get_chunk(chunk.x, chunk.y, chunk.z - 1),
             world.get_chunk(chunk.x, chunk.y, chunk.z + 1),
         );
+
+        // Corners (VERTICAL VIEW)
+        // Bottom face
+
+        // TODO
+        // padded_chunk.set_block_from_xyz(0, 0, 0, GET_BLOCK);
 
         return padded_chunk;
     }
@@ -72,6 +80,7 @@ impl PaddedChunk {
 
         // Check if original coordinates were out of bounds - return air if so
         if x != cx || y != cy || z != cz {
+            // println!("out of bounds : {} {} ; {} {} ; {} ", cx, x, cy, y, cz, z);
             return BlockInstance::air();
         }
 
