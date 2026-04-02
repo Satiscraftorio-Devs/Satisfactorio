@@ -72,7 +72,7 @@ impl ChunkGenerator {
 
 impl Drop for ChunkGenerator {
     fn drop(&mut self) {
-        std::mem::drop(&mut self.request_tx);
+        let _ = &mut self.request_tx;
         let workers = std::mem::take(&mut self.workers);
         for worker in workers {
             let _ = worker.join();
