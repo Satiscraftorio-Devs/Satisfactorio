@@ -109,7 +109,7 @@ impl ChunkMesh {
         // if axis != 1 {
         //     return;
         // }
-       
+
         let base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
 
         let mut e_d = [0; 3];
@@ -299,8 +299,7 @@ impl ChunkMesh {
 
                     if reverse_faces {
                         vertices.extend_from_slice(&[v0, v1, v2, v2, v1, v3]);
-                    }
-                    else {
+                    } else {
                         vertices.extend_from_slice(&[v1, v0, v3, v3, v0, v2]);
                     }
 

@@ -2,7 +2,7 @@ use noise::{NoiseFn, Perlin};
 
 use crate::game::world::block::BlockInstance;
 
-pub const CHUNK_SIZE: i32 = 16;
+pub const CHUNK_SIZE: i32 = 32;
 pub const CHUNK_USIZE: usize = CHUNK_SIZE as usize;
 pub const CHUNK_SIZE_F: f32 = CHUNK_SIZE as f32;
 pub const CHUNK_SIZE_SQR: i32 = CHUNK_SIZE * CHUNK_SIZE;

@@ -4,13 +4,16 @@ use rand::prelude::*;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{collections::HashMap, time::Instant};
 
-use crate::{engine::render::{mesh::world::WorldMesh, render::RenderManager}, game::{
-    player::player::Player,
-    world::{
-        block::BlockInstance,
-        chunk::{CHUNK_SIZE, Chunk, ChunkData},
+use crate::{
+    engine::render::{mesh::world::WorldMesh, render::RenderManager},
+    game::{
+        player::player::Player,
+        world::{
+            block::BlockInstance,
+            chunk::{Chunk, ChunkData, CHUNK_SIZE},
+        },
     },
-}};
+};
 
 pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
@@ -52,9 +55,9 @@ impl World {
         if !player.pos.has_changed() {
             return;
         }
-        
+
         let world_update_start = Instant::now();
-        
+
         let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
 
         // println!("Time to get needed simulation keys: {:3}ms.", world_update_start.elapsed().as_millis());
@@ -79,7 +82,11 @@ impl World {
 
         let world_update_start = Instant::now();
 
-        let missing_keys: Vec<_> = needed_simulation_keys.iter().filter(|k| !self.chunks.contains_key(k)).cloned().collect();
+        let missing_keys: Vec<_> = needed_simulation_keys
+            .iter()
+            .filter(|k| !self.chunks.contains_key(k))
+            .cloned()
+            .collect();
         if !missing_keys.is_empty() {
             let perlin = &self.perlin;
             let new_chunks: Vec<_> = missing_keys

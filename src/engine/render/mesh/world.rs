@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex}, time::Instant,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use cgmath::num_traits::ToPrimitive;
@@ -19,7 +20,7 @@ impl WorldMesh {
         return WorldMesh { meshes: HashMap::new() };
     }
 
-    pub fn update(&mut self, renderer: &mut Renderer, world: &World, player: &Player) {        
+    pub fn update(&mut self, renderer: &mut Renderer, world: &World, player: &Player) {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
         let mut needed_rendered_keys: Vec<(i32, i32, i32)> = Vec::new();
 
@@ -44,9 +45,7 @@ impl WorldMesh {
                     }
                     let mut rm = shared_rm.lock().unwrap();
                     mesh.make_greedy(&chunk_data.chunk, world, &mut *rm, cx, cy, cz);
-                }
-                else
-                {
+                } else {
                     println!("Unknown mesh at ({}, {}, {})", cx, cy, cz);
                     let mut mesh = ChunkMesh::new();
                     let mut rm = shared_rm.lock().unwrap();

@@ -5,6 +5,7 @@ use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, Index
 
 use crate::{
     common::geometry::vertex::Vertex,
+    engine::render::text::TextRenderer,
     engine::render::{camera::RenderCamera, texture::Texture},
 };
 
@@ -218,8 +219,7 @@ impl RenderManager {
             if let Some(mut mesh) = self.mesh_pool.pop() {
                 mesh.update(device, queue, data);
                 mesh
-            }
-            else {
+            } else {
                 Mesh::new(device, queue, data)
             }
         };
@@ -350,7 +350,7 @@ impl Mesh {
             .expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?")
             .capacity;
     }
-    
+
     pub fn set_index_count(&mut self, count: u32) {
         if self.indices.is_none() {
             return;
@@ -392,8 +392,7 @@ impl Mesh {
             if self.get_index_capacity() >= data.get_index_count() {
                 queue.write_buffer(self.get_index_buffer(), 0, bytemuck::cast_slice(data.get_index_data()));
                 self.set_index_count(data.get_index_count());
-            }
-            else {
+            } else {
                 self.get_index_buffer().destroy();
 
                 let indices = data.get_index_data();
@@ -473,7 +472,7 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, camera: &RenderCamera) {
+    pub fn render<'a>(&'a mut self, camera: &RenderCamera, text_renderer: Option<&'a mut TextRenderer>) {
         if !self.is_surface_configured {
             return;
         }
@@ -553,11 +552,29 @@ impl Renderer {
                 }
             }
 
-            // println!("Actually drawn meshes: {}", rendered_mesh_count);
-
             render_pass.set_pipeline(&self.gizmo_render_pipeline);
             render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
             render_pass.draw(0..6, 0..1);
+        }
+
+        if let Some(text_renderer) = text_renderer {
+            let mut text_render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Text Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    depth_slice: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+                multiview_mask: None,
+            });
+            text_renderer.render(device, queue, &mut text_render_pass);
         }
 
         queue.submit(std::iter::once(encoder.finish()));

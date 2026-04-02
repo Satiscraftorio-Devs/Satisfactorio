@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
-use crate::{common::utils::updatable::Updatable, engine::render::camera::Camera};
 use crate::game::player::camera::CameraController;
 use crate::game::world::chunk::CHUNK_SIZE;
+use crate::{common::utils::updatable::Updatable, engine::render::camera::Camera};
 use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
 
 const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 3;

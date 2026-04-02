@@ -61,7 +61,7 @@ impl AppState for GameState {
 
     fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer) {
         let game_update_start = Instant::now();
-        
+
         self.player.update(frame.dt, &mut self.camera, &mut self.camera_controller);
 
         self.camera.aspect = render_options.aspect;

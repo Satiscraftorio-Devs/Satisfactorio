@@ -33,12 +33,10 @@ impl TextRenderer {
         self.current_text = format!("FPS: {}\n", fps);
     }
 
-    pub fn prepare(&mut self, _device: &wgpu::Device, queue: &wgpu::Queue) {
-        self.brush.resize_view(self.width as f32, self.height as f32, queue);
-    }
-
     pub fn render<'a>(&'a mut self, device: &wgpu::Device, queue: &wgpu::Queue, render_pass: &mut wgpu::RenderPass<'a>) {
         use wgpu_text::glyph_brush::{Section, Text};
+
+        self.brush.resize_view(self.width as f32, self.height as f32, queue);
 
         let text = Text::new(&self.current_text).with_scale(30.0).with_color([1.0, 0.0, 0.0, 1.0]);
 
