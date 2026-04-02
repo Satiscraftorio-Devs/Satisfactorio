@@ -1,3 +1,4 @@
+use crate::game::world::chunk_generator::ChunkGenerator;
 use cgmath::num_traits::ToPrimitive;
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
@@ -19,16 +20,21 @@ pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
     pub perlin: Perlin,
     seed: u32,
+    chunk_generator: ChunkGenerator,
 }
 
 impl World {
     pub fn new() -> World {
         let mut rng = rand::rng();
         let seed = rng.random::<u32>();
+        let perlin = Perlin::default().set_seed(seed);
+        let chunk_generator = ChunkGenerator::new(perlin.clone());
+
         return World {
             chunks: HashMap::new(),
-            perlin: Perlin::default().set_seed(seed),
+            perlin: perlin,
             seed: seed,
+            chunk_generator: chunk_generator,
         };
     }
 
@@ -67,40 +73,48 @@ impl World {
         let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
         for key in current_keys {
             if !needed_simulation_keys.contains(&key) {
-                // println!("Unloading chunk at ({}, {}, {})", key.0, key.1, key.2);
                 self.chunks.remove(&key);
                 if let Some(mesh) = world_mesh.meshes.remove(&key) {
-                    if mesh.mesh_id.is_none() {
-                        continue;
+                    if let Some(id) = mesh.mesh_id {
+                        render_manager.release_mesh(id);
                     }
-                    render_manager.release_mesh(mesh.mesh_id.unwrap());
                 }
             }
         }
 
         // println!("Time to unload chunks: {:3}ms.", world_update_start.elapsed().as_millis());
 
-        let world_update_start = Instant::now();
-
+        // Identifier les chunks manquants
         let missing_keys: Vec<_> = needed_simulation_keys
             .iter()
             .filter(|k| !self.chunks.contains_key(k))
             .cloned()
             .collect();
-        if !missing_keys.is_empty() {
-            let perlin = &self.perlin;
-            let new_chunks: Vec<_> = missing_keys
-                .into_par_iter()
-                .map(|(cx, cy, cz)| {
-                    let chunk = Chunk::generate(cx, cy, cz, perlin);
-                    ((cx, cy, cz), ChunkData::new(chunk))
-                })
-                .collect();
 
-            for (key, data) in new_chunks {
-                self.chunks.insert(key, data);
-            }
-            // println!("chunks: {}", self.chunks.len());
+        let player_cx = (player.get_pos().x / CHUNK_SIZE as f32).floor() as i32;
+        let player_cz = (player.get_pos().z / CHUNK_SIZE as f32).floor() as i32;
+
+        let mut sorted_missing: Vec<_> = missing_keys
+            .into_iter()
+            .map(|key| {
+                let dx = key.0 - player_cx;
+                let dz = key.2 - player_cz;
+                let dist_2 = dx * dx + dz * dz;
+                (key, dist_2)
+            })
+            .collect();
+
+        // Trier par distance croissante (+proche IMPLIQUE +prioritaire)
+        sorted_missing.sort_by(|a, b| a.1.cmp(&b.1));
+
+        for (key, _) in sorted_missing {
+            self.chunk_generator.request(key.0, key.1, key.2);
+        }
+
+        while let Ok(result) = self.chunk_generator.try_recv() {
+            // Insérer le chunk généré dans le world
+            self.chunks
+                .insert((result.get_cx(), result.get_cy(), result.get_cz()), result.chunk_data);
         }
 
         // println!("Time to generate new chunks: {:3}ms.", world_update_start.elapsed().as_millis());
