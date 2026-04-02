@@ -66,16 +66,12 @@ impl World {
 
         let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
 
-        // println!("Time to get needed simulation keys: {:3}ms.", world_update_start.elapsed().as_millis());
-
-        let world_update_start = Instant::now();
-
         let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
         for key in current_keys {
             if !needed_simulation_keys.contains(&key) {
                 self.chunks.remove(&key);
                 if let Some(mesh) = world_mesh.meshes.remove(&key) {
-                    if let Some(id) = mesh.mesh_id {
+                    if let Some(id) = mesh.id {
                         render_manager.release_mesh(id);
                     }
                 }
@@ -116,8 +112,6 @@ impl World {
             self.chunks
                 .insert((result.get_cx(), result.get_cy(), result.get_cz()), result.chunk_data);
         }
-
-        // println!("Time to generate new chunks: {:3}ms.", world_update_start.elapsed().as_millis());
     }
 
     pub fn get_player_rendered_chunks(&self, player: &Player) -> Vec<&Chunk> {
