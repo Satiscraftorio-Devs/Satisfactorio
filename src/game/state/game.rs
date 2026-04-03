@@ -5,6 +5,7 @@ use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 use crate::{
     common::geometry::plane::Plane,
     engine::{
+        audio::GameAudioManager,
         core::application::AppState,
         render::{
             camera::Camera,
@@ -45,9 +46,15 @@ impl GameState {
 }
 
 impl AppState for GameState {
-    fn init(&mut self, renderer: &mut Renderer) {
+    fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>) {
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
         self.world_mesh.update(renderer, &self.world, &self.player);
+
+        if let Some(ref mut audio) = audio_manager {
+            if let Err(e) = audio.play_main_theme() {
+                eprintln!("Failed to play main theme: {}", e);
+            }
+        }
     }
 
     fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer) {

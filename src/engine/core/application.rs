@@ -3,6 +3,7 @@ use std::sync::Arc;
 use winit::event_loop::ActiveEventLoop;
 use winit::{application::ApplicationHandler, keyboard::KeyCode, keyboard::PhysicalKey};
 
+use crate::engine::audio::GameAudioManager;
 use crate::engine::core::state::State;
 use crate::engine::render::render::{EngineFrameData, GameFrameData, RenderOptions, Renderer};
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
@@ -11,7 +12,7 @@ use winit::window::{CursorGrabMode, Window};
 pub enum AppEvent {}
 
 pub trait AppState {
-    fn init(&mut self, renderer: &mut Renderer);
+    fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>);
     fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer);
     fn fixed_update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData);
     fn on_mouse_move(&mut self, dx: f64, dy: f64);
@@ -42,7 +43,8 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         self.engine_state = Some(pollster::block_on(State::new(window, &self.app_state)).unwrap());
 
         if !self.app_state_init {
-            self.app_state.init(&mut self.engine_state.as_mut().unwrap().renderer);
+            let state = self.engine_state.as_mut().unwrap();
+            self.app_state.init(&mut state.renderer, &mut state.audio_manager);
             self.app_state_init = true;
         }
     }

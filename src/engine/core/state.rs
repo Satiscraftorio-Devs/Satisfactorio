@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::common::geometry::vertex::Vertex;
+use crate::engine::audio::GameAudioManager;
 use crate::engine::render::camera::RenderCamera;
 use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, RenderManager, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
@@ -14,10 +15,12 @@ pub struct State {
     pub game_frame_data: GameFrameData,
     pub renderer: Renderer,
     text_renderer: TextRenderer,
+    pub audio_manager: Option<GameAudioManager>,
 }
 
 impl State {
-    pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
+    pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, app_state: &S) -> anyhow::Result<Self> {
+        let audio_manager = GameAudioManager::new(&window);
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -364,6 +367,7 @@ impl State {
             game_frame_data,
             renderer,
             text_renderer,
+            audio_manager: Some(audio_manager.expect("Failed to load audio manager in state")),
         })
     }
 
@@ -372,7 +376,7 @@ impl State {
             self.renderer.render_options = RenderOptions {
                 aspect: (width as f32) / (height as f32),
                 znear: self.renderer.render_options.znear,
-                zfar: self.renderer.render_options.zfar
+                zfar: self.renderer.render_options.zfar,
             };
             self.renderer.gpu_context.config.width = width;
             self.renderer.gpu_context.config.height = height;
@@ -430,6 +434,9 @@ impl State {
     pub fn update(&mut self) {
         self.frame_update();
         self.text_renderer.update_text(self.engine_frame_data.fps);
+        if let Some(ref mut audio) = self.audio_manager {
+            audio.update();
+        }
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
