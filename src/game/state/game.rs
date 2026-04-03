@@ -54,6 +54,7 @@ impl AppState for GameState {
             if let Err(e) = audio.play_main_theme() {
                 eprintln!("Failed to play main theme: {}", e);
             }
+            audio.stop_main_theme();
         }
     }
 

@@ -38,6 +38,7 @@ impl ChunkData {
     }
 }
 
+#[derive(Clone)]
 pub struct Chunk {
     blocks: [BlockInstance; CHUNK_BLOCK_NUMBER],
     pub x: i32,

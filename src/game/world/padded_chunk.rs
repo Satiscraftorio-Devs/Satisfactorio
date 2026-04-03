@@ -1,7 +1,7 @@
 use crate::game::world::{
     block::BlockInstance,
     chunk::{Chunk, CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX},
-    world::World,
+    world::{MeshSnapshot, World},
 };
 
 pub const PADDED_CHUNK_SIZE: i32 = CHUNK_SIZE + 2;
@@ -66,6 +66,38 @@ impl PaddedChunk {
         // padded_chunk.set_block_from_xyz(0, 0, 0, GET_BLOCK);
 
         return padded_chunk;
+    }
+
+    pub fn from_snapshot(chunk: &Chunk, snapshot: &MeshSnapshot) -> PaddedChunk {
+        let mut padded_chunk = PaddedChunk::empty();
+
+        let mut src_i: usize = 0;
+        let mut dst_i = (1 + PADDED_CHUNK_SIZE + PADDED_CHUNK_SIZE_SQR) as usize;
+
+        // Copie du main chunk
+        for _z in 0..CHUNK_SIZE {
+            for _y in 0..CHUNK_SIZE {
+                for _x in 0..CHUNK_SIZE {
+                    padded_chunk.blocks[dst_i] = chunk.get_block_from_i(src_i);
+                    src_i += 1;
+                    dst_i += 1;
+                }
+                dst_i += 2;
+            }
+            dst_i += PADDED_CHUNK_SIZE_DOUBLE;
+        }
+
+        // Edges - copy neighbors from snapshot
+        padded_chunk.fill_edges(
+            snapshot.neg_x.as_ref(),
+            snapshot.pos_x.as_ref(),
+            snapshot.neg_y.as_ref(),
+            snapshot.pos_y.as_ref(),
+            snapshot.neg_z.as_ref(),
+            snapshot.pos_z.as_ref(),
+        );
+
+        padded_chunk
     }
 
     /// Abstraction of `get_block_from_i` but restricted to the actual chunk it represents, and with components.

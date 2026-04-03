@@ -1,4 +1,4 @@
-use crate::game::world::chunk_generator::ChunkGenerator;
+use crate::{engine::render::render::Mesh, game::world::chunk_generator::ChunkGenerator};
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use rayon::iter::ParallelIterator;
@@ -14,6 +14,17 @@ use crate::{
         },
     },
 };
+
+#[derive(Clone)]
+pub struct MeshSnapshot {
+    pub main: Option<Chunk>,
+    pub neg_x: Option<Chunk>,
+    pub pos_x: Option<Chunk>,
+    pub neg_y: Option<Chunk>,
+    pub pos_y: Option<Chunk>,
+    pub neg_z: Option<Chunk>,
+    pub pos_z: Option<Chunk>,
+}
 
 pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
@@ -35,6 +46,18 @@ impl World {
             seed: seed,
             chunk_generator: chunk_generator,
         };
+    }
+
+    pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {
+        MeshSnapshot {
+            main: self.get_chunk(cx, cy, cz).cloned(),
+            neg_x: self.get_chunk(cx - 1, cy, cz).cloned(),
+            neg_y: self.get_chunk(cx, cy - 1, cz).cloned(),
+            neg_z: self.get_chunk(cx, cy, cz - 1).cloned(),
+            pos_x: self.get_chunk(cx + 1, cy, cz).cloned(),
+            pos_y: self.get_chunk(cx, cy + 1, cz).cloned(),
+            pos_z: self.get_chunk(cx, cy, cz + 1).cloned(),
+        }
     }
 
     #[inline(always)]
@@ -106,10 +129,9 @@ impl World {
             self.chunk_generator.request(key.0, key.1, key.2);
         }
 
-        while let Ok(result) = self.chunk_generator.try_recv() {
-            // Insérer le chunk généré dans le world
-            self.chunks
-                .insert((result.get_cx(), result.get_cy(), result.get_cz()), result.chunk_data);
+        while let Some(result) = self.chunk_generator.try_recv() {
+            let (cx, cy, cz, chunk_data) = result.output;
+            self.chunks.insert((cx, cy, cz), chunk_data);
         }
     }
 

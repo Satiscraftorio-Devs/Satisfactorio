@@ -1,21 +1,25 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Instant,
-};
+use std::{collections::HashMap, time::Instant};
 
 use crate::{
-    engine::render::{mesh::chunk::ChunkMesh, render::Renderer},
+    common::utils::parallel::{WorkResult, WorkerPool},
+    engine::render::{
+        mesh::chunk::{ChunkMesh, GreedyMeshingProcessor},
+        render::Renderer,
+    },
     game::{player::player::Player, world::world::World},
 };
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
+    mesh_worker: WorkerPool<GreedyMeshingProcessor>,
 }
 
 impl WorldMesh {
     pub fn new() -> WorldMesh {
-        return WorldMesh { meshes: HashMap::new() };
+        WorldMesh {
+            meshes: HashMap::new(),
+            mesh_worker: WorkerPool::new(num_cpus::get(), ()),
+        }
     }
 
     pub fn update(&mut self, renderer: &mut Renderer, world: &World, player: &Player) {
@@ -30,25 +34,33 @@ impl WorldMesh {
             }
         }
 
-        let shared_rm = Arc::new(Mutex::new(renderer));
-
         let _world_mesh_make_start = Instant::now();
 
         for &(cx, cy, cz) in needed_rendered_keys.iter() {
             if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {
                 let key = (cx, cy, cz);
-                if let Some(mesh) = self.meshes.get_mut(&key) {
-                    if !mesh.is_dirty() {
-                        continue;
-                    }
-                    let mut rm = shared_rm.lock().unwrap();
-                    mesh.make_greedy(&chunk_data.chunk, world, &mut *rm, cx, cy, cz);
+                let needs_processing = self.meshes.get(&key).map_or(true, |mesh| mesh.is_dirty());
+
+                if needs_processing {
+                    let snapshot = world.get_mesh_snapshot(cx, cy, cz);
+                    self.mesh_worker
+                        .submit((Some(chunk_data.chunk.clone()), snapshot, cx, cy, cz), (cx, cy, cz));
+                }
+            }
+        }
+
+        while let Some(WorkResult {
+            output: vertices_opt,
+            coords,
+        }) = self.mesh_worker.try_recv()
+        {
+            if let Some(vertices) = vertices_opt {
+                if let Some(mesh) = self.meshes.get_mut(&coords) {
+                    mesh.make_greedy(vertices, renderer);
                 } else {
-                    println!("Unknown mesh at ({}, {}, {})", cx, cy, cz);
                     let mut mesh = ChunkMesh::new();
-                    let mut rm = shared_rm.lock().unwrap();
-                    mesh.make_greedy(&chunk_data.chunk, world, &mut *rm, cx, cy, cz);
-                    self.meshes.insert(key, mesh);
+                    mesh.make_greedy(vertices, renderer);
+                    self.meshes.insert(coords, mesh);
                 }
             }
         }

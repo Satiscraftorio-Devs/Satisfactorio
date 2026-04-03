@@ -1,3 +1,4 @@
+use crate::{common::utils::parallel::Parallelizable, game::world::world::MeshSnapshot};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cgmath::Vector3;
@@ -11,7 +12,6 @@ use crate::{
     game::world::{
         chunk::{Chunk, CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE},
         padded_chunk::PaddedChunk,
-        world::World,
     },
 };
 
@@ -324,14 +324,7 @@ impl ChunkMesh {
     /// Very expensive operation.
     /// Should not be called each frame/frequently.
     /// Limit usage to necessary.
-    pub fn make_greedy(&mut self, chunk: &Chunk, world: &World, renderer: &mut Renderer, cx: i32, cy: i32, cz: i32) {
-        let mut vertices: Vec<Vertex> = vec![];
-        let padded_chunk = PaddedChunk::new(chunk, world);
-
-        ChunkMesh::make_greedy_axis(&padded_chunk, &mut vertices, cx, cy, cz, 0);
-        ChunkMesh::make_greedy_axis(&padded_chunk, &mut vertices, cx, cy, cz, 1);
-        ChunkMesh::make_greedy_axis(&padded_chunk, &mut vertices, cx, cy, cz, 2);
-
+    pub fn make_greedy(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) {
         self.dirty.store(false, Ordering::Relaxed);
 
         if let Some(mesh_id) = self.id {
@@ -348,5 +341,26 @@ impl ChunkMesh {
                 MeshData::new(vertices, None),
             ));
         }
+    }
+}
+
+pub struct GreedyMeshingProcessor;
+
+impl Parallelizable for GreedyMeshingProcessor {
+    type Context = ();
+    type Input = (Option<Chunk>, MeshSnapshot, i32, i32, i32);
+    type Output = Option<Vec<Vertex>>;
+
+    fn process(input: Self::Input, _ctx: &Self::Context) -> Self::Output {
+        let (main_chunk, neighbors, cx, cy, cz) = input;
+
+        let main_chunk = main_chunk?;
+        let padded = PaddedChunk::from_snapshot(&main_chunk, &neighbors);
+        let mut vertices = Vec::new();
+
+        ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 0);
+        ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 1);
+        ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 2);
+        return Some(vertices);
     }
 }
