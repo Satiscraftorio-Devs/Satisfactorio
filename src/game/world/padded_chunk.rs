@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::game::world::{
     block::BlockInstance,
     chunk::{Chunk, CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX},
@@ -68,7 +70,7 @@ impl PaddedChunk {
         return padded_chunk;
     }
 
-    pub fn from_snapshot(chunk: &Chunk, snapshot: &MeshSnapshot) -> PaddedChunk {
+    pub fn from_snapshot(chunk: &Arc<Chunk>, snapshot: &MeshSnapshot) -> PaddedChunk {
         let mut padded_chunk = PaddedChunk::empty();
 
         let mut src_i: usize = 0;
@@ -89,12 +91,12 @@ impl PaddedChunk {
 
         // Edges - copy neighbors from snapshot
         padded_chunk.fill_edges(
-            snapshot.neg_x.as_ref(),
-            snapshot.pos_x.as_ref(),
-            snapshot.neg_y.as_ref(),
-            snapshot.pos_y.as_ref(),
-            snapshot.neg_z.as_ref(),
-            snapshot.pos_z.as_ref(),
+            snapshot.neg_x.as_ref().map(|c| c.as_ref()),
+            snapshot.pos_x.as_ref().map(|c| c.as_ref()),
+            snapshot.neg_y.as_ref().map(|c| c.as_ref()),
+            snapshot.pos_y.as_ref().map(|c| c.as_ref()),
+            snapshot.neg_z.as_ref().map(|c| c.as_ref()),
+            snapshot.pos_z.as_ref().map(|c| c.as_ref()),
         );
 
         padded_chunk

@@ -39,7 +39,7 @@ impl GameState {
             world: World::new(),
             world_mesh: WorldMesh::new(),
             camera: Camera::new(cgmath::Point3::new(16.0, 16.0, 16.0), 1.0),
-            camera_controller: CameraController::new(32.0, 0.004),
+            camera_controller: CameraController::new(100.0, 0.004),
             delay_ms: 0.0,
         }
     }

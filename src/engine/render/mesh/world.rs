@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 use crate::{
     common::utils::parallel::{WorkResult, WorkerPool},
@@ -12,6 +15,7 @@ use crate::{
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
     mesh_worker: WorkerPool<GreedyMeshingProcessor>,
+    pending: HashSet<(i32, i32, i32)>,
 }
 
 impl WorldMesh {
@@ -19,6 +23,7 @@ impl WorldMesh {
         WorldMesh {
             meshes: HashMap::new(),
             mesh_worker: WorkerPool::new(num_cpus::get(), ()),
+            pending: HashSet::new(),
         }
     }
 
@@ -37,14 +42,20 @@ impl WorldMesh {
         let _world_mesh_make_start = Instant::now();
 
         for &(cx, cy, cz) in needed_rendered_keys.iter() {
+            let key = (cx, cy, cz);
+
+            if self.pending.contains(&key) {
+                continue;
+            }
+
             if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {
-                let key = (cx, cy, cz);
-                let needs_processing = self.meshes.get(&key).map_or(true, |mesh| mesh.is_dirty());
+                let needs_processing = self.meshes.get(&key).map_or(true, |mesh: &ChunkMesh| mesh.is_dirty());
 
                 if needs_processing {
                     let snapshot = world.get_mesh_snapshot(cx, cy, cz);
+                    self.pending.insert(key);
                     self.mesh_worker
-                        .submit((Some(chunk_data.chunk.clone()), snapshot, cx, cy, cz), (cx, cy, cz));
+                        .submit((chunk_data.chunk.clone().into(), snapshot, cx, cy, cz), key);
                 }
             }
         }
@@ -54,6 +65,8 @@ impl WorldMesh {
             coords,
         }) = self.mesh_worker.try_recv()
         {
+            self.pending.remove(&coords);
+
             if let Some(vertices) = vertices_opt {
                 if let Some(mesh) = self.meshes.get_mut(&coords) {
                     mesh.make_greedy(vertices, renderer);

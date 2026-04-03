@@ -1,5 +1,8 @@
 use crate::{common::utils::parallel::Parallelizable, game::world::world::MeshSnapshot};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use cgmath::Vector3;
 
@@ -348,13 +351,12 @@ pub struct GreedyMeshingProcessor;
 
 impl Parallelizable for GreedyMeshingProcessor {
     type Context = ();
-    type Input = (Option<Chunk>, MeshSnapshot, i32, i32, i32);
+    type Input = (Arc<Chunk>, MeshSnapshot, i32, i32, i32);
     type Output = Option<Vec<Vertex>>;
 
     fn process(input: Self::Input, _ctx: &Self::Context) -> Self::Output {
         let (main_chunk, neighbors, cx, cy, cz) = input;
 
-        let main_chunk = main_chunk?;
         let padded = PaddedChunk::from_snapshot(&main_chunk, &neighbors);
         let mut vertices = Vec::new();
 

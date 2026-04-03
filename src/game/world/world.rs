@@ -2,7 +2,7 @@ use crate::{engine::render::render::Mesh, game::world::chunk_generator::ChunkGen
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use rayon::iter::ParallelIterator;
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use crate::{
     engine::render::{mesh::world::WorldMesh, render::RenderManager},
@@ -17,13 +17,13 @@ use crate::{
 
 #[derive(Clone)]
 pub struct MeshSnapshot {
-    pub main: Option<Chunk>,
-    pub neg_x: Option<Chunk>,
-    pub pos_x: Option<Chunk>,
-    pub neg_y: Option<Chunk>,
-    pub pos_y: Option<Chunk>,
-    pub neg_z: Option<Chunk>,
-    pub pos_z: Option<Chunk>,
+    pub main: Arc<Chunk>,
+    pub neg_x: Option<Arc<Chunk>>,
+    pub pos_x: Option<Arc<Chunk>>,
+    pub neg_y: Option<Arc<Chunk>>,
+    pub pos_y: Option<Arc<Chunk>>,
+    pub neg_z: Option<Arc<Chunk>>,
+    pub pos_z: Option<Arc<Chunk>>,
 }
 
 pub struct World {
@@ -50,13 +50,13 @@ impl World {
 
     pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {
         MeshSnapshot {
-            main: self.get_chunk(cx, cy, cz).cloned(),
-            neg_x: self.get_chunk(cx - 1, cy, cz).cloned(),
-            neg_y: self.get_chunk(cx, cy - 1, cz).cloned(),
-            neg_z: self.get_chunk(cx, cy, cz - 1).cloned(),
-            pos_x: self.get_chunk(cx + 1, cy, cz).cloned(),
-            pos_y: self.get_chunk(cx, cy + 1, cz).cloned(),
-            pos_z: self.get_chunk(cx, cy, cz + 1).cloned(),
+            main: Arc::new(self.get_chunk(cx, cy, cz).cloned().unwrap()),
+            neg_x: self.get_chunk(cx - 1, cy, cz).cloned().map(Arc::new),
+            neg_y: self.get_chunk(cx, cy - 1, cz).cloned().map(Arc::new),
+            neg_z: self.get_chunk(cx, cy, cz - 1).cloned().map(Arc::new),
+            pos_x: self.get_chunk(cx + 1, cy, cz).cloned().map(Arc::new),
+            pos_y: self.get_chunk(cx, cy + 1, cz).cloned().map(Arc::new),
+            pos_z: self.get_chunk(cx, cy, cz + 1).cloned().map(Arc::new),
         }
     }
 
