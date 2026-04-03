@@ -1,4 +1,4 @@
-use crate::{engine::render::render::Mesh, game::world::chunk_generator::ChunkGenerator};
+use crate::game::world::chunk_generator::ChunkGenerator;
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use rayon::iter::ParallelIterator;

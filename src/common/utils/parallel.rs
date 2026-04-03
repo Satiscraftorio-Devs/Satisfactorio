@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 

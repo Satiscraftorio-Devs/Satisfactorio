@@ -19,7 +19,7 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, app_state: &S) -> anyhow::Result<Self> {
+    pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
         let audio_manager = GameAudioManager::new(&window);
         let size = window.inner_size();
 
