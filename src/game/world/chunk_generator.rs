@@ -40,7 +40,7 @@ impl ChunkGenerator {
         let (result_tx, result_rx) = mpsc::channel();
         let request_rx = Arc::new(Mutex::new(request_rx));
 
-        let num_workers = num_cpus::get() - 2;
+        let num_workers = num_cpus::get();
         let mut workers = Vec::new();
 
         for _ in 0..num_workers {

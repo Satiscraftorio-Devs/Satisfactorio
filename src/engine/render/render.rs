@@ -551,6 +551,8 @@ impl Renderer {
                 }
             }
 
+            // println!("Actually drawn {} meshes", rendered_mesh_count);
+
             render_pass.set_pipeline(&self.gizmo_render_pipeline);
             render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
             render_pass.draw(0..6, 0..1);

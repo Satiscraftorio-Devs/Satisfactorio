@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::common::geometry::vertex::Vertex;
 use crate::engine::render::camera::RenderCamera;
-use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, RenderManager, Renderer};
+use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, RenderManager, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
@@ -369,6 +369,11 @@ impl State {
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
+            self.renderer.render_options = RenderOptions {
+                aspect: (width as f32) / (height as f32),
+                znear: self.renderer.render_options.znear,
+                zfar: self.renderer.render_options.zfar
+            };
             self.renderer.gpu_context.config.width = width;
             self.renderer.gpu_context.config.height = height;
             self.renderer

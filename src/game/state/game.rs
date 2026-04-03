@@ -76,6 +76,9 @@ impl AppState for GameState {
 
         let chunks_to_render = self.player.get_rendered_chunk_keys();
 
+        // println!("chunks to render: {:?}", chunks_to_render);
+        // println!("world meshes: {:?}", self.world_mesh.meshes.len());
+
         for (key, mesh) in self.world_mesh.meshes.iter() {
             if !chunks_to_render.contains(key) {
                 continue;
