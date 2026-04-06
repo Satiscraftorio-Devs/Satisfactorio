@@ -9,7 +9,10 @@ use crate::{
         mesh::chunk::{ChunkMesh, GreedyMeshingProcessor},
         render::Renderer,
     },
-    game::{player::player::Player, world::world::World},
+    game::{
+        player::player::Player,
+        world::{chunk::ChunkState, world::World},
+    },
 };
 
 pub struct WorldMesh {
@@ -51,7 +54,7 @@ impl WorldMesh {
             if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {
                 let needs_processing = self.meshes.get(&key).map_or(true, |mesh: &ChunkMesh| mesh.is_dirty());
 
-                if needs_processing {
+                if needs_processing && world.are_all_neighbors_ready(cx, cy, cz) {
                     let snapshot = world.get_mesh_snapshot(cx, cy, cz);
                     self.pending.insert(key);
                     self.mesh_worker
