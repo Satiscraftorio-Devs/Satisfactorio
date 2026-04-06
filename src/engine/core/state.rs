@@ -6,7 +6,6 @@ use crate::engine::render::camera::RenderCamera;
 use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, RenderManager, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
-use image::load;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
@@ -95,53 +94,34 @@ impl State {
             label: Some("texture_bind_group_layout"),
         });
 
-        pub fn load_texture_rgba(path: &str) -> (Vec<u8>, u32, u32) {
-            let img = image::open(path).expect("Failed to load image");
-
-            let rgba = img.to_rgba8();
-            let (width, height) = rgba.dimensions();
-
-            (rgba.into_raw(), width, height)
+        macro_rules! load_textures {
+            ($($name:ident: $path:literal),*) => {
+                vec![$(
+                    image::load_from_memory(include_bytes!($path))
+                        .expect(concat!("Failed to load texture: ", $path))
+                        .to_rgba8()
+                ),*]
+            };
         }
 
-        pub fn load_textures(paths: &[&str]) -> (Vec<Vec<u8>>, u32, u32) {
-            let mut textures = Vec::new();
+        let textures_data = load_textures!(
+            grass: "../../../assets/images/grass.png",
+            dirt: "../../../assets/images/dirt.png",
+            stone: "../../../assets/images/stone.png"
+        );
 
-            let mut width = 0;
-            let mut height = 0;
-
-            for (i, path) in paths.iter().enumerate() {
-                println!("path: {}", path);
-                let (data, w, h) = load_texture_rgba(path);
-
-                if i == 0 {
-                    width = w;
-                    height = h;
-                } else {
-                    assert_eq!(w, width, "All textures must have same width");
-                    assert_eq!(h, height, "All textures must have same height");
-                }
-
-                textures.push(data);
-            }
-
-            (textures, width, height)
+        let (width, height) = textures_data[0].dimensions();
+        for (i, data) in textures_data.iter().enumerate() {
+            assert_eq!(
+                data.dimensions(),
+                (width, height),
+                "All textures must have same dimensions (texture {})",
+                i
+            );
         }
 
-        // Load textures
-        let paths = vec![
-            "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/grass.png",
-            "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/dirt.png",
-            "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/stone.png",
-        ];
-
-        let (textures, width, height) = load_textures(&paths);
-
-        // convertir Vec<Vec<u8>> → Vec<&[u8]>
-        let texture_refs: Vec<&[u8]> = textures.iter().map(|t| t.as_slice()).collect();
-
-        // Make a texture array from the loaded textures
-        let texture_array = TextureArrayManager::make_array(&device, &queue, texture_refs, width, height);
+        let textures: Vec<&[u8]> = textures_data.iter().map(|d| d.as_ref()).collect();
+        let texture_array = TextureArrayManager::make_array(&device, &queue, textures, width, height);
 
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
