@@ -1,9 +1,8 @@
 use noise::{NoiseFn, Perlin};
 
-use crate::game::world::block::BlockInstance;
+use crate::game::world::block::{BlockInstance, BlockType};
 
-pub const CHUNK_SIZE: i32 = 32;
-pub const CHUNK_USIZE: usize = CHUNK_SIZE as usize;
+pub const CHUNK_SIZE: i32 = 8;
 pub const CHUNK_SIZE_F: f32 = CHUNK_SIZE as f32;
 pub const CHUNK_SIZE_SQR: i32 = CHUNK_SIZE * CHUNK_SIZE;
 pub const CHUNK_BLOCK_NUMBER: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
@@ -54,7 +53,6 @@ impl Chunk {
             y: cy,
             z: cz,
         };
-        let block = BlockInstance::new(1);
 
         let scale = 0.01;
 
@@ -77,7 +75,14 @@ impl Chunk {
                 for y in 0..CHUNK_SIZE {
                     let wy = y as i32 + cy as i32 * CHUNK_SIZE;
                     if wy < terrain_y {
-                        chunk.set_block_from_xyz(x, y, z, block.clone());
+                        let block_id = if wy == terrain_y - 1 {
+                            BlockType::Grass as u32
+                        } else if wy < terrain_y - 4 {
+                            BlockType::Stone as u32
+                        } else {
+                            BlockType::Dirt as u32
+                        };
+                        chunk.set_block_from_xyz(x, y, z, BlockInstance::new(block_id));
                     }
                 }
             }

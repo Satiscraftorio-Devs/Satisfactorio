@@ -5,6 +5,8 @@ use crate::engine::audio::GameAudioManager;
 use crate::engine::render::camera::RenderCamera;
 use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, RenderManager, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
+use crate::engine::render::texture::TextureArrayManager;
+use image::load;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
@@ -68,9 +70,8 @@ impl State {
             desired_maximum_frame_latency: 2,
         };
 
-        let diffuse_bytes = include_bytes!("../../../assets/images/happy-tree.png");
-        let diffuse_texture =
-            crate::engine::render::texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+        // let diffuse_bytes = include_bytes!("../../../assets/images/happy-tree.png");
+        // let diffuse_texture = crate::engine::render::texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -79,7 +80,7 @@ impl State {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     },
                     count: None,
@@ -94,16 +95,64 @@ impl State {
             label: Some("texture_bind_group_layout"),
         });
 
+        pub fn load_texture_rgba(path: &str) -> (Vec<u8>, u32, u32) {
+            let img = image::open(path).expect("Failed to load image");
+
+            let rgba = img.to_rgba8();
+            let (width, height) = rgba.dimensions();
+
+            (rgba.into_raw(), width, height)
+        }
+
+        pub fn load_textures(paths: &[&str]) -> (Vec<Vec<u8>>, u32, u32) {
+            let mut textures = Vec::new();
+
+            let mut width = 0;
+            let mut height = 0;
+
+            for (i, path) in paths.iter().enumerate() {
+                println!("path: {}", path);
+                let (data, w, h) = load_texture_rgba(path);
+
+                if i == 0 {
+                    width = w;
+                    height = h;
+                } else {
+                    assert_eq!(w, width, "All textures must have same width");
+                    assert_eq!(h, height, "All textures must have same height");
+                }
+
+                textures.push(data);
+            }
+
+            (textures, width, height)
+        }
+
+        // Load textures
+        let paths = vec![
+            "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/grass.png",
+            "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/dirt.png",
+            "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/stone.png",
+        ];
+
+        let (textures, width, height) = load_textures(&paths);
+
+        // convertir Vec<Vec<u8>> → Vec<&[u8]>
+        let texture_refs: Vec<&[u8]> = textures.iter().map(|t| t.as_slice()).collect();
+
+        // Make a texture array from the loaded textures
+        let texture_array = TextureArrayManager::make_array(&device, &queue, texture_refs, width, height);
+
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&texture_array.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&texture_array.sampler),
                 },
             ],
             label: Some("diffuse_bind_group"),
@@ -184,7 +233,11 @@ impl State {
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 1,
+                    slope_scale: 1.0,
+                    clamp: 0.0,
+                },
             }),
             multisample: wgpu::MultisampleState {
                 count: 1,
@@ -228,7 +281,11 @@ impl State {
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 1,
+                    slope_scale: 1.0,
+                    clamp: 0.0,
+                },
             }),
             multisample: wgpu::MultisampleState {
                 count: 1,
@@ -284,12 +341,12 @@ impl State {
         });
 
         let gizmo = [
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0, 3.0),
-            Vertex::new_with_rgb(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0, 3.0),
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0, 3.0),
-            Vertex::new_with_rgb(0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0, 3.0),
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0, 3.0),
-            Vertex::new_with_rgb(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0, 3.0),
+            Vertex::new_with_rgb(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgb(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgb(0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgb(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0, 3.0, 0.0, 0.0),
         ];
 
         let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -343,7 +400,7 @@ impl State {
             wireframe_render_pipeline,
             render_pipeline,
             diffuse_bind_group,
-            diffuse_texture,
+            texture_array,
             camera_buffer,
             camera_bind_group,
             gizmo_render_pipeline,

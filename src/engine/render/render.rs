@@ -4,8 +4,7 @@ use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, Index
 
 use crate::{
     common::geometry::vertex::Vertex,
-    engine::render::text::TextRenderer,
-    engine::render::{camera::RenderCamera, texture::Texture},
+    engine::render::{camera::RenderCamera, text::TextRenderer, texture::{Texture, TextureArrayManager}},
 };
 
 pub struct EngineFrameData {
@@ -43,7 +42,11 @@ pub struct RenderOptions {
 
 impl RenderOptions {
     pub fn new(aspect: f32, znear: f32, zfar: f32) -> Self {
-        Self { aspect, znear, zfar }
+        Self {
+            aspect,
+            znear,
+            zfar
+        }
     }
 }
 
@@ -53,7 +56,7 @@ pub struct Renderer {
     pub world_wireframe_render_pipeline: RenderPipeline,
     pub world_render_pipeline: RenderPipeline,
     pub diffuse_bind_group: BindGroup,
-    pub diffuse_texture: Texture,
+    pub diffuse_texture_array: TextureArrayManager,
 
     pub camera_buffer: Buffer,
     pub camera_bind_group: BindGroup,
@@ -62,8 +65,6 @@ pub struct Renderer {
     pub gizmo_buffer: Buffer,
 
     pub wireframe: bool,
-
-    pub chunks: HashMap<(i32, i32, i32), Mesh>,
 
     pub gpu_context: GpuContext,
     pub render_manager: RenderManager,
@@ -427,7 +428,7 @@ impl Renderer {
         world_wireframe_render_pipeline: RenderPipeline,
         world_render_pipeline: RenderPipeline,
         diffuse_bind_group: BindGroup,
-        diffuse_texture: Texture,
+        diffuse_texture_array: TextureArrayManager,
 
         camera_buffer: Buffer,
         camera_bind_group: BindGroup,
@@ -449,7 +450,7 @@ impl Renderer {
             world_wireframe_render_pipeline,
             world_render_pipeline,
             diffuse_bind_group,
-            diffuse_texture,
+            diffuse_texture_array,
 
             camera_buffer,
             camera_bind_group,
@@ -458,8 +459,6 @@ impl Renderer {
             gizmo_buffer,
 
             wireframe: false,
-
-            chunks: HashMap::new(),
 
             gpu_context,
             render_manager,
@@ -522,7 +521,8 @@ impl Renderer {
 
             if self.wireframe {
                 render_pass.set_pipeline(&self.world_wireframe_render_pipeline);
-            } else {
+            }
+            else {
                 render_pass.set_pipeline(&self.world_render_pipeline);
             }
 

@@ -168,7 +168,7 @@ impl ChunkMesh {
                             // We mark the mask as unvisited so the mesher will know we need to make a face out of this
                             mask[u as usize][v as usize] = FaceMask::from(
                                 false,
-                                current.id,
+                                current.texture_index(),
                                 match axis {
                                     0 => Direction::Left,
                                     1 => Direction::Bottom,
@@ -196,7 +196,7 @@ impl ChunkMesh {
                             // We mark the mask as unvisited so the mesher will know we need to make a face out of this
                             mask[u as usize][v as usize] = FaceMask::from(
                                 false,
-                                previous.id,
+                                previous.texture_index(),
                                 match axis {
                                     0 => Direction::Right,
                                     1 => Direction::Top,
@@ -230,8 +230,8 @@ impl ChunkMesh {
                     let mut height = 1;
 
                     // Expansion in the U axis
-                    for u_2 in u..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if mask[u_2][v].get_visited() || !mask[u_2][v].can_merge_with(&face) {
+                    for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        if mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
                             break;
                         }
                         width += 1;
@@ -239,18 +239,18 @@ impl ChunkMesh {
                     }
 
                     // Expansion in the V axis
-                    'expand: for v_2 in v..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        // For each time we increment in the V axis, we must verify that every block in the U axis is compatible. If not, we stop the expansion.
+                    'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        // For each time we increment in the V axis, we must verify that every block in the U axis is compatible.
                         for u_2 in u..(u + width) {
-                            if mask[u_2][v_2].get_visited() || !mask[u_2][v_2].can_merge_with(&face) {
+                            if mask[u_2][v_2].get_visited() || mask[u_2][v_2].data != face.data {
                                 break 'expand;
                             }
                         }
 
                         height += 1;
 
-                        for iu in u..(u + width) {
-                            mask[iu][v_2].set_visited(true);
+                        for u_2 in u..(u + width) {
+                            mask[u_2][v_2].set_visited(true);
                         }
                     }
 
@@ -270,51 +270,63 @@ impl ChunkMesh {
                     let local_position_v2 = block_pos + e_u_w;
                     let local_position_v3 = block_pos + e_uv_wh;
 
-                    // Bottom left
-                    // Bottom right
-                    // Top left
-                    // Top right
                     let vertex_0_ao = face.get_ao() >> 6;
                     let vertex_1_ao = (face.get_ao() >> 4) & 0b11;
                     let vertex_2_ao = (face.get_ao() >> 2) & 0b11;
                     let vertex_3_ao = face.get_ao() & 0b11;
 
-                    let v0 = Vertex::new(
+                    let texture_index = face.get_block_id();
+
+                    // UVs normalized to 0-1 range for proper texture sampling
+                    let uv_u0 = 0.0;
+                    let uv_v0 = 0.0;
+                    let uv_u1 = w_i32 as f32;
+                    let uv_v1 = h_i32 as f32;
+
+                    let vertex_0 = Vertex::new(
                         local_position_v0[0] as f32,
                         local_position_v0[1] as f32,
                         local_position_v0[2] as f32,
-                        0,
+                        texture_index,
                         (vertex_0_ao as i32) as f32,
+                        uv_u0,
+                        uv_v0,
                     );
-                    let v1 = Vertex::new(
+                    let vertex_1 = Vertex::new(
                         local_position_v1[0] as f32,
                         local_position_v1[1] as f32,
                         local_position_v1[2] as f32,
-                        0,
+                        texture_index,
                         (vertex_1_ao as i32) as f32,
+                        uv_u0,
+                        uv_v1,
                     );
-                    let v2 = Vertex::new(
+                    let vertex_2 = Vertex::new(
                         local_position_v2[0] as f32,
                         local_position_v2[1] as f32,
                         local_position_v2[2] as f32,
-                        0,
+                        texture_index,
                         (vertex_2_ao as i32) as f32,
+                        uv_u1,
+                        uv_v0,
                     );
-                    let v3 = Vertex::new(
+                    let vertex_3 = Vertex::new(
                         local_position_v3[0] as f32,
                         local_position_v3[1] as f32,
                         local_position_v3[2] as f32,
-                        0,
+                        texture_index,
                         (vertex_3_ao as i32) as f32,
+                        uv_u1,
+                        uv_v1,
                     );
 
                     // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
                     let reverse_faces = face.get_face().is_negative();
 
                     if reverse_faces {
-                        vertices.extend_from_slice(&[v0, v1, v2, v2, v1, v3]);
+                        vertices.extend_from_slice(&[vertex_0, vertex_1, vertex_2, vertex_2, vertex_1, vertex_3]);
                     } else {
-                        vertices.extend_from_slice(&[v1, v0, v3, v3, v0, v2]);
+                        vertices.extend_from_slice(&[vertex_1, vertex_0, vertex_3, vertex_3, vertex_0, vertex_2]);
                     }
 
                     v += height;
