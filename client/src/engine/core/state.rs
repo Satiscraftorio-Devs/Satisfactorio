@@ -69,7 +69,7 @@ impl State {
             desired_maximum_frame_latency: 2,
         };
 
-        // let diffuse_bytes = include_bytes!("../../../assets/images/happy-tree.png");
+        // let diffuse_bytes = include_bytes!("../../../../assets/images/happy-tree.png");
         // let diffuse_texture = crate::engine::render::texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -460,12 +460,12 @@ impl State {
             self.engine_frame_data.fps_timer = self.engine_frame_data.fps_timer - 1.0;
         }
 
-        println!(
-            "FPS (avg): {:4.0} FPS (last): {:4.0} dt: {:.3}ms",
-            self.engine_frame_data.fps,
-            1.0 / self.engine_frame_data.dt,
-            self.engine_frame_data.dt * 1000.0
-        );
+        // println!(
+        //     "FPS (avg): {:4.0} FPS (last): {:4.0} dt: {:.3}ms",
+        //     self.engine_frame_data.fps,
+        //     1.0 / self.engine_frame_data.dt,
+        //     self.engine_frame_data.dt * 1000.0
+        // );
     }
 
     pub fn update(&mut self) {

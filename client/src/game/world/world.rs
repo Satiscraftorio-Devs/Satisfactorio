@@ -1,4 +1,4 @@
-use crate::game::world::chunk_generator::ChunkGenerator;
+use crate::game::world::{chunk::ChunkState, chunk_generator::ChunkGenerator};
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use rayon::iter::ParallelIterator;
@@ -131,7 +131,20 @@ impl World {
 
         while let Some(result) = self.chunk_generator.try_recv() {
             let (cx, cy, cz, chunk_data) = result.output;
-            self.chunks.insert((cx, cy, cz), chunk_data);
+
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    for dz in -1..=1 {
+                        if let Some(neighbor) = self.chunks.get_mut(&(cx + dx, cy + dy, cz + dz)) {
+                            neighbor.is_dirty = true;
+                        }
+                    }
+                }
+            }
+
+            let mut new_chunk_data = chunk_data;
+            new_chunk_data.is_dirty = true;
+            self.chunks.insert((cx, cy, cz), new_chunk_data);
         }
     }
 
@@ -189,5 +202,25 @@ impl World {
         } else {
             return BlockInstance::air();
         }
+    }
+
+    pub fn are_all_neighbors_ready(&self, cx: i32, cy: i32, cz: i32) -> bool {
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                for dz in -1..=1 {
+                    if dx == 0 && dy == 0 && dz == 0 {
+                        continue;
+                    }
+                    if let Some(data) = self.chunks.get(&(cx + dx, cy + dy, cz + dz)) {
+                        if data.state != ChunkState::Ready {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
     }
 }
