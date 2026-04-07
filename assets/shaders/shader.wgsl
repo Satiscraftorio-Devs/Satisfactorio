@@ -43,7 +43,20 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let tex_color = textureSample(t_diffuse, s_diffuse, in.uv, i32(in.tex_layer));
+    var tex_color: vec4<f32>;
+    
+    if (in.tex_layer != 4294967295) {
+        tex_color = textureSample(
+            t_diffuse,
+            s_diffuse,
+            in.uv,
+            u32(in.tex_layer)
+        );
+    }
+    else {
+        tex_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    }
+
     // AO: 0 = fully occluded (dark), 3 = fully lit (bright)
     let ambient = 0.25;
     let one_minus_ambient = 1.0 - ambient;

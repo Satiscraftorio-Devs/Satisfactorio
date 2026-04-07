@@ -79,4 +79,8 @@ impl RenderCamera {
     pub fn get_view_proj_raw(&self) -> [[f32; 4]; 4] {
         self.view_proj
     }
+
+    pub fn get_view_proj(&self) -> Matrix4<f32> {
+        self.view_proj.into()
+    }
 }

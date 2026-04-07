@@ -20,7 +20,7 @@ use crate::{
 };
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 1_000_000;
+const FPS_CAP: u32 = 60;
 const DT_CAP: f32 = 1.0 / (FPS_CAP as f32);
 
 pub struct GameState {

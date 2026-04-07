@@ -1,11 +1,15 @@
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, time::Instant, u32::MAX};
 
+use cgmath::{SquareMatrix, Vector3, Vector4};
 use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPipeline, TextureView};
 
 use crate::{
     common::geometry::vertex::Vertex,
-    engine::render::{camera::RenderCamera, text::TextRenderer, texture::{Texture, TextureArrayManager}},
+    engine::render::{camera::RenderCamera, mesh::chunk, text::TextRenderer, texture::{Texture, TextureArrayManager}}, game::world::chunk::{CHUNK_SIZE, CHUNK_SIZE_F},
 };
+
+const WIREFRAME: bool = false;
+const SHOW_CHUNK_BORDERS: bool = false;
 
 pub struct EngineFrameData {
     pub dt: f32,
@@ -65,6 +69,10 @@ pub struct Renderer {
     pub gizmo_buffer: Buffer,
 
     pub wireframe: bool,
+    pub show_chunk_borders: bool,
+
+    pub chunk_borders_vertices: Vec<Vertex>,
+    pub chunk_borders_buffer: Buffer,
 
     pub gpu_context: GpuContext,
     pub render_manager: RenderManager,
@@ -438,6 +446,9 @@ impl Renderer {
 
         dimensions: (u32, u32),
 
+        chunk_borders_vertices: Vec<Vertex>,
+        chunk_borders_buffer: Buffer,
+
         gpu_context: GpuContext,
         render_manager: RenderManager,
 
@@ -458,7 +469,11 @@ impl Renderer {
             gizmo_render_pipeline,
             gizmo_buffer,
 
-            wireframe: false,
+            wireframe: WIREFRAME,
+            show_chunk_borders: SHOW_CHUNK_BORDERS,
+
+            chunk_borders_vertices,
+            chunk_borders_buffer,
 
             gpu_context,
             render_manager,
@@ -480,6 +495,49 @@ impl Renderer {
         let queue = &self.gpu_context.queue;
 
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera.get_view_proj_raw()));
+        
+        // vp = projection * view
+        let inv_vp = camera.get_view_proj().invert().expect("VP matrix is not invertible");
+
+        // clip space du centre de l'écran
+        // z = 0 pour le near plane (wgpu utilise NDC z ∈ 0..1) 
+        // w = 1 pour homogène
+        let clip_pos = Vector4::new(0.0, 0.0, 0.0, 1.0);
+
+        // world position
+        let world_pos_h = inv_vp * clip_pos;
+        let world_pos = Vector3::new(
+            world_pos_h.x / world_pos_h.w,
+            world_pos_h.y / world_pos_h.w,
+            world_pos_h.z / world_pos_h.w,
+        );
+
+        let player_chunk_pos = [
+            (world_pos.x / CHUNK_SIZE_F).floor() as i32 * CHUNK_SIZE,
+            (world_pos.y / CHUNK_SIZE_F).floor() as i32 * CHUNK_SIZE,
+            (world_pos.z / CHUNK_SIZE_F).floor() as i32 * CHUNK_SIZE,
+        ];
+
+        println!("Chunk courant : {:?}", player_chunk_pos);
+
+        let debug_vertices: Vec<Vertex> = self.chunk_borders_vertices
+            .iter()
+            .map(|v| Vertex::new_with_rgb(
+                    v.position[0] + player_chunk_pos[0] as f32,
+                    v.position[1] + player_chunk_pos[1] as f32,
+                    v.position[2] + player_chunk_pos[2] as f32,
+                    v.color[0],
+                    v.color[1],
+                    v.color[2],
+                    MAX,
+                    3.0,
+                    0.0,
+                    0.0
+                ),
+            )
+            .collect();
+
+        queue.write_buffer(&self.chunk_borders_buffer, 0, bytemuck::cast_slice(&debug_vertices));
 
         let output = surface.get_current_texture().unwrap();
 
@@ -555,9 +613,17 @@ impl Renderer {
 
             println!("Actually drawn {} meshes, took {:.3}ms.", rendered_mesh_count, start.elapsed().as_millis());
 
-            render_pass.set_pipeline(&self.gizmo_render_pipeline);
-            render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
-            render_pass.draw(0..6, 0..1);
+            if self.wireframe || self.show_chunk_borders {
+                render_pass.set_pipeline(&self.gizmo_render_pipeline);
+                if self.wireframe {
+                    render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
+                    render_pass.draw(0..6, 0..1);
+                }
+                if self.show_chunk_borders {
+                    render_pass.set_vertex_buffer(0, self.chunk_borders_buffer.slice(..));
+                    render_pass.draw(0..self.chunk_borders_vertices.len() as u32, 0..1);
+                }
+            }
         }
 
         if let Some(text_renderer) = text_renderer {

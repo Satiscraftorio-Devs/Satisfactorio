@@ -8,8 +8,8 @@ pub const BASE_VERTEX_COLOR: [f32; 3] = [0.1, 0.7, 0.9];
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex {
-    position: [f32; 3],
-    color: [f32; 3],
+    pub position: [f32; 3],
+    pub color: [f32; 3],
     tex_layer: f32,
     ao: f32,
     u: f32,
