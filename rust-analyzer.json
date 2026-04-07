@@ -1,0 +1,12 @@
+{
+    "cargo": {
+        "buildScripts": {
+            "enable": true
+        }
+    },
+    "rustfmt": {
+        "rangeFormatting": {
+            "enable": true
+        }
+    }
+}
