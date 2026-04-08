@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3};
 use winit::keyboard::KeyCode;
 
-use crate::game::player::player::Player;
+use crate::{engine::render::camera::OPENGL_TO_WGPU_MATRIX, game::player::player::Player};
 
 #[derive(Clone)]
 pub struct Camera {
@@ -60,7 +60,7 @@ impl Camera {
     pub fn get_view_proj(&self) -> Matrix4<f32> {
         let view = Matrix4::look_at_rh(self.eye, self.target(), Vector3::unit_y());
         let proj = cgmath::perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
-        proj * view
+        OPENGL_TO_WGPU_MATRIX * proj * view
     }
 
     pub fn set_position(&mut self, position: cgmath::Point3<f32>) {

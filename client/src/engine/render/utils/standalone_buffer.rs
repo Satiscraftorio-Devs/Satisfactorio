@@ -1,7 +1,7 @@
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue};
 
-const BUFFER_CAPACITY_MARGIN: f32 = 1.25;
-const BUFFER_MIN_CAPACITY: u32 = 1024;
+const BUFFER_CAPACITY_MARGIN: f32 = 1.5;
+const BUFFER_MIN_CAPACITY: u32 = 4096;
 
 pub struct StandaloneBuffer {
     buffer: Buffer,

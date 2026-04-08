@@ -8,7 +8,7 @@ use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode};
 pub struct Vertex {
     pub position: [f32; 3],
     pub color: u32,
-    tex_layer: f32,
+    tex_layer: u32,
     ao: f32,
     u: f32,
     v: f32,
@@ -19,7 +19,7 @@ impl Vertex {
         return Vertex {
             position: [x, y, z],
             color: 16777215,
-            tex_layer: tex_layer as f32,
+            tex_layer: tex_layer,
             ao: ao,
             u,
             v,
@@ -30,7 +30,7 @@ impl Vertex {
         return Vertex {
             position: [x, y, z],
             color: (a as u32) << 24 | (r as u32) << 16 | (g as u32) << 8 | (b as u32),
-            tex_layer: tex_layer as f32,
+            tex_layer: tex_layer,
             ao: ao,
             u,
             v,
@@ -41,7 +41,7 @@ impl Vertex {
         return Vertex {
             position: [x, y, z],
             color: color,
-            tex_layer: tex_layer as f32,
+            tex_layer: tex_layer,
             ao: ao,
             u,
             v,
@@ -66,20 +66,20 @@ impl Vertex {
                 VertexAttribute {
                     offset: (size_of::<[f32; 3]>() + size_of::<u32>()) as BufferAddress,
                     shader_location: 2,
-                    format: wgpu::VertexFormat::Float32,
+                    format: wgpu::VertexFormat::Uint32,
                 },
                 VertexAttribute {
-                    offset: (size_of::<[f32; 3]>() + size_of::<u32>() + size_of::<f32>()) as BufferAddress,
+                    offset: (size_of::<[f32; 3]>() + size_of::<u32>() * 2) as BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32,
                 },
                 VertexAttribute {
-                    offset: (size_of::<[f32; 3]>() + size_of::<u32>() + size_of::<f32>() * 2) as BufferAddress,
+                    offset: (size_of::<[f32; 3]>() + size_of::<u32>() * 2 + size_of::<f32>()) as BufferAddress,
                     shader_location: 4,
                     format: wgpu::VertexFormat::Float32,
                 },
                 VertexAttribute {
-                    offset: (size_of::<[f32; 3]>() + size_of::<u32>() + size_of::<f32>() * 3) as BufferAddress,
+                    offset: (size_of::<[f32; 3]>() + size_of::<u32>() * 2 + size_of::<f32>() * 2) as BufferAddress,
                     shader_location: 5,
                     format: wgpu::VertexFormat::Float32,
                 },

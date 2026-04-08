@@ -8,7 +8,7 @@ var<uniform> camera: CameraUniform;
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) color: u32,
-    @location(2) tex_layer: f32,
+    @location(2) tex_layer: u32,
     @location(3) ao: f32,
     @location(4) u: f32,
     @location(5) v: f32,
@@ -18,8 +18,9 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) ao: f32,
-    @location(2) tex_layer: f32,
-    @location(3) uv: vec2<f32>,
+    @location(2) tex_layer: u32,
+    @location(3) u: f32,
+    @location(4) v: f32,
 }
 
 @vertex
@@ -36,7 +37,8 @@ fn vs_main(
     );
     out.ao = model.ao;
     out.tex_layer = model.tex_layer;
-    out.uv = vec2<f32>(model.u, model.v);
+    out.u = model.u;
+    out.v = model.v;
     return out;
 }
 
@@ -49,19 +51,14 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // return vec4<f32>(0.0, 0.0, 0.0, 1.0);
     var tex_color: vec4<f32>;
-    
-    if (in.tex_layer != 4294967295) {
-        tex_color = textureSample(
-            t_diffuse,
-            s_diffuse,
-            in.uv,
-            u32(in.tex_layer)
-        );
-    }
-    else {
-        tex_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
-    }
+    tex_color = textureSample(
+        t_diffuse,
+        s_diffuse,
+        vec2<f32>(in.u, in.v),
+        in.tex_layer
+    );
 
     // AO: 0 = fully occluded (dark), 3 = fully lit (bright)
     let ambient = 0.25;

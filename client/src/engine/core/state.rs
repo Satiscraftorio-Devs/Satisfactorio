@@ -46,7 +46,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: None,
-                required_features: wgpu::Features::POLYGON_MODE_LINE,
+                required_features: wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::CONSERVATIVE_RASTERIZATION,
                 experimental_features: wgpu::ExperimentalFeatures::disabled(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: Default::default(),
@@ -213,13 +213,13 @@ impl State {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState {
-                    constant: 1,
-                    slope_scale: 1.0,
+                    constant: 0,
+                    slope_scale: 0.0,
                     clamp: 0.0,
                 },
             }),
@@ -258,16 +258,16 @@ impl State {
                 cull_mode: Some(wgpu::Face::Back),
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
-                conservative: false,
+                conservative: true, // warning: conservative may NOT be supported. TODO: handle unsupported conservative rasterization
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState {
-                    constant: 1,
-                    slope_scale: 1.0,
+                    constant: 0,
+                    slope_scale: 0.0,
                     clamp: 0.0,
                 },
             }),
@@ -309,7 +309,7 @@ impl State {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
@@ -393,11 +393,11 @@ impl State {
         let depth_texture_desc = wgpu::TextureDescriptor {
             label: Some("Depth Texture"),
             size: depth_size,
-            view_formats: &[wgpu::TextureFormat::Depth24PlusStencil8],
+            view_formats: &[wgpu::TextureFormat::Depth32Float],
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth24PlusStencil8,
+            format: wgpu::TextureFormat::Depth32Float,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         };
 
@@ -472,11 +472,11 @@ impl State {
                 },
                 ..wgpu::TextureDescriptor {
                     label: Some("Depth Texture"),
-                    view_formats: &[wgpu::TextureFormat::Depth24PlusStencil8],
+                    view_formats: &[wgpu::TextureFormat::Depth32Float],
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Depth24PlusStencil8,
+                    format: wgpu::TextureFormat::Depth32Float,
                     usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
                     size: Default::default(),
                 }

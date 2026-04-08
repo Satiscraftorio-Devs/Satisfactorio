@@ -1,4 +1,4 @@
-use crate::{common::utils::parallel::Parallelizable, engine::render::mesh::mesh::{MeshData, MeshId}, game::{render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk}, world::{data::chunk::{CHUNK_SIZE, Chunk, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE}, world::MeshSnapshot}}};
+use crate::{common::utils::parallel::Parallelizable, engine::render::mesh::mesh::{MeshData, MeshId}, game::{render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk}, world::{data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F, Chunk, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE}, world::MeshSnapshot}}};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -24,6 +24,9 @@ pub struct ChunkMesh {
     pub id: Option<MeshId>,
     dirty: AtomicBool,
 }
+
+const GREEDY_MESH_MAX_FACE_WIDTH: usize = CHUNK_SIZE as usize;
+const GREEDY_MESH_MAX_FACE_HEIGHT: usize = CHUNK_SIZE as usize;
 
 impl ChunkMesh {
     pub fn new() -> ChunkMesh {
@@ -96,7 +99,11 @@ impl ChunkMesh {
     /// Makes the greedy mesh for a single axis, in both directions (+, -).
     /// Axis : 0 = X, 1 = Y, Z = 2
     pub fn make_greedy_axis(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32, axis: i32) {
-        let chunk_origin = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
+        let chunk_origin = Vector3::new(
+            (cx as f32) * CHUNK_SIZE_F,
+            (cy as f32) * CHUNK_SIZE_F,
+            (cz as f32) * CHUNK_SIZE_F
+        );
 
         // Local bases
         // D is the main axis (for axis = 0, it is X)
@@ -114,6 +121,10 @@ impl ChunkMesh {
         let e_u = Vector3::new(e_u[0], e_u[1], e_u[2]);
         let e_v = Vector3::new(e_v[0], e_v[1], e_v[2]);
 
+        let e_d_f = Vector3::new(e_d[0] as f32, e_d[1] as f32, e_d[2] as f32);
+        let e_u_f = Vector3::new(e_u[0] as f32, e_u[1] as f32, e_u[2] as f32);
+        let e_v_f = Vector3::new(e_v[0] as f32, e_v[1] as f32, e_v[2] as f32);
+
         let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] =
             [[FaceMask::empty(); CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
@@ -129,6 +140,8 @@ impl ChunkMesh {
 
         // D loop must occur CHUNK_SIZE + 1 times since for N blocs there are N + 1 possible faces (pointing out of the chunk and in between each block)
         for d in 0..=CHUNK_SIZE {
+            mask = [[FaceMask::empty(); CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
+            let d_f = d as f32;
             // MASKING + AO
             for u in 0..=LAST_CHUNK_AXIS_INDEX {
                 for v in 0..=LAST_CHUNK_AXIS_INDEX {
@@ -219,8 +232,8 @@ impl ChunkMesh {
                     let mut height = 1;
 
                     // Expansion in the U axis
-                    for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
+                    for u_2 in (u+1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        if width >= GREEDY_MESH_MAX_FACE_WIDTH || mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
                             break;
                         }
                         width += 1;
@@ -228,7 +241,10 @@ impl ChunkMesh {
                     }
 
                     // Expansion in the V axis
-                    'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                    'expand: for v_2 in (v+1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        if height >= GREEDY_MESH_MAX_FACE_HEIGHT {
+                            break;
+                        }
                         // For each time we increment in the V axis, we must verify that every block in the U axis is compatible.
                         for u_2 in u..(u + width) {
                             if mask[u_2][v_2].get_visited() || mask[u_2][v_2].data != face.data {
@@ -243,15 +259,15 @@ impl ChunkMesh {
                         }
                     }
 
-                    let u_i32 = u as i32;
-                    let v_i32 = v as i32;
-                    let w_i32 = width as i32;
-                    let h_i32 = height as i32;
+                    let u_f32 = u as f32;
+                    let v_f32 = v as f32;
+                    let w_f32 = width as f32;
+                    let h_f32 = height as f32;
 
-                    let block_pos = chunk_origin + e_v * v_i32 + e_u * u_i32 + e_d * d;
+                    let block_pos= chunk_origin + e_v_f * v_f32 + e_u_f * u_f32 + e_d_f * d_f;
 
-                    let e_u_w = e_u * w_i32;
-                    let e_v_h = e_v * h_i32;
+                    let e_u_w = e_u_f * w_f32;
+                    let e_v_h = e_v_f * h_f32;
                     let e_uv_wh = e_u_w + e_v_h;
 
                     let local_position_v0 = block_pos;
@@ -268,8 +284,8 @@ impl ChunkMesh {
 
                     let uv_u0 = 0.0;
                     let uv_v0 = 0.0;
-                    let uv_u1 = w_i32 as f32;
-                    let uv_v1 = h_i32 as f32;
+                    let uv_u1 = w_f32;
+                    let uv_v1 = h_f32;
 
                     let vertex_0 = Vertex::new(
                         local_position_v0[0] as f32,
@@ -309,7 +325,7 @@ impl ChunkMesh {
                     );
 
                     let reverse_faces = face.get_face().is_negative();
-                    
+
                     // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
                     if reverse_faces {
                         vertices.extend_from_slice(&[vertex_0, vertex_1, vertex_2, vertex_2, vertex_1, vertex_3]);
