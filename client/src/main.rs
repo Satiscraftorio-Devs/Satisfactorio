@@ -4,7 +4,7 @@ mod game;
 
 use winit::event_loop::EventLoop;
 
-use crate::{engine::core::application::App, game::state::game::GameState};
+use crate::{engine::core::application::App, game::game::GameState};
 
 fn main() {
     env_logger::init();

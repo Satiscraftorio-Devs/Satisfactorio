@@ -6,21 +6,16 @@ use crate::{
     common::geometry::plane::Plane,
     engine::{
         audio::GameAudioManager,
-        core::application::AppState,
-        render::{
-            camera::Camera,
-            mesh::world::WorldMesh,
-            render::{EngineFrameData, GameFrameData, RenderOptions, Renderer},
-        },
+        core::{application::AppState, frame::{EngineFrameData, GameFrameData}},
+        render::render::{RenderOptions, Renderer},
     },
     game::{
-        player::{camera::CameraController, player::Player},
-        world::{chunk::CHUNK_SIZE_F, world::World},
+        player::{camera::{Camera, CameraController}, player::Player}, render::meshing::world::WorldMesh, world::{data::chunk::CHUNK_SIZE_F, world::World}
     },
 };
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 60;
+const FPS_CAP: u32 = 100;
 const DT_CAP: f32 = 1.0 / (FPS_CAP as f32);
 
 pub struct GameState {

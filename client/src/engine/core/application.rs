@@ -4,8 +4,9 @@ use winit::event_loop::ActiveEventLoop;
 use winit::{application::ApplicationHandler, keyboard::KeyCode, keyboard::PhysicalKey};
 
 use crate::engine::audio::GameAudioManager;
+use crate::engine::core::frame::{EngineFrameData, GameFrameData};
 use crate::engine::core::state::State;
-use crate::engine::render::render::{EngineFrameData, GameFrameData, RenderOptions, Renderer};
+use crate::engine::render::render::{RenderOptions, Renderer};
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 
@@ -37,7 +38,6 @@ impl<S: AppState> App<S> {
 
 impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        println!("resumed");
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         self.engine_state = Some(pollster::block_on(State::new(window, &self.app_state)).unwrap());
@@ -49,7 +49,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _: AppEvent) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: AppEvent) {
         println!("EVENT RECEIVED");
     }
 
@@ -128,10 +128,16 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
                 if code == KeyCode::Escape && key_state.is_pressed() {
                     event_loop.exit();
                     std::process::exit(0); // Brutal, à changer quand on aura fait l'asynchrone sur le greedy meshing
-                } else if code == KeyCode::Digit1 && key_state.is_pressed() {
+                }
+                else if code == KeyCode::Digit1 && key_state.is_pressed() {
                     state.renderer.wireframe = !state.renderer.wireframe;
                     state.window.request_redraw();
-                } else {
+                }
+                else if code == KeyCode::Digit2 && key_state.is_pressed() {
+                    state.renderer.show_chunk_borders = !state.renderer.show_chunk_borders;
+                    state.window.request_redraw();
+                }
+                else {
                     self.app_state.on_key(code, key_state.is_pressed());
                 }
             }

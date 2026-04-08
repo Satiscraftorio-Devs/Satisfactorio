@@ -1,5 +1,4 @@
-pub mod block;
-pub mod chunk;
-pub mod chunk_generator;
-pub mod padded_chunk;
+pub mod data;
+pub mod generation;
+
 pub mod world;

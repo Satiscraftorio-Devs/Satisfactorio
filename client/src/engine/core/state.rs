@@ -3,11 +3,13 @@ use std::u32::MAX;
 
 use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
+use crate::engine::core::frame::{EngineFrameData, GameFrameData};
 use crate::engine::render::camera::RenderCamera;
-use crate::engine::render::render::{EngineFrameData, GameFrameData, GpuContext, RenderManager, RenderOptions, Renderer};
+use crate::engine::render::mesh::manager::RenderManager;
+use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
-use crate::game::world::chunk::CHUNK_SIZE_F;
+use crate::game::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
@@ -183,7 +185,7 @@ impl State {
         });
 
         let wireframe_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Wireframe Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -231,7 +233,7 @@ impl State {
         });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Normal Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -279,7 +281,7 @@ impl State {
         });
 
         let gizmo_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Gizmo Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -323,12 +325,12 @@ impl State {
         });
 
         let gizmo = [
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 1.0, 0.0, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(1.0, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 1.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 1.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
         ];
 
         let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -338,32 +340,32 @@ impl State {
         });
 
         let chunk_borders =vec![
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, CHUNK_SIZE_F, 0.0, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 0.0, CHUNK_SIZE_F, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, 0.0, 0.0, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 1.0, 0.0, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
             
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, 0.0, 0.0, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 0.0, CHUNK_SIZE_F, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, CHUNK_SIZE_F, 0.0, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 1.0, 0.0, 0.0, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
             
-            Vertex::new_with_rgb(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, 0.0, CHUNK_SIZE_F, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, 0.0, 0.0, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, CHUNK_SIZE_F, 0.0, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgb(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0.0, 1.0, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
         ];
 
         let chunk_borders_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

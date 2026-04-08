@@ -5,13 +5,9 @@ use std::{
 
 use crate::{
     common::utils::parallel::{WorkResult, WorkerPool},
-    engine::render::{
-        mesh::chunk::{ChunkMesh, GreedyMeshingProcessor},
-        render::Renderer,
-    },
+    engine::render::render::Renderer,
     game::{
-        player::player::Player,
-        world::{chunk::ChunkState, world::World},
+        player::player::Player, render::meshing::chunk::{ChunkMesh, GreedyMeshingProcessor}, world::world::World
     },
 };
 

@@ -5,7 +5,7 @@ const BLOCK_ID_SHIFT: u64 = 31;
 const BLOCK_ID_MASK: u64 = 0xFFFF_FFFF;
 const FACE_MASK: u64 = 0b111;
 const AO_SHIFT: u64 = 23;
-const AO_MASK: u64 = 0xFF; // 8 bits
+const AO_MASK: u64 = 0xFF;
 
 #[derive(Clone, Copy)]
 pub struct FaceMask {
@@ -27,10 +27,6 @@ impl FaceMask {
         mask.set_face(face);
         mask.set_ao(ao);
         mask
-    }
-
-    pub fn to(&self) -> (bool, u32, Direction, u8) {
-        (self.get_visited(), self.get_block_id(), self.get_face(), self.get_ao())
     }
 
     #[inline(always)]
@@ -71,27 +67,5 @@ impl FaceMask {
     #[inline(always)]
     pub fn get_ao(self) -> u8 {
         ((self.data >> AO_SHIFT) & AO_MASK) as u8
-    }
-
-    #[inline(always)]
-    pub fn get_ao_corner(self, corner: u8) -> u8 {
-        let ao = self.get_ao();
-        (ao >> (corner * 2)) & 0b11
-    }
-
-    #[inline(always)]
-    pub fn set_ao_corner(&mut self, corner: u8, value: u8) {
-        let shift = corner * 2;
-        let mut ao = self.get_ao();
-
-        ao &= !(0b11 << shift);
-        ao |= (value & 0b11) << shift;
-
-        self.set_ao(ao);
-    }
-
-    #[inline(always)]
-    pub fn can_merge_with(&self, other: &FaceMask) -> bool {
-        self.get_block_id() == other.get_block_id() && self.get_face() == other.get_face()
     }
 }

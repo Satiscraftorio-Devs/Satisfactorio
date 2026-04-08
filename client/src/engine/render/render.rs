@@ -1,42 +1,15 @@
-use std::{collections::HashMap, time::Instant, u32::MAX};
+use std::{time::Instant, u32::MAX};
 
 use cgmath::{SquareMatrix, Vector3, Vector4};
-use wgpu::{wgt::BufferDescriptor, BindGroup, Buffer, BufferUsages, Device, IndexFormat, Queue, RenderPipeline, TextureView};
+use wgpu::{BindGroup, Buffer, RenderPipeline, TextureView};
 
 use crate::{
     common::geometry::vertex::Vertex,
-    engine::render::{camera::RenderCamera, mesh::chunk, text::TextRenderer, texture::{Texture, TextureArrayManager}}, game::world::chunk::{CHUNK_SIZE, CHUNK_SIZE_F},
+    engine::render::{camera::RenderCamera, mesh::manager::RenderManager, text::TextRenderer, texture::TextureArrayManager}, game::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F},
 };
 
 const WIREFRAME: bool = false;
 const SHOW_CHUNK_BORDERS: bool = false;
-
-pub struct EngineFrameData {
-    pub dt: f32,
-    pub fps: u32,
-    pub fps_timer: f32,
-    pub last_frame: Instant,
-    pub frame_count: u32,
-}
-
-pub struct GameFrameData {
-    pub camera: RenderCamera,
-    pub visible_meshes: Vec<MeshId>,
-}
-
-impl GameFrameData {
-    pub fn blank() -> Self {
-        Self {
-            camera: RenderCamera::new(),
-            visible_meshes: vec![],
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.camera = RenderCamera::new();
-        self.visible_meshes.clear();
-    }
-}
 
 pub struct RenderOptions {
     pub aspect: f32,
@@ -83,350 +56,11 @@ pub struct Renderer {
     pub depth_view: TextureView,
 }
 
-impl EngineFrameData {
-    pub fn new() -> Self {
-        Self {
-            dt: 0.0,
-            fps: 0,
-            fps_timer: 0.0,
-            last_frame: Instant::now(),
-            frame_count: 0,
-        }
-    }
-}
-
 pub struct GpuContext {
     pub surface: wgpu::Surface<'static>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
-}
-
-pub struct BufferData {
-    data: Buffer,
-    length: u32,
-    capacity: u32,
-    format: Option<IndexFormat>,
-}
-
-impl BufferData {
-    pub fn new(data: Buffer, length: u32, capacity: u32, format: Option<IndexFormat>) -> Self {
-        Self {
-            data,
-            length,
-            capacity,
-            format,
-        }
-    }
-}
-
-pub struct Mesh {
-    vertices: BufferData,
-    indices: Option<BufferData>,
-}
-
-pub struct MeshData {
-    vertices: (Vec<Vertex>, u32),
-    indices: Option<(Vec<u32>, IndexFormat, u32)>,
-}
-
-impl MeshData {
-    pub fn new(vertices: Vec<Vertex>, indices: Option<Vec<u32>>) -> Self {
-        let vertices = {
-            let len = vertices.len() as u32;
-            (vertices, len)
-        };
-        let indices = if let Some(indices) = indices {
-            let len = indices.len() as u32;
-            Some((indices, IndexFormat::Uint32, len))
-        } else {
-            None
-        };
-
-        Self { vertices, indices }
-    }
-
-    pub fn get_vertex_data(&self) -> &Vec<Vertex> {
-        return &self.vertices.0;
-    }
-
-    pub fn get_vertex_count(&self) -> u32 {
-        return self.vertices.1;
-    }
-
-    pub fn has_index_data(&self) -> bool {
-        return self.indices.is_some();
-    }
-
-    pub fn get_index_data(&self) -> &Vec<u32> {
-        return &self
-            .indices
-            .as_ref()
-            .expect("Error:\ntry to get index data of a mesh data but its value is None.\nMaybe the mesh data is not indexed?")
-            .0;
-    }
-
-    pub fn get_index_format(&self) -> IndexFormat {
-        return self
-            .indices
-            .as_ref()
-            .expect(
-                "Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh data is not indexed?",
-            )
-            .1;
-    }
-
-    pub fn get_index_count(&self) -> u32 {
-        return self
-            .indices
-            .as_ref()
-            .expect("Error:\ntry to get index count of a mesh data but its value is None.\nMaybe the mesh data is not indexed?")
-            .2;
-    }
-}
-
-pub type MeshId = u32;
-
-pub struct RenderManager {
-    meshes: HashMap<MeshId, Mesh>,
-    mesh_pool: Vec<Mesh>,
-    id_pool: Vec<MeshId>,
-    max_id: MeshId,
-    ids_to_render: Vec<MeshId>,
-}
-
-impl RenderManager {
-    pub fn new() -> Self {
-        Self {
-            meshes: HashMap::new(),
-            mesh_pool: vec![],
-            id_pool: vec![],
-            max_id: 0,
-            ids_to_render: vec![],
-        }
-    }
-
-    fn get_next_id(&mut self) -> MeshId {
-        if let Some(id) = self.id_pool.pop() {
-            return id;
-        }
-
-        if self.max_id == 0 {
-            self.max_id += 1;
-            return 0;
-        } else {
-            self.max_id += 1;
-            return self.max_id - 1;
-        }
-    }
-
-    pub fn allocate_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData) -> MeshId {
-        let id = self.get_next_id();
-
-        let mesh = {
-            if let Some(mut mesh) = self.mesh_pool.pop() {
-                mesh.update(device, queue, data);
-                mesh
-            } else {
-                Mesh::new(device, queue, data)
-            }
-        };
-        self.meshes.insert(id, mesh);
-
-        println!("Affected mesh with id: {} mesh count: {}", id, self.meshes.len());
-
-        id
-    }
-
-    pub fn update_mesh(&mut self, device: &Device, queue: &Queue, data: MeshData, id: MeshId) -> bool {
-        if let Some(mesh) = self.meshes.get_mut(&id) {
-            mesh.update(device, queue, data);
-            return true;
-        }
-        return false;
-    }
-
-    pub fn release_mesh(&mut self, id: MeshId) {
-        if let Some(mesh) = self.meshes.remove(&id) {
-            self.mesh_pool.push(mesh);
-            self.id_pool.push(id);
-        }
-    }
-
-    pub fn mark_mesh_for_rendering(&mut self, id: MeshId) {
-        if self.meshes.contains_key(&id) {
-            self.ids_to_render.push(id);
-        }
-    }
-
-    pub fn get_meshes_to_render(&self) -> Vec<&Mesh> {
-        self.ids_to_render.iter().filter_map(|id| self.meshes.get(id)).collect()
-    }
-
-    pub fn clear_render_queue(&mut self) {
-        self.ids_to_render.clear();
-    }
-}
-
-const MESH_BUFFER_CAPACITY_MARGIN: f32 = 1.25;
-
-impl Mesh {
-    pub fn new(device: &Device, queue: &Queue, data: MeshData) -> Self {
-        let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
-        let vertex_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Vertex buffer"),
-            size: vertex_buffer_capacity as u64 * std::mem::size_of::<Vertex>() as u64,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(data.get_vertex_data()));
-        let vertex_buffer_data = BufferData::new(vertex_buffer, data.get_vertex_count(), vertex_buffer_capacity, None);
-
-        let mut index_buffer_data: Option<BufferData> = None;
-
-        if data.has_index_data() {
-            let index_buffer_capacity = ((data.get_index_count() as f32) * MESH_BUFFER_CAPACITY_MARGIN) as u32;
-            let index_buffer = device.create_buffer(&BufferDescriptor {
-                label: Some("Index buffer"),
-                size: index_buffer_capacity as u64 * std::mem::size_of::<u32>() as u64,
-                usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&data.get_index_data()));
-            index_buffer_data = Some(BufferData::new(
-                index_buffer,
-                data.get_index_count(),
-                index_buffer_capacity,
-                Some(data.get_index_format()),
-            ));
-        }
-
-        Self {
-            vertices: vertex_buffer_data,
-            indices: index_buffer_data,
-        }
-    }
-
-    pub fn get_vertex_buffer(&self) -> &Buffer {
-        return &self.vertices.data;
-    }
-
-    pub fn get_vertex_count(&self) -> u32 {
-        return self.vertices.length;
-    }
-
-    pub fn get_vertex_capacity(&self) -> u32 {
-        return self.vertices.capacity;
-    }
-
-    pub fn set_vertex_count(&mut self, count: u32) {
-        self.vertices.length = count;
-    }
-
-    pub fn set_vertex_capacity(&mut self, capacity: u32) {
-        self.vertices.capacity = capacity;
-    }
-
-    pub fn has_index_buffer(&self) -> bool {
-        return self.indices.is_some();
-    }
-
-    pub fn get_index_buffer(&self) -> &Buffer {
-        return &self
-            .indices
-            .as_ref()
-            .expect("Error:\ntry to get index buffer of a mesh but its value is None.\nMaybe the mesh is not indexed?")
-            .data;
-    }
-
-    pub fn get_index_format(&self) -> IndexFormat {
-        return self.indices.as_ref().expect("Error:\ntry to get index format of a mesh's index buffer but the buffer's value is None.\nMaybe the mesh is not indexed?").format.expect("Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the index buffer is not correctly configured?");
-    }
-
-    pub fn get_index_count(&self) -> u32 {
-        return self
-            .indices
-            .as_ref()
-            .expect("Error:\ntry to get index count of a mesh but its value is None.\nMaybe the mesh is not indexed?")
-            .length;
-    }
-
-    pub fn get_index_capacity(&self) -> u32 {
-        return self
-            .indices
-            .as_ref()
-            .expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?")
-            .capacity;
-    }
-
-    pub fn set_index_count(&mut self, count: u32) {
-        if self.indices.is_none() {
-            return;
-        }
-        self.indices.as_mut().unwrap().length = count;
-    }
-
-    pub fn set_index_capacity(&mut self, capacity: u32) {
-        if self.indices.is_none() {
-            return;
-        }
-        self.indices.as_mut().unwrap().capacity = capacity;
-    }
-
-    pub fn update(&mut self, device: &Device, queue: &Queue, data: MeshData) {
-        if self.get_vertex_capacity() >= data.get_vertex_count() {
-            queue.write_buffer(self.get_vertex_buffer(), 0, bytemuck::cast_slice(data.get_vertex_data()));
-            self.set_vertex_count(data.get_vertex_count());
-        } else {
-            self.get_vertex_buffer().destroy();
-
-            let vertex_buffer_capacity = (data.get_vertex_data().len() as f32 * MESH_BUFFER_CAPACITY_MARGIN) as u32;
-
-            let vertex_buffer = device.create_buffer(&BufferDescriptor {
-                label: Some("Vertex buffer"),
-                size: vertex_buffer_capacity as u64 * std::mem::size_of::<Vertex>() as u64,
-                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(data.get_vertex_data()));
-
-            self.set_vertex_capacity(vertex_buffer_capacity);
-            self.set_vertex_count(data.get_vertex_count());
-
-            self.vertices = BufferData::new(vertex_buffer, data.get_vertex_count(), vertex_buffer_capacity, None);
-        }
-
-        if data.has_index_data() {
-            if self.get_index_capacity() >= data.get_index_count() {
-                queue.write_buffer(self.get_index_buffer(), 0, bytemuck::cast_slice(data.get_index_data()));
-                self.set_index_count(data.get_index_count());
-            } else {
-                self.get_index_buffer().destroy();
-
-                let indices = data.get_index_data();
-                let index_format = data.get_index_format();
-                let index_buffer_capacity = ((data.get_index_count() as f32) * MESH_BUFFER_CAPACITY_MARGIN) as u32;
-
-                let index_buffer = device.create_buffer(&BufferDescriptor {
-                    label: Some("Index buffer"),
-                    size: index_buffer_capacity as u64 * std::mem::size_of::<u32>() as u64,
-                    usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-                    mapped_at_creation: false,
-                });
-                queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(&indices));
-
-                self.set_index_capacity(index_buffer_capacity);
-                self.set_index_count(data.get_index_count());
-
-                self.indices = Some(BufferData::new(
-                    index_buffer,
-                    data.get_index_count(),
-                    index_buffer_capacity,
-                    Some(index_format),
-                ));
-            }
-        }
-    }
 }
 
 impl Renderer {
@@ -518,17 +152,13 @@ impl Renderer {
             (world_pos.z / CHUNK_SIZE_F).floor() as i32 * CHUNK_SIZE,
         ];
 
-        println!("Chunk courant : {:?}", player_chunk_pos);
-
         let debug_vertices: Vec<Vertex> = self.chunk_borders_vertices
             .iter()
-            .map(|v| Vertex::new_with_rgb(
+            .map(|v| Vertex::new_with_color(
                     v.position[0] + player_chunk_pos[0] as f32,
                     v.position[1] + player_chunk_pos[1] as f32,
                     v.position[2] + player_chunk_pos[2] as f32,
-                    v.color[0],
-                    v.color[1],
-                    v.color[2],
+                    v.color,
                     MAX,
                     3.0,
                     0.0,
@@ -589,15 +219,15 @@ impl Renderer {
 
             let meshes = self.render_manager.get_meshes_to_render();
 
-            let mut rendered_mesh_count = meshes.len();
+            let mut _rendered_mesh_count = meshes.len();
 
-            println!("Rendering {} meshes", meshes.len());
+            // println!("Rendering {} meshes", meshes.len());
 
-            let start = Instant::now();
+            let _start = Instant::now();
 
             for mesh in meshes {
                 if mesh.get_vertex_count() == 0 || mesh.get_vertex_capacity() == 0 {
-                    rendered_mesh_count -= 1;
+                    _rendered_mesh_count -= 1;
                     continue;
                 }
 
@@ -611,7 +241,7 @@ impl Renderer {
                 }
             }
 
-            println!("Actually drawn {} meshes, took {:.3}ms.", rendered_mesh_count, start.elapsed().as_millis());
+            // println!("Actually drawn {} meshes, took {:.3}ms.", rendered_mesh_count, start.elapsed().as_millis());
 
             if self.wireframe || self.show_chunk_borders {
                 render_pass.set_pipeline(&self.gizmo_render_pipeline);

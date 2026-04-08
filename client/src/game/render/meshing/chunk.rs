@@ -1,4 +1,4 @@
-use crate::{common::utils::parallel::Parallelizable, game::world::world::MeshSnapshot};
+use crate::{common::utils::parallel::Parallelizable, engine::render::mesh::mesh::{MeshData, MeshId}, game::{render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk}, world::{data::chunk::{CHUNK_SIZE, Chunk, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE}, world::MeshSnapshot}}};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -9,12 +9,7 @@ use cgmath::Vector3;
 use crate::{
     common::geometry::{direction::Direction, vertex::Vertex},
     engine::render::{
-        mesh::face_mask::FaceMask,
-        render::{MeshData, MeshId, Renderer},
-    },
-    game::world::{
-        chunk::{Chunk, CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE},
-        padded_chunk::PaddedChunk,
+        render::{Renderer},
     },
 };
 
@@ -101,12 +96,6 @@ impl ChunkMesh {
     /// Makes the greedy mesh for a single axis, in both directions (+, -).
     /// Axis : 0 = X, 1 = Y, Z = 2
     pub fn make_greedy_axis(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32, axis: i32) {
-        // if axis != 1 {
-        //     return;
-        // }
-
-        let _base = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
-
         let chunk_origin = Vector3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, cz * CHUNK_SIZE);
 
         // Local bases
@@ -277,7 +266,6 @@ impl ChunkMesh {
 
                     let texture_index = face.get_block_id();
 
-                    // UVs normalized to 0-1 range for proper texture sampling
                     let uv_u0 = 0.0;
                     let uv_v0 = 0.0;
                     let uv_u1 = w_i32 as f32;
@@ -320,12 +308,13 @@ impl ChunkMesh {
                         uv_v1,
                     );
 
-                    // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
                     let reverse_faces = face.get_face().is_negative();
-
+                    
+                    // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
                     if reverse_faces {
                         vertices.extend_from_slice(&[vertex_0, vertex_1, vertex_2, vertex_2, vertex_1, vertex_3]);
-                    } else {
+                    }
+                    else {
                         vertices.extend_from_slice(&[vertex_1, vertex_0, vertex_3, vertex_3, vertex_0, vertex_2]);
                     }
 
@@ -341,6 +330,8 @@ impl ChunkMesh {
     /// Limit usage to necessary.
     pub fn make_greedy(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) {
         self.dirty.store(false, Ordering::Relaxed);
+
+        // println!("Chunk - {} vertices, {} bytes", vertices.len(), vertices.len() * std::mem::size_of::<Vertex>());
 
         if let Some(mesh_id) = self.id {
             renderer.render_manager.update_mesh(

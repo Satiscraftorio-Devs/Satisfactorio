@@ -7,15 +7,16 @@ var<uniform> camera: CameraUniform;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) color: vec3<f32>,
+    @location(1) color: u32,
     @location(2) tex_layer: f32,
     @location(3) ao: f32,
-    @location(4) uv: vec2<f32>,
+    @location(4) u: f32,
+    @location(5) v: f32,
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec3<f32>,
+    @location(0) color: vec4<f32>,
     @location(1) ao: f32,
     @location(2) tex_layer: f32,
     @location(3) uv: vec2<f32>,
@@ -27,10 +28,15 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
-    out.color = model.color;
+    out.color = vec4<f32>(
+        f32(model.color >> 24) / 255.0,
+        f32((model.color >> 16) & 0xFFu) / 255.0,
+        f32((model.color >> 8) & 0xFFu) / 255.0,
+        f32(model.color & 0xFFu) / 255.0,
+    );
     out.ao = model.ao;
     out.tex_layer = model.tex_layer;
-    out.uv = model.uv;
+    out.uv = vec2<f32>(model.u, model.v);
     return out;
 }
 
@@ -65,6 +71,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         tex_color.r * in.color[0] * ao,
         tex_color.g * in.color[1] * ao,
         tex_color.b * in.color[2] * ao,
-        tex_color.a
+        tex_color.a * in.color[3],
     );
 }

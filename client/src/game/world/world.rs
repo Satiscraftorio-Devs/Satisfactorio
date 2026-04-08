@@ -1,17 +1,11 @@
-use crate::game::world::{chunk::ChunkState, chunk_generator::ChunkGenerator};
 use noise::{Perlin, Seedable};
 use rand::prelude::*;
-use rayon::iter::ParallelIterator;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use crate::{
-    engine::render::{mesh::world::WorldMesh, render::RenderManager},
+    engine::render::mesh::manager::RenderManager,
     game::{
-        player::player::Player,
-        world::{
-            block::BlockInstance,
-            chunk::{Chunk, ChunkData, CHUNK_SIZE},
-        },
+        player::player::Player, render::meshing::world::WorldMesh, world::{data::{block::BlockInstance, chunk::{CHUNK_SIZE, Chunk, ChunkData, ChunkState}}, generation::chunk::ChunkGenerator}
     },
 };
 

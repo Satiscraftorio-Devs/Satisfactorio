@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use crate::game::world::{
-    block::BlockInstance,
-    chunk::{Chunk, CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX},
-    world::{MeshSnapshot, World},
+    data::{block::BlockInstance, chunk::{CHUNK_SIZE, Chunk, LAST_CHUNK_AXIS_INDEX}}, world::{MeshSnapshot, World}
 };
 
 pub const PADDED_CHUNK_SIZE: i32 = CHUNK_SIZE + 2;
