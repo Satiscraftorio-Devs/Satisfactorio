@@ -9,6 +9,10 @@ name = "server"
 path = "src/main.rs"
 
 
+[features]
+default = ["server"]
+server = []
+
 [dependencies]
 noise = "0.9.0"
 rayon = "1.11.0"
@@ -17,14 +21,12 @@ cgmath = "0.18.0"
 # Réseau
 shared = { path = "../shared" }
 quinn = "0.11"
-tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "io-util"] }
 serde = { workspace = true }
 bincode = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-
-[profile.release]
-opt-level = 3
-lto = true
+anyhow = "1.0.102"
+rcgen = "0.14.7"
+rustls = { workspace = true }

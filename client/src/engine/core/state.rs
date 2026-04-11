@@ -9,7 +9,7 @@ use crate::engine::render::mesh::manager::RenderManager;
 use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
-use crate::game::world::data::chunk::CHUNK_SIZE_F;
+use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
@@ -339,7 +339,7 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let chunk_borders =vec![
+        let chunk_borders = vec![
             Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
@@ -348,7 +348,6 @@ impl State {
             Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
-            
             Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
@@ -357,7 +356,6 @@ impl State {
             Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
-            
             Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),

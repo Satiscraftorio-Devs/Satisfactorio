@@ -1,14 +1,15 @@
+use crate::{
+    engine::render::render::Renderer,
+    game::{
+        player::player::Player,
+        render::meshing::chunk::{ChunkMesh, GreedyMeshingProcessor},
+        world::world::World,
+    },
+};
+use shared::parallel::{WorkResult, WorkerPool};
 use std::{
     collections::{HashMap, HashSet},
     time::Instant,
-};
-
-use crate::{
-    common::utils::parallel::{WorkResult, WorkerPool},
-    engine::render::render::Renderer,
-    game::{
-        player::player::Player, render::meshing::chunk::{ChunkMesh, GreedyMeshingProcessor}, world::world::World
-    },
 };
 
 pub struct WorldMesh {

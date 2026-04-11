@@ -1,16 +1,21 @@
-use crate::{common::utils::parallel::Parallelizable, engine::render::mesh::mesh::{MeshData, MeshId}, game::{render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk}, world::{data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F, Chunk, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE}, world::MeshSnapshot}}};
+use crate::{
+    engine::render::mesh::mesh::{MeshData, MeshId},
+    game::{
+        render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk},
+        world::world::MeshSnapshot,
+    },
+};
+use cgmath::Vector3;
+use shared::parallel::Parallelizable;
+use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 
-use cgmath::Vector3;
-
 use crate::{
     common::geometry::{direction::Direction, vertex::Vertex},
-    engine::render::{
-        render::{Renderer},
-    },
+    engine::render::render::Renderer,
 };
 
 enum Corner {
@@ -99,11 +104,7 @@ impl ChunkMesh {
     /// Makes the greedy mesh for a single axis, in both directions (+, -).
     /// Axis : 0 = X, 1 = Y, Z = 2
     pub fn make_greedy_axis(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32, axis: i32) {
-        let chunk_origin = Vector3::new(
-            (cx as f32) * CHUNK_SIZE_F,
-            (cy as f32) * CHUNK_SIZE_F,
-            (cz as f32) * CHUNK_SIZE_F
-        );
+        let chunk_origin = Vector3::new((cx as f32) * CHUNK_SIZE_F, (cy as f32) * CHUNK_SIZE_F, (cz as f32) * CHUNK_SIZE_F);
 
         // Local bases
         // D is the main axis (for axis = 0, it is X)
@@ -232,7 +233,7 @@ impl ChunkMesh {
                     let mut height = 1;
 
                     // Expansion in the U axis
-                    for u_2 in (u+1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                    for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
                         if width >= GREEDY_MESH_MAX_FACE_WIDTH || mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
                             break;
                         }
@@ -241,7 +242,7 @@ impl ChunkMesh {
                     }
 
                     // Expansion in the V axis
-                    'expand: for v_2 in (v+1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                    'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
                         if height >= GREEDY_MESH_MAX_FACE_HEIGHT {
                             break;
                         }
@@ -264,7 +265,7 @@ impl ChunkMesh {
                     let w_f32 = width as f32;
                     let h_f32 = height as f32;
 
-                    let block_pos= chunk_origin + e_v_f * v_f32 + e_u_f * u_f32 + e_d_f * d_f;
+                    let block_pos = chunk_origin + e_v_f * v_f32 + e_u_f * u_f32 + e_d_f * d_f;
 
                     let e_u_w = e_u_f * w_f32;
                     let e_v_h = e_v_f * h_f32;
@@ -329,8 +330,7 @@ impl ChunkMesh {
                     // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
                     if reverse_faces {
                         vertices.extend_from_slice(&[vertex_0, vertex_1, vertex_2, vertex_2, vertex_1, vertex_3]);
-                    }
-                    else {
+                    } else {
                         vertices.extend_from_slice(&[vertex_1, vertex_0, vertex_3, vertex_3, vertex_0, vertex_2]);
                     }
 

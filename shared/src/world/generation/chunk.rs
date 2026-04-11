@@ -1,6 +1,6 @@
-use crate::common::utils::parallel::{Parallelizable, WorkResult, WorkerPool};
-use crate::game::world::data::block::{BlockInstance, BlockType};
-use crate::game::world::data::chunk::{CHUNK_BLOCK_NUMBER, CHUNK_SIZE, Chunk, ChunkData};
+use crate::parallel::{Parallelizable, WorkResult, WorkerPool};
+use crate::world::data::block::{BlockInstance, BlockType};
+use crate::world::data::chunk::{Chunk, ChunkData, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
 use noise::{NoiseFn, Perlin};
 
 pub struct ChunkGen;
@@ -69,11 +69,9 @@ impl Chunk {
                     if wy < terrain_y {
                         let block_id = if wy == terrain_y - 1 {
                             BlockType::Grass as u32
-                        }
-                        else if wy < terrain_y - 4 {
+                        } else if wy < terrain_y - 4 {
                             BlockType::Stone as u32
-                        }
-                        else {
+                        } else {
                             BlockType::Dirt as u32
                         };
                         chunk.set_block_from_xyz(x, y, z, BlockInstance::new(block_id));

@@ -30,7 +30,7 @@ impl RenderManager {
 
         let id = self.next_id;
         self.next_id += 1;
-        
+
         id
     }
 
@@ -41,8 +41,7 @@ impl RenderManager {
             if let Some(mut mesh) = self.mesh_pool.pop() {
                 mesh.update(device, queue, data);
                 mesh
-            }
-            else {
+            } else {
                 Mesh::new(device, queue, data)
             }
         };

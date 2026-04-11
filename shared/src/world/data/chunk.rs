@@ -1,4 +1,4 @@
-use crate::game::world::data::block::BlockInstance;
+use crate::world::data::block::BlockInstance;
 
 pub const CHUNK_SIZE: i32 = 16;
 pub const CHUNK_SIZE_F: f32 = CHUNK_SIZE as f32;

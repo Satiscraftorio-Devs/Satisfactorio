@@ -5,8 +5,9 @@ use wgpu::{BindGroup, Buffer, RenderPipeline, TextureView};
 
 use crate::{
     common::geometry::vertex::Vertex,
-    engine::render::{camera::RenderCamera, mesh::manager::RenderManager, text::TextRenderer, texture::TextureArrayManager}, game::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F},
+    engine::render::{camera::RenderCamera, mesh::manager::RenderManager, text::TextRenderer, texture::TextureArrayManager},
 };
+use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 
 const WIREFRAME: bool = false;
 const SHOW_CHUNK_BORDERS: bool = false;
@@ -19,11 +20,7 @@ pub struct RenderOptions {
 
 impl RenderOptions {
     pub fn new(aspect: f32, znear: f32, zfar: f32) -> Self {
-        Self {
-            aspect,
-            znear,
-            zfar
-        }
+        Self { aspect, znear, zfar }
     }
 }
 
@@ -129,12 +126,12 @@ impl Renderer {
         let queue = &self.gpu_context.queue;
 
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera.get_view_proj_raw()));
-        
+
         // vp = projection * view
         let inv_vp = camera.get_view_proj().invert().expect("VP matrix is not invertible");
 
         // clip space du centre de l'écran
-        // z = 0 pour le near plane (wgpu utilise NDC z ∈ 0..1) 
+        // z = 0 pour le near plane (wgpu utilise NDC z ∈ 0..1)
         // w = 1 pour homogène
         let clip_pos = Vector4::new(0.0, 0.0, 0.0, 1.0);
 
@@ -152,9 +149,11 @@ impl Renderer {
             (world_pos.z / CHUNK_SIZE_F).floor() as i32 * CHUNK_SIZE,
         ];
 
-        let debug_vertices: Vec<Vertex> = self.chunk_borders_vertices
+        let debug_vertices: Vec<Vertex> = self
+            .chunk_borders_vertices
             .iter()
-            .map(|v| Vertex::new_with_color(
+            .map(|v| {
+                Vertex::new_with_color(
                     v.position[0] + player_chunk_pos[0] as f32,
                     v.position[1] + player_chunk_pos[1] as f32,
                     v.position[2] + player_chunk_pos[2] as f32,
@@ -162,9 +161,9 @@ impl Renderer {
                     MAX,
                     3.0,
                     0.0,
-                    0.0
-                ),
-            )
+                    0.0,
+                )
+            })
             .collect();
 
         queue.write_buffer(&self.chunk_borders_buffer, 0, bytemuck::cast_slice(&debug_vertices));
@@ -209,8 +208,7 @@ impl Renderer {
 
             if self.wireframe {
                 render_pass.set_pipeline(&self.world_wireframe_render_pipeline);
-            }
-            else {
+            } else {
                 render_pass.set_pipeline(&self.world_render_pipeline);
             }
 

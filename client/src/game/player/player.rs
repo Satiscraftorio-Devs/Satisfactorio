@@ -1,9 +1,9 @@
-use std::f32::consts::PI;
-
+use crate::common::utils::updatable::Updatable;
 use crate::game::player::camera::{Camera, CameraController};
-use crate::game::world::data::chunk::CHUNK_SIZE;
-use crate::{common::utils::updatable::Updatable};
 use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
+use shared::world::data::chunk::CHUNK_SIZE;
+use shared::*;
+use std::f32::consts::PI;
 
 const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 9;
 const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 3;
@@ -63,14 +63,13 @@ impl Player {
 
         if direction.magnitude2() > 0.0 {
             self.vel = direction.normalize() * (camera_controller.speed * dt);
-        }
-        else {
+        } else {
             self.vel = Vector3::new(0.0, 0.0, 0.0);
         }
 
         self.pos.update(self.pos.current() + self.vel);
         self.yaw = camera.yaw % (2.0 * PI);
-
+        log!("Player pos: {:?}", self.get_pos());
         camera_controller.update_camera(camera, self);
     }
 

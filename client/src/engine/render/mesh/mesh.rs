@@ -22,7 +22,7 @@ impl Mesh {
             device,
             queue,
             None,
-            BufferUsages::VERTEX | BufferUsages::COPY_DST
+            BufferUsages::VERTEX | BufferUsages::COPY_DST,
         );
 
         let indices = if data.has_index_data() {
@@ -31,10 +31,9 @@ impl Mesh {
                 device,
                 queue,
                 Some(data.get_index_format()),
-                BufferUsages::INDEX | BufferUsages::COPY_DST
+                BufferUsages::INDEX | BufferUsages::COPY_DST,
             ))
-        }
-        else {
+        } else {
             None
         };
 
@@ -82,7 +81,8 @@ impl Mesh {
             .indices
             .as_ref()
             .expect("Error:\ntry to get index count of a mesh but its value is None.\nMaybe the mesh is not indexed?")
-            .length() / std::mem::size_of::<u32>() as u32;
+            .length()
+            / std::mem::size_of::<u32>() as u32;
     }
 
     pub fn get_index_capacity(&self) -> u32 {
@@ -90,13 +90,17 @@ impl Mesh {
             .indices
             .as_ref()
             .expect("Error:\ntry to get index capacity of a mesh but its value is None.\nMaybe the mesh is not indexed?")
-            .capacity() / std::mem::size_of::<u32>() as u32;
+            .capacity()
+            / std::mem::size_of::<u32>() as u32;
     }
 
     pub fn update(&mut self, device: &Device, queue: &Queue, data: MeshData) {
         self.vertices.update(device, queue, cast_slice(data.get_vertex_data()));
         if data.has_index_data() {
-            self.indices.as_mut().unwrap().update(device, queue, cast_slice(data.get_index_data()));
+            self.indices
+                .as_mut()
+                .unwrap()
+                .update(device, queue, cast_slice(data.get_index_data()));
         }
     }
 }

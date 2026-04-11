@@ -1,3 +1,4 @@
+use shared::log_err;
 use std::{thread::sleep, time::Duration};
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
@@ -6,13 +7,22 @@ use crate::{
     common::geometry::plane::Plane,
     engine::{
         audio::GameAudioManager,
-        core::{application::AppState, frame::{EngineFrameData, GameFrameData}},
+        core::{
+            application::AppState,
+            frame::{EngineFrameData, GameFrameData},
+        },
         render::render::{RenderOptions, Renderer},
     },
     game::{
-        player::{camera::{Camera, CameraController}, player::Player}, render::meshing::world::WorldMesh, world::{data::chunk::CHUNK_SIZE_F, world::World}
+        player::{
+            camera::{Camera, CameraController},
+            player::Player,
+        },
+        render::meshing::world::WorldMesh,
+        world::world::World,
     },
 };
+use shared::world::data::chunk::CHUNK_SIZE_F;
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 100;
@@ -47,7 +57,7 @@ impl AppState for GameState {
 
         if let Some(ref mut audio) = audio_manager {
             if let Err(e) = audio.play_main_theme() {
-                eprintln!("Failed to play main theme: {}", e);
+                log_err!("Failed to play main theme: {}", e);
             }
             audio.stop_main_theme();
         }

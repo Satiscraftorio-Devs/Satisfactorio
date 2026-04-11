@@ -12,13 +12,7 @@ pub struct StandaloneBuffer {
 }
 
 impl StandaloneBuffer {
-    pub fn from(
-        data: &[u8],
-        device: &Device,
-        queue: &Queue,
-        format: Option<IndexFormat>,
-        usages: BufferUsages
-    ) -> Self{
+    pub fn from(data: &[u8], device: &Device, queue: &Queue, format: Option<IndexFormat>, usages: BufferUsages) -> Self {
         let length = data.len() as u32;
         let capacity = BUFFER_MIN_CAPACITY.max((length as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
 
@@ -70,8 +64,7 @@ impl StandaloneBuffer {
         if self.capacity >= length {
             self.length = length;
             queue.write_buffer(&self.buffer, 0, data);
-        }
-        else {
+        } else {
             self.buffer.destroy();
             *self = StandaloneBuffer::from(data, device, queue, self.format, self.usage);
         }
