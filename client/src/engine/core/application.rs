@@ -1,3 +1,4 @@
+use shared::*;
 use std::sync::Arc;
 
 use winit::event_loop::ActiveEventLoop;
@@ -50,7 +51,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: AppEvent) {
-        println!("EVENT RECEIVED");
+        log!("EVENT RECEIVED");
     }
 
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {

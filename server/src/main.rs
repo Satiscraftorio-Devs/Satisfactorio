@@ -1,83 +1,68 @@
 mod network;
+
+use shared::network::crypto::generate_server_id;
+use shared::network::messages;
 use shared::*;
 
 use anyhow::Result;
-use quinn::{Endpoint, ServerConfig};
-use rcgen::{generate_simple_self_signed, CertifiedKey};
-use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
-use shared::network::crypto::generate_server_id;
-use shared::network::messages;
 use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::net::*;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(1);
 
-fn configure_server() -> ServerConfig {
-    log!("coucou");
-    let CertifiedKey { cert, signing_key } = generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
-    let cert_der = CertificateDer::from(cert.der().to_vec());
-    let priv_key = PrivatePkcs8KeyDer::from(signing_key.serialize_der());
-
-    ServerConfig::with_single_cert(vec![cert_der], priv_key.into()).unwrap()
-}
-
-async fn handle_client(mut send: quinn::SendStream, mut recv: quinn::RecvStream) {
+async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
     let server_id = generate_server_id();
     log!("Nouveau joueur avec ID: {} (Server ID: {:02x?})", player_id, server_id);
 
     let mut conn = network::ServerConnection::new(player_id, server_id);
 
-    conn.send_server_id(&mut send).await.unwrap();
+    conn.send_server_id(&mut stream).await?;
 
-    let packet = match conn.receive_packet(&mut recv).await {
+    let packet = match conn.receive_packet(&mut stream).await {
         Ok(p) => p,
         Err(e) => {
             log_err!("Erreur reception: {}", e);
-            return;
+            return Ok(());
         }
     };
 
     conn.handle_packet(packet);
 
     let ack = messages::create_handshake_ack(player_id, 0);
-    if let Err(e) = conn.send_packet(&mut send, ack).await {
+    if let Err(e) = conn.send_packet(&mut stream, ack).await {
         log_err!("Erreur envoi handshake ack: {}", e);
-        return;
+        return Ok(());
     }
 
-    let example_chunks = vec![messages::ChunkData {
-        x: 0,
-        y: 0,
-        z: 0,
-        data: vec![0u8; 16],
-    }];
-    let world_data = messages::create_world_data(example_chunks);
-    if let Err(e) = conn.send_packet(&mut send, world_data).await {
-        log_err!("Erreur envoi world data: {}", e);
-        return;
+    loop {
+        match conn.receive_packet(&mut stream).await {
+            Ok(packet) => conn.handle_packet(packet),
+            Err(e) => {
+                log_err!("Erreur réception paquet: {}", e);
+                break;
+            }
+        }
     }
 
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    send.finish().ok();
+    log!("Joueur {} déconnecté", player_id);
+    Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let addr = "127.0.0.1:5000".parse()?;
-    let server_config = configure_server();
-    let endpoint = Endpoint::server(server_config, addr)?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:5000").await?;
 
-    log!("Serveur demarre sur {}", addr);
+    log!("Serveur démarre sur 127.0.0.1:5000");
 
-    while let Some(connecting) = endpoint.accept().await {
-        let connection = connecting.await?;
-        log!("Connexion de {}", connection.remote_address());
+    loop {
+        let (stream, addr) = listener.accept().await?;
+        log!("Connexion de {}", addr);
 
         tokio::spawn(async move {
-            if let Ok((send, recv)) = connection.accept_bi().await {
-                handle_client(send, recv).await;
+            if let Err(e) = handle_client(stream).await {
+                log_err!("Erreur handling client: {}", e);
             }
         });
     }
-    Ok(())
 }

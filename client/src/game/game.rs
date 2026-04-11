@@ -1,4 +1,3 @@
-use shared::log_err;
 use std::{thread::sleep, time::Duration};
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
@@ -14,6 +13,7 @@ use crate::{
         render::render::{RenderOptions, Renderer},
     },
     game::{
+        network::NetworkManager,
         player::{
             camera::{Camera, CameraController},
             player::Player,
@@ -35,10 +35,17 @@ pub struct GameState {
     pub camera: Camera,
     pub camera_controller: CameraController,
     pub delay_ms: f32,
+    pub network: Option<NetworkManager>,
 }
 
 impl GameState {
     pub fn new() -> Self {
+        let mut network = NetworkManager::new();
+        network.connect("127.0.0.1:5000");
+        if let Ok(_) = network.perform_handshake("Player") {
+            println!("Connecte au serveur!");
+        }
+
         Self {
             player: Player::new(),
             world: World::new(),
@@ -46,6 +53,7 @@ impl GameState {
             camera: Camera::new(cgmath::Point3::new(16.0, 32.0, 16.0), 1.0),
             camera_controller: CameraController::new(16.0, 0.004),
             delay_ms: 0.0,
+            network: Some(network),
         }
     }
 }
@@ -57,7 +65,7 @@ impl AppState for GameState {
 
         if let Some(ref mut audio) = audio_manager {
             if let Err(e) = audio.play_main_theme() {
-                log_err!("Failed to play main theme: {}", e);
+                eprintln!("Failed to play main theme: {}", e);
             }
             audio.stop_main_theme();
         }
@@ -74,6 +82,16 @@ impl AppState for GameState {
 
         // LOGIC
         self.player.update(frame.dt, &mut self.camera, &mut self.camera_controller);
+
+        if let Some(ref mut net) = self.network {
+            if net.is_connected() {
+                let pos = self.player.get_pos();
+                let (rx, ry) = self.camera_controller.get_rotation(&self.camera);
+                if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
+                    eprintln!("Erreur envoi position: {}", e);
+                }
+            }
+        }
 
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
         self.world_mesh.update(renderer, &self.world, &self.player);

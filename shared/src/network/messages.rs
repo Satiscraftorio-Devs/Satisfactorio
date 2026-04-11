@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub use crate::network::crypto::{compute_shared_secret, generate_server_id, server_id_to_hex, xor_crypt};
-
 pub const CURRENT_VERSION: u8 = 1;
 pub const MAX_PAQUET_SIZE: usize = 65536;
 
@@ -10,11 +8,7 @@ pub enum TypePaquet {
     Handshake,
     HandshakeAck,
     PlayerUpdate,
-    Chat,
     WorldData,
-    Disconnect,
-    Ping,
-    Pong,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -32,17 +26,9 @@ pub enum ContenuPaquet {
         position: Position,
         rotation: Rotation,
     },
-    MessageChat {
-        sender_id: u64,
-        content: String,
-    },
     DonneesMonde {
         chunks: Vec<ChunkData>,
     },
-    Deconnexion {
-        reason: String,
-    },
-    Vide,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -112,24 +98,4 @@ pub fn create_player_update(player_id: u64, x: f32, y: f32, z: f32, rx: f32, ry:
             rotation: Rotation { x: rx, y: ry },
         },
     )
-}
-
-pub fn create_chat(sender_id: u64, content: String) -> Paquet {
-    Paquet::new(0, TypePaquet::Chat, ContenuPaquet::MessageChat { sender_id, content })
-}
-
-pub fn create_world_data(chunks: Vec<ChunkData>) -> Paquet {
-    Paquet::new(0, TypePaquet::WorldData, ContenuPaquet::DonneesMonde { chunks })
-}
-
-pub fn create_disconnect(reason: String) -> Paquet {
-    Paquet::new(0, TypePaquet::Disconnect, ContenuPaquet::Deconnexion { reason })
-}
-
-pub fn create_ping() -> Paquet {
-    Paquet::new(0, TypePaquet::Ping, ContenuPaquet::Vide)
-}
-
-pub fn create_pong() -> Paquet {
-    Paquet::new(0, TypePaquet::Pong, ContenuPaquet::Vide)
 }

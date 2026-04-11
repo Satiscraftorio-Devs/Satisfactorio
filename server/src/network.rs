@@ -1,8 +1,8 @@
-use quinn::{RecvStream, SendStream};
 use shared::network::crypto::compute_shared_secret;
 use shared::network::messages::{ContenuPaquet, Paquet, MAX_PAQUET_SIZE};
 use shared::network::network_protocol::{create_codec, EncryptedCodec};
-use tokio::io::AsyncReadExt;
+use shared::*;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub struct ServerConnection {
     codec: EncryptedCodec,
@@ -21,19 +21,23 @@ impl ServerConnection {
         }
     }
 
-    pub async fn send_packet(&mut self, send: &mut SendStream, packet: Paquet) -> Result<(), String> {
+    pub async fn send_packet(&mut self, stream: &mut tokio::net::TcpStream, packet: Paquet) -> Result<(), String> {
         let data = self.codec.encode(&packet);
-        send.write_all(&data).await.map_err(|e| e.to_string())?;
+        let len = data.len() as u32;
+        stream.write_all(&len.to_be_bytes()).await.map_err(|e| e.to_string())?;
+        stream.write_all(&data).await.map_err(|e| e.to_string())?;
+        stream.flush().await.map_err(|e| e.to_string())?;
         Ok(())
     }
 
-    pub async fn send_server_id(&mut self, send: &mut SendStream) -> Result<(), String> {
-        send.write_all(&self.server_id).await.map_err(|e| e.to_string())
+    pub async fn send_server_id(&mut self, stream: &mut tokio::net::TcpStream) -> Result<(), String> {
+        stream.write_all(&self.server_id).await.map_err(|e| e.to_string())?;
+        stream.flush().await.map_err(|e| e.to_string())
     }
 
-    pub async fn receive_packet(&mut self, recv: &mut RecvStream) -> Result<Paquet, String> {
+    pub async fn receive_packet(&mut self, stream: &mut tokio::net::TcpStream) -> Result<Paquet, String> {
         let mut len_buf = [0u8; 4];
-        recv.read_exact(&mut len_buf).await.map_err(|e| e.to_string())?;
+        stream.read_exact(&mut len_buf).await.map_err(|e| e.to_string())?;
         let len = u32::from_be_bytes(len_buf) as usize;
 
         if len > MAX_PAQUET_SIZE {
@@ -41,7 +45,7 @@ impl ServerConnection {
         }
 
         let mut data = vec![0u8; len];
-        recv.read_exact(&mut data).await.map_err(|e| e.to_string())?;
+        stream.read_exact(&mut data).await.map_err(|e| e.to_string())?;
 
         let packet = self.codec.decode(&data)?;
         Ok(packet)
@@ -50,20 +54,19 @@ impl ServerConnection {
     pub fn handle_packet(&self, packet: Paquet) {
         match packet.contenu {
             ContenuPaquet::DonneesConnexion { version, username } => {
-                println!(
+                log!(
                     "Joueur {} (ID: {}) se connecte avec la version {}",
-                    username, self.player_id, version
+                    username,
+                    self.player_id,
+                    version
                 );
-            }
-            ContenuPaquet::MessageChat { sender_id, content } => {
-                println!("Message de {}: {}", sender_id, content);
             }
             ContenuPaquet::Deplacement {
                 player_id,
                 position,
                 rotation: _,
             } => {
-                println!("Joueur {} bouge vers ({}, {}, {})", player_id, position.x, position.y, position.z);
+                log!("Joueur {} bouge vers ({}, {}, {})", player_id, position.x, position.y, position.z);
             }
             _ => {}
         }

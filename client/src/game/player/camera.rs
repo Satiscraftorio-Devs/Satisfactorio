@@ -129,4 +129,8 @@ impl CameraController {
 
         camera.pitch = camera.pitch.clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
+
+    pub fn get_rotation(&self, camera: &Camera) -> (f32, f32) {
+        (camera.yaw, camera.pitch)
+    }
 }
