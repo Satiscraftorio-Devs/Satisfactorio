@@ -7,6 +7,9 @@ pub const MAX_PAQUET_SIZE: usize = 65536;
 pub enum TypePaquet {
     Handshake,
     HandshakeAck,
+    ChunkValidationRequest,
+    ChunkValidationResponse,
+    ServerSeed,
     PlayerUpdate,
     WorldData,
 }
@@ -28,6 +31,22 @@ pub enum ContenuPaquet {
     },
     DonneesMonde {
         chunks: Vec<ChunkData>,
+    },
+    ChunkValidationRequest {
+        x: i32,
+        y: i32,
+        z: i32,
+        checksum: Vec<u8>,
+    },
+    ChunkValidationResponse {
+        x: i32,
+        y: i32,
+        z: i32,
+        valide: bool,
+        regneration: bool,
+    },
+    ServerSeed {
+        seed: u32,
     },
 }
 
@@ -52,7 +71,7 @@ pub struct ChunkData {
     pub data: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Paquet {
     pub id: u64,
     pub type_paquet: TypePaquet,
@@ -98,4 +117,30 @@ pub fn create_player_update(player_id: u64, x: f32, y: f32, z: f32, rx: f32, ry:
             rotation: Rotation { x: rx, y: ry },
         },
     )
+}
+
+pub fn new_chunk_validation_request(x: i32, y: i32, z: i32, checksum: Vec<u8>) -> Paquet {
+    Paquet {
+        id: 0,
+        type_paquet: TypePaquet::ChunkValidationRequest,
+        contenu: ContenuPaquet::ChunkValidationRequest { x, y, z, checksum },
+    }
+}
+
+pub fn new_chunk_validation_response(x: i32, y: i32, z: i32, valide: bool, regneration: bool) -> Paquet {
+    Paquet {
+        id: 0,
+        type_paquet: TypePaquet::ChunkValidationResponse,
+        contenu: ContenuPaquet::ChunkValidationResponse {
+            x,
+            y,
+            z,
+            valide,
+            regneration,
+        },
+    }
+}
+
+pub fn new_server_seed_paquet(seed: u32) -> Paquet {
+    Paquet::new(0, TypePaquet::ServerSeed, ContenuPaquet::ServerSeed { seed })
 }

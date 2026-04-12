@@ -1,5 +1,4 @@
 use crate::engine::render::mesh::manager::RenderManager;
-use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use shared::world::{
     data::{
@@ -28,23 +27,20 @@ pub struct MeshSnapshot {
 
 pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
-    pub perlin: Perlin,
     seed: u32,
     chunk_generator: ChunkGenerator,
+    pending_validations: Vec<(i32, i32, i32, Vec<u8>)>,
 }
 
 impl World {
-    pub fn new() -> World {
-        let mut rng = rand::rng();
-        let seed = rng.random::<u32>();
-        let perlin = Perlin::default().set_seed(seed);
-        let chunk_generator = ChunkGenerator::new(perlin.clone());
+    pub fn new(seed: u32) -> World {
+        let chunk_generator = ChunkGenerator::new(seed);
 
         return World {
             chunks: HashMap::new(),
-            perlin: perlin,
             seed: seed,
             chunk_generator: chunk_generator,
+            pending_validations: vec![],
         };
     }
 
@@ -131,6 +127,9 @@ impl World {
 
         while let Some(result) = self.chunk_generator.try_recv() {
             let (cx, cy, cz, chunk_data) = result.output;
+
+            let checksum = chunk_data.chunk.compute_checksum().to_vec();
+            self.pending_validations.push((cx, cy, cz, checksum));
 
             for dx in -1..=1 {
                 for dy in -1..=1 {
@@ -222,5 +221,9 @@ impl World {
             }
         }
         true
+    }
+
+    pub fn take_pending_validations(&mut self) -> Vec<(i32, i32, i32, Vec<u8>)> {
+        std::mem::take(&mut self.pending_validations)
     }
 }

@@ -22,7 +22,7 @@ use crate::{
         world::world::World,
     },
 };
-use shared::world::data::chunk::CHUNK_SIZE_F;
+use shared::{log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 100;
@@ -42,13 +42,15 @@ impl GameState {
     pub fn new() -> Self {
         let mut network = NetworkManager::new();
         network.connect("127.0.0.1:5000");
-        if let Ok(_) = network.perform_handshake("Player") {
-            println!("Connecte au serveur!");
-        }
+        let server_seed = network
+            .perform_handshake("Player")
+            .ok()
+            .and_then(|_| network.get_server_seed())
+            .expect("La seed est vide");
 
         Self {
             player: Player::new(),
-            world: World::new(),
+            world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
             camera: Camera::new(cgmath::Point3::new(16.0, 32.0, 16.0), 1.0),
             camera_controller: CameraController::new(16.0, 0.004),
@@ -94,6 +96,16 @@ impl AppState for GameState {
         }
 
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
+
+        let pending_validations = self.world.take_pending_validations();
+        for (cx, cy, cz, checksum) in pending_validations {
+            if let Some(ref mut net) = self.network {
+                if let Err(e) = net.send_chunk_validation(cx, cy, cz, checksum) {
+                    log_err_client!("Erreur validation chunk ({}, {}, {}): {}", cx, cy, cz, e);
+                }
+            }
+        }
+
         self.world_mesh.update(renderer, &self.world, &self.player);
 
         // RENDER

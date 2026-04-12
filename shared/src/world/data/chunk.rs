@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha512};
+
 use crate::world::data::block::BlockInstance;
 
 pub const CHUNK_SIZE: i32 = 16;
@@ -7,7 +10,7 @@ pub const CHUNK_BLOCK_NUMBER: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as 
 pub const LAST_CHUNK_AXIS_INDEX: i32 = CHUNK_SIZE - 1;
 pub const LAST_CHUNK_AXIS_INDEX_USIZE: usize = LAST_CHUNK_AXIS_INDEX as usize;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize)]
 pub enum ChunkState {
     Pending,
     Ready,
@@ -19,9 +22,9 @@ pub struct ChunkData {
     pub is_dirty: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Chunk {
-    pub(crate) blocks: [BlockInstance; CHUNK_BLOCK_NUMBER],
+    pub blocks: Vec<BlockInstance>,
     pub x: i32,
     pub y: i32,
     pub z: i32,
@@ -60,5 +63,12 @@ impl Chunk {
     #[inline(always)]
     pub fn set_block_from_i(&mut self, i: usize, block: BlockInstance) {
         self.blocks[i] = block;
+    }
+
+    pub fn compute_checksum(&self) -> [u8; 64] {
+        let bytes = bincode::serialize(&self).unwrap();
+        let mut hasher = Sha512::new();
+        hasher.update(&bytes);
+        hasher.finalize().into()
     }
 }

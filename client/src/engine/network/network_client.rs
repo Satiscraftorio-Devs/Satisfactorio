@@ -1,3 +1,4 @@
+use shared::log_client;
 use shared::network::crypto::compute_shared_secret;
 use shared::network::messages::{ContenuPaquet, Paquet, Position, Rotation, CURRENT_VERSION};
 use shared::network::network_protocol::{create_codec, EncryptedCodec};
@@ -21,6 +22,7 @@ impl NetworkClient {
             stream: None,
             codec: Arc::new(create_codec([0u8; 32])),
             player_id: None,
+
             connected: false,
         })
     }
@@ -39,11 +41,11 @@ impl NetworkClient {
         Ok(())
     }
 
-    pub fn perform_handshake(&mut self, username: &str) -> Result<u64, String> {
+    pub fn perform_handshake(&mut self, username: &str) -> Result<(u64, u32), String> {
         let runtime = self.runtime.as_ref().ok_or("No runtime")?;
 
-        let (player_id, new_codec) = runtime.block_on(async {
-            let stream = self.stream.as_mut().ok_or("Not connected")?;
+        let (player_id, server_seed, new_codec) = runtime.block_on(async {
+            let mut stream = self.stream.as_mut().ok_or("Not connected")?;
 
             let mut server_id_buf = [0u8; 16];
             stream.read_exact(&mut server_id_buf).await.map_err(|e| e.to_string())?;
@@ -77,13 +79,20 @@ impl NetworkClient {
                 _ => return Err("Unexpected packet".to_string()),
             };
 
-            Ok((player_id, new_codec))
+            let seed_packet = new_codec.receive_packet(&mut stream).await.map_err(|e| e.to_string())?;
+            let server_seed = match seed_packet.contenu {
+                ContenuPaquet::ServerSeed { seed } => seed,
+                _ => return Err("Expected server seed".to_string()),
+            };
+            log_client!("Server seed recue: {}", server_seed);
+
+            Ok((player_id, server_seed as u32, new_codec))
         })?;
 
         self.codec = new_codec;
         self.player_id = Some(player_id);
         self.connected = true;
-        Ok(player_id)
+        Ok((player_id, server_seed))
     }
 
     pub fn send_position(&mut self, x: f32, y: f32, z: f32, rx: f32, ry: f32) -> Result<(), String> {
@@ -113,5 +122,19 @@ impl NetworkClient {
             stream.flush().await.map_err(|e| e.to_string())?;
             Ok(())
         })
+    }
+
+    pub fn send_packet(&mut self, packet: Paquet){
+        if !self.connected {
+            return;
+        } else {
+            let stream = self.stream.as_mut()?;
+            let codec = self.codec.clone();
+
+            let runtime = self.runtime.as_ref()?;
+            runtime.spawn(async move {
+                codec.send_packet(&mut *stream, &packet).await
+            });
+        }
     }
 }

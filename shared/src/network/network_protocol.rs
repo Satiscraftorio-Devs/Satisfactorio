@@ -1,6 +1,7 @@
 use crate::network::crypto::{compute_shared_secret, generate_server_id, server_id_to_hex, xor_crypt};
 use crate::network::messages::{Paquet, MAX_PAQUET_SIZE};
 use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Debug, Clone)]
 pub struct Cipher {
@@ -64,6 +65,25 @@ impl EncryptedCodec {
         let decrypted = self.cipher.decrypt(encrypted);
 
         Paquet::deserialize(&decrypted).map_err(|e| e.to_string())
+    }
+
+    pub async fn receive_packet<S: AsyncReadExt + Unpin>(&self, stream: &mut S) -> Result<Paquet, String> {
+        let mut len_buf = [0u8; 4];
+        stream.read_exact(&mut len_buf).await.map_err(|e| e.to_string())?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        let mut data = vec![0u8; len];
+        stream.read_exact(&mut data).await.map_err(|e| e.to_string())?;
+        return self.decode(&data);
+    }
+
+    pub async fn send_packet<S: AsyncWriteExt + Unpin>(&self, stream: &mut S, packet: &Paquet) -> Result<(), String> {
+        let data = self.encode(packet);
+        let len = data.len() as u32;
+        stream.write_all(&len.to_be_bytes()).await.map_err(|e| e.to_string())?;
+        stream.write_all(&data).await.map_err(|e| e.to_string())?;
+        stream.flush().await.map_err(|e| e.to_string())?;
+        Ok(())
     }
 }
 

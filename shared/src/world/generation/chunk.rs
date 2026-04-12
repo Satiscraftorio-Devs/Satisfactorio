@@ -1,18 +1,18 @@
 use crate::parallel::{Parallelizable, WorkResult, WorkerPool};
 use crate::world::data::block::{BlockInstance, BlockType};
 use crate::world::data::chunk::{Chunk, ChunkData, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
-use noise::{NoiseFn, Perlin};
+use noise::{NoiseFn, Perlin, Seedable};
 
 pub struct ChunkGen;
 
 impl Parallelizable for ChunkGen {
     type Input = (i32, i32, i32);
     type Output = (i32, i32, i32, ChunkData);
-    type Context = Perlin;
+    type Context = u32;
 
     fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
         let (cx, cy, cz) = input;
-        let chunk = Chunk::generate(cx, cy, cz, ctx);
+        let chunk = Chunk::generate(cx, cy, cz, *ctx);
         (cx, cy, cz, ChunkData::new(chunk))
     }
 }
@@ -22,9 +22,9 @@ pub struct ChunkGenerator {
 }
 
 impl ChunkGenerator {
-    pub fn new(perlin: Perlin) -> Self {
+    pub fn new(seed: u32) -> Self {
         Self {
-            inner: WorkerPool::new(num_cpus::get(), perlin),
+            inner: WorkerPool::new(num_cpus::get(), seed),
         }
     }
 
@@ -38,9 +38,14 @@ impl ChunkGenerator {
 }
 
 impl Chunk {
-    pub fn generate(cx: i32, cy: i32, cz: i32, perlin: &Perlin) -> Chunk {
+    pub fn generate(cx: i32, cy: i32, cz: i32, seed: u32) -> Chunk {
+        let perlin = Perlin::default().set_seed(seed);
+        let mut blocks = Vec::with_capacity(CHUNK_BLOCK_NUMBER);
+        for _ in 0..CHUNK_BLOCK_NUMBER {
+            blocks.push(BlockInstance::air());
+        }
         let mut chunk = Chunk {
-            blocks: [BlockInstance::air(); CHUNK_BLOCK_NUMBER],
+            blocks,
             x: cx,
             y: cy,
             z: cz,

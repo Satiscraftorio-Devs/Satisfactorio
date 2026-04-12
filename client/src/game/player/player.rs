@@ -69,7 +69,7 @@ impl Player {
 
         self.pos.update(self.pos.current() + self.vel);
         self.yaw = camera.yaw % (2.0 * PI);
-        log_client!("Player pos: {:?}", self.get_pos());
+        // log_client!("Player pos: {:?}", self.get_pos());
         camera_controller.update_camera(camera, self);
     }
 

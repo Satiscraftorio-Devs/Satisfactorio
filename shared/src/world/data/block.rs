@@ -27,7 +27,7 @@ impl BlockType {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockInstance {
     pub id: u32,
 }

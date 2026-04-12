@@ -1,3 +1,5 @@
+use shared::network::messages;
+
 use crate::engine::network::NetworkClient;
 use std::time::{Duration, Instant};
 
@@ -7,6 +9,7 @@ pub struct NetworkManager {
     client: NetworkClient,
     last_send: Instant,
     player_id: Option<u64>,
+    server_seed: Option<u64>,
 }
 
 impl NetworkManager {
@@ -15,6 +18,7 @@ impl NetworkManager {
             client: NetworkClient::new().expect("Failed to create network client"),
             last_send: Instant::now(),
             player_id: None,
+            server_seed: None,
         }
     }
 
@@ -36,8 +40,9 @@ impl NetworkManager {
     pub fn perform_handshake(&mut self, username: &str) -> Result<u64, String> {
         println!("NetworkManager: handshake...");
         match self.client.perform_handshake(username) {
-            Ok(id) => {
+            Ok((id, seed)) => {
                 self.player_id = Some(id);
+                self.server_seed = Some(seed as u64);
                 println!("NetworkManager: connecte!");
                 Ok(id)
             }
@@ -48,6 +53,10 @@ impl NetworkManager {
         }
     }
 
+    pub fn get_server_seed(&self) -> Option<u32> {
+        self.server_seed.map(|s| s as u32)
+    }
+
     pub fn send_position(&mut self, x: f32, y: f32, z: f32, rx: f32, ry: f32) -> Result<(), String> {
         let now = Instant::now();
         if now.duration_since(self.last_send) >= POSITION_UPDATE_INTERVAL {
@@ -55,5 +64,10 @@ impl NetworkManager {
             self.last_send = now;
         }
         Ok(())
+    }
+
+    pub fn send_chunk_validation(&mut self, x: i32, y: i32, z: i32, checksum: Vec<u8>) -> Result<(), String> {
+        let request = messages::new_chunk_validation_request(x, y, z, checksum);
+        self.client.send_packet(request)
     }
 }

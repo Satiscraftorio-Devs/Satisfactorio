@@ -1,12 +1,16 @@
 mod network;
+mod world;
 
-use shared::network::crypto::generate_server_id;
+use crate::world::*;
 use shared::network::messages;
+use shared::network::{crypto::generate_server_id, messages::new_server_seed_paquet};
 use shared::*;
 
 use anyhow::Result;
-use std::sync::atomic::{AtomicU64, Ordering};
+use rand::{Rng, RngExt};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use tokio::net::*;
+use tracing_subscriber::field::display::Messages;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -35,9 +39,24 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         return Ok(());
     }
 
+    let seed_packet = new_server_seed_paquet(get_server_seed());
+    if let Err(e) = conn.send_packet(&mut stream, seed_packet).await {
+        log_err_server!("Erreur envoi de la seed: {}", e);
+        return Ok(());
+    } else {
+        log_server!("La Seed à été envoyée au joueur {}", player_id);
+    }
+
     loop {
         match conn.receive_packet(&mut stream).await {
-            Ok(packet) => conn.handle_packet(packet),
+            Ok(packet) => {
+                if let Some(response) = conn.handle_packet(packet) {
+                    conn.send_packet(&mut stream, response).await?;
+                } else {
+                    log_server!("Le joueur {} à été jeté", player_id);
+                    break;
+                }
+            }
             Err(e) => {
                 log_err_server!("Erreur réception paquet: {}", e);
                 break;
@@ -51,6 +70,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    init_server_seed();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:5000").await?;
 
     log_server!("Serveur démarre sur 127.0.0.1:5000");
