@@ -1,7 +1,7 @@
 use shared::network::crypto::compute_shared_secret;
 use shared::network::messages::{self, ContenuPaquet, Paquet, MAX_PAQUET_SIZE};
 use shared::network::network_protocol::{create_codec, EncryptedCodec};
-use shared::world::data::chunk::{Chunk, CHUNK_BLOCK_NUMBER};
+use shared::world::data::chunk::Chunk;
 use shared::*;
 use std::sync::atomic::AtomicU32;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -70,8 +70,8 @@ impl ServerConnection {
                 return Some(packet);
             }
             ContenuPaquet::Deplacement {
-                player_id,
-                ref position,
+                player_id: _,
+                position: _,
                 rotation: _,
             } => {
                 // log_server!("Joueur {} bouge vers ({}, {}, {})", player_id, position.x, position.y, position.z);

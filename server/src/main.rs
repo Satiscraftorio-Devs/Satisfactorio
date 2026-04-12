@@ -7,10 +7,8 @@ use shared::network::{crypto::generate_server_id, messages::new_server_seed_paqu
 use shared::*;
 
 use anyhow::Result;
-use rand::{Rng, RngExt};
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::net::*;
-use tracing_subscriber::field::display::Messages;
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(1);
 
