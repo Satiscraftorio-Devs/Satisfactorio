@@ -4,7 +4,7 @@ use std::thread::{Builder, JoinHandle};
 pub struct WorkItem<I, O> {
     pub input: I,
     pub coords: (i32, i32, i32),
-    phantom: Option<O>,
+    _phantom: Option<O>,
 }
 
 pub struct WorkResult<O> {
@@ -76,7 +76,7 @@ impl<P: Parallelizable> WorkerPool<P> {
         let item = WorkItem {
             input,
             coords,
-            phantom: None,
+            _phantom: None,
         };
         let _ = self.request_tx.send(item);
     }

@@ -54,7 +54,7 @@ impl ServerConnection {
     pub fn handle_packet(&self, packet: Paquet) {
         match packet.contenu {
             ContenuPaquet::DonneesConnexion { version, username } => {
-                log!(
+                log_server!(
                     "Joueur {} (ID: {}) se connecte avec la version {}",
                     username,
                     self.player_id,
@@ -66,7 +66,7 @@ impl ServerConnection {
                 position,
                 rotation: _,
             } => {
-                log!("Joueur {} bouge vers ({}, {}, {})", player_id, position.x, position.y, position.z);
+                log_server!("Joueur {} bouge vers ({}, {}, {})", player_id, position.x, position.y, position.z);
             }
             _ => {}
         }

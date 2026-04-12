@@ -1,6 +1,5 @@
 use anyhow::*;
 use image::GenericImageView;
-use wgpu::{Device, Queue};
 
 pub struct Texture {
     #[allow(unused)]

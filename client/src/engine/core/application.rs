@@ -51,7 +51,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: AppEvent) {
-        log!("EVENT RECEIVED");
+        log_client!("EVENT RECEIVED");
     }
 
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {

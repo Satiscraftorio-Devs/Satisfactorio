@@ -3,32 +3,43 @@ pub mod parallel;
 pub mod world;
 
 #[macro_export]
-macro_rules! log_impl {
-    ($prefix:expr, $($args:tt)*) => {
-        println!("{} {}", $prefix, format_args!($($args)*));
-    };
-}
-
-#[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
-        #[cfg(feature = "server")]
-        log_impl!("[SERVER]$> ", $($args)*);
-        #[cfg(feature = "client")]
-        log_impl!("[CLIENT]$> ", $($args)*);
-        #[cfg(not(any(feature = "server", feature = "client")))]
-        log_impl!("> ", $($args)*);
+        println!("> {}", format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! log_err {
     ($($args:tt)*) => {
-        #[cfg(feature = "server")]
-        { eprintln!("[SERVER]$> {}", format_args!($($args)*)); }
-        #[cfg(feature = "client")]
-        { eprintln!("[CLIENT]$> {}", format_args!($($args)*)); }
-        #[cfg(not(any(feature = "server", feature = "client")))]
-        { eprintln!("> {}", format_args!($($args)*)); }
+        eprintln!("> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_server {
+    ($($args:tt)*) => {
+        println!("[SERVER]$> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_err_server {
+    ($($args:tt)*) => {
+        eprintln!("[SERVER]$> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_client {
+    ($($args:tt)*) => {
+        println!("[CLIENT]$> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_err_client {
+    ($($args:tt)*) => {
+        eprintln!("[CLIENT]$> {}", format_args!($($args)*));
     };
 }

@@ -13,7 +13,7 @@ static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(1);
 async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
     let server_id = generate_server_id();
-    log!("Nouveau joueur avec ID: {} (Server ID: {:02x?})", player_id, server_id);
+    log_server!("Nouveau joueur avec ID: {} (Server ID: {:02x?})", player_id, server_id);
 
     let mut conn = network::ServerConnection::new(player_id, server_id);
 
@@ -22,7 +22,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     let packet = match conn.receive_packet(&mut stream).await {
         Ok(p) => p,
         Err(e) => {
-            log_err!("Erreur reception: {}", e);
+            log_err_server!("Erreur reception: {}", e);
             return Ok(());
         }
     };
@@ -31,7 +31,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
     let ack = messages::create_handshake_ack(player_id, 0);
     if let Err(e) = conn.send_packet(&mut stream, ack).await {
-        log_err!("Erreur envoi handshake ack: {}", e);
+        log_err_server!("Erreur envoi handshake ack: {}", e);
         return Ok(());
     }
 
@@ -39,13 +39,13 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         match conn.receive_packet(&mut stream).await {
             Ok(packet) => conn.handle_packet(packet),
             Err(e) => {
-                log_err!("Erreur réception paquet: {}", e);
+                log_err_server!("Erreur réception paquet: {}", e);
                 break;
             }
         }
     }
 
-    log!("Joueur {} déconnecté", player_id);
+    log_server!("Joueur {} déconnecté", player_id);
     Ok(())
 }
 
@@ -53,15 +53,15 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 async fn main() -> Result<(), anyhow::Error> {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:5000").await?;
 
-    log!("Serveur démarre sur 127.0.0.1:5000");
+    log_server!("Serveur démarre sur 127.0.0.1:5000");
 
     loop {
         let (stream, addr) = listener.accept().await?;
-        log!("Connexion de {}", addr);
+        log_server!("Connexion de {}", addr);
 
         tokio::spawn(async move {
             if let Err(e) = handle_client(stream).await {
-                log_err!("Erreur handling client: {}", e);
+                log_err_server!("Erreur handling client: {}", e);
             }
         });
     }
