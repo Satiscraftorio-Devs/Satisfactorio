@@ -6,10 +6,11 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
+use tokio::sync::Mutex;
 
 pub struct NetworkClient {
     runtime: Option<Runtime>,
-    stream: Option<TcpStream>,
+    stream: Option<Arc<Mutex<TcpStream>>>,
     codec: Arc<EncryptedCodec>,
     player_id: Option<u64>,
     connected: bool,
@@ -37,7 +38,7 @@ impl NetworkClient {
             runtime.block_on(async { Ok::<TcpStream, String>(TcpStream::connect(server_addr).await.map_err(|e| e.to_string())?) })?;
 
         self.runtime = Some(runtime);
-        self.stream = Some(stream);
+        self.stream = Some(Arc::new(Mutex::new(stream)));
         Ok(())
     }
 
@@ -45,7 +46,7 @@ impl NetworkClient {
         let runtime = self.runtime.as_ref().ok_or("No runtime")?;
 
         let (player_id, server_seed, new_codec) = runtime.block_on(async {
-            let mut stream = self.stream.as_mut().ok_or("Not connected")?;
+            let mut stream = self.stream.as_mut().ok_or("Not connected")?.lock().await;
 
             let mut server_id_buf = [0u8; 16];
             stream.read_exact(&mut server_id_buf).await.map_err(|e| e.to_string())?;
@@ -67,19 +68,13 @@ impl NetworkClient {
             stream.write_all(&data).await.map_err(|e| e.to_string())?;
             stream.flush().await.map_err(|e| e.to_string())?;
 
-            let mut len_buf = [0u8; 4];
-            stream.read_exact(&mut len_buf).await.map_err(|e| e.to_string())?;
-            let len = u32::from_be_bytes(len_buf) as usize;
-            let mut data = vec![0u8; len];
-            stream.read_exact(&mut data).await.map_err(|e| e.to_string())?;
-
-            let packet = new_codec.decode(&data).map_err(|e| e.to_string())?;
-            let player_id = match packet.contenu {
+            let seed_packet = new_codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
+            let player_id = match seed_packet.contenu {
                 ContenuPaquet::Confirmation { player_id, .. } => player_id,
                 _ => return Err("Unexpected packet".to_string()),
             };
 
-            let seed_packet = new_codec.receive_packet(&mut stream).await.map_err(|e| e.to_string())?;
+            let seed_packet = new_codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
             let server_seed = match seed_packet.contenu {
                 ContenuPaquet::ServerSeed { seed } => seed,
                 _ => return Err("Expected server seed".to_string()),
@@ -100,28 +95,29 @@ impl NetworkClient {
             return Ok(());
         }
 
-        let stream = self.stream.as_mut().ok_or("Not connected")?;
         let player_id = self.player_id.ok_or("Not authenticated")?;
+        let stream = self.stream.clone();
         let codec = self.codec.clone();
 
-        self.runtime.as_ref().ok_or("No runtime")?.block_on(async {
-            let packet = Paquet::new(
-                player_id,
-                shared::network::messages::TypePaquet::PlayerUpdate,
-                ContenuPaquet::Deplacement {
+        if let Some(stream) = stream {
+            let runtime = self.runtime.as_ref().ok_or("No runtime")?;
+            runtime.spawn(async move {
+                let guard = stream.lock().await;
+                let mut stream = guard;
+                let packet = Paquet::new(
                     player_id,
-                    position: Position { x, y, z },
-                    rotation: Rotation { x: rx, y: ry },
-                },
-            );
+                    shared::network::messages::TypePaquet::PlayerUpdate,
+                    ContenuPaquet::Deplacement {
+                        player_id,
+                        position: Position { x, y, z },
+                        rotation: Rotation { x: rx, y: ry },
+                    },
+                );
+                codec.send_packet(&mut *stream, &packet).await
+            });
+        }
 
-            let data = codec.encode(&packet);
-            let len = data.len() as u32;
-            stream.write_all(&len.to_be_bytes()).await.map_err(|e| e.to_string())?;
-            stream.write_all(&data).await.map_err(|e| e.to_string())?;
-            stream.flush().await.map_err(|e| e.to_string())?;
-            Ok(())
-        })
+        Ok(())
     }
 
     pub fn send_packet(&mut self, packet: Paquet) -> Result<(), String> {
@@ -129,12 +125,18 @@ impl NetworkClient {
             return Ok(());
         }
 
-        let stream = self.stream.as_mut().ok_or("Not connected")?;
+        let stream = self.stream.clone();
         let codec = self.codec.clone();
 
-        self.runtime
-            .as_ref()
-            .ok_or("No runtime")?
-            .block_on(async { codec.send_packet(&mut *stream, &packet).await })
+        if let Some(stream) = stream {
+            let runtime = self.runtime.as_ref().ok_or("No runtime")?;
+            runtime.spawn(async move {
+                let guard = stream.lock().await;
+                let mut stream = guard;
+                codec.send_packet(&mut *stream, &packet).await
+            });
+        }
+
+        Ok(())
     }
 }

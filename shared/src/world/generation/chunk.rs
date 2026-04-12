@@ -3,17 +3,24 @@ use crate::world::data::block::{BlockInstance, BlockType};
 use crate::world::data::chunk::{Chunk, ChunkData, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
 use noise::{NoiseFn, Perlin, Seedable};
 
+pub struct ChunkWithChecksum {
+    pub chunk_data: ChunkData,
+    pub checksum: Vec<u8>,
+}
+
 pub struct ChunkGen;
 
 impl Parallelizable for ChunkGen {
     type Input = (i32, i32, i32);
-    type Output = (i32, i32, i32, ChunkData);
+    type Output = (i32, i32, i32, ChunkWithChecksum);
     type Context = u32;
 
     fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
         let (cx, cy, cz) = input;
         let chunk = Chunk::generate(cx, cy, cz, *ctx);
-        (cx, cy, cz, ChunkData::new(chunk))
+        let checksum = chunk.compute_checksum().to_vec();
+        let chunk_data = ChunkData::new(chunk);
+        (cx, cy, cz, ChunkWithChecksum { chunk_data, checksum })
     }
 }
 
@@ -32,7 +39,7 @@ impl ChunkGenerator {
         self.inner.submit((cx, cy, cz), (cx, cy, cz));
     }
 
-    pub fn try_recv(&self) -> Option<WorkResult<(i32, i32, i32, ChunkData)>> {
+    pub fn try_recv(&self) -> Option<WorkResult<(i32, i32, i32, ChunkWithChecksum)>> {
         self.inner.try_recv()
     }
 }

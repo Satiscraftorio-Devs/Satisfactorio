@@ -5,7 +5,7 @@ use shared::world::{
         block::BlockInstance,
         chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
     },
-    generation::chunk::ChunkGenerator,
+    generation::chunk::{ChunkGenerator, ChunkWithChecksum},
 };
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
@@ -126,10 +126,9 @@ impl World {
         }
 
         while let Some(result) = self.chunk_generator.try_recv() {
-            let (cx, cy, cz, chunk_data) = result.output;
+            let (cx, cy, cz, chunk_with_checksum) = result.output;
 
-            let checksum = chunk_data.chunk.compute_checksum().to_vec();
-            self.pending_validations.push((cx, cy, cz, checksum));
+            self.pending_validations.push((cx, cy, cz, chunk_with_checksum.checksum));
 
             for dx in -1..=1 {
                 for dy in -1..=1 {
@@ -141,7 +140,7 @@ impl World {
                 }
             }
 
-            let mut new_chunk_data = chunk_data;
+            let mut new_chunk_data = chunk_with_checksum.chunk_data;
             new_chunk_data.is_dirty = true;
             self.chunks.insert((cx, cy, cz), new_chunk_data);
         }

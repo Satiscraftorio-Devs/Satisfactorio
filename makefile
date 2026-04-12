@@ -20,8 +20,8 @@ run: server client killall
 
 
 
-killall: 
-	pkill -f target/debug/server 2>/dev/null 
+killall:
+	pkill -f target/debug/server 2>/dev/null
 	pkill -f target/release/server 2>/dev/null
 	pkill -f target/debug/client 2>/dev/null
 	pkill -f target/release/client 2>/dev/null
@@ -29,5 +29,6 @@ killall:
 kill: killall
 
 
-clean: killall
-	cargo clean
+clean-code:
+	cargo fix --bin "server" -p server
+	cargo fix --bin "client" -p client
