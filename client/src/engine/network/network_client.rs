@@ -124,17 +124,17 @@ impl NetworkClient {
         })
     }
 
-    pub fn send_packet(&mut self, packet: Paquet){
+    pub fn send_packet(&mut self, packet: Paquet) -> Result<(), String> {
         if !self.connected {
-            return;
-        } else {
-            let stream = self.stream.as_mut()?;
-            let codec = self.codec.clone();
-
-            let runtime = self.runtime.as_ref()?;
-            runtime.spawn(async move {
-                codec.send_packet(&mut *stream, &packet).await
-            });
+            return Ok(());
         }
+
+        let stream = self.stream.as_mut().ok_or("Not connected")?;
+        let codec = self.codec.clone();
+
+        self.runtime
+            .as_ref()
+            .ok_or("No runtime")?
+            .block_on(async { codec.send_packet(&mut *stream, &packet).await })
     }
 }
