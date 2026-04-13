@@ -1,14 +1,15 @@
-use shared::log_client;
 use shared::network::crypto::compute_shared_secret;
-use shared::network::messages::{ContenuPaquet, Paquet, Position, Rotation, CURRENT_VERSION};
+use shared::network::messages::{ContenuPaquet, Paquet, CURRENT_VERSION};
 use shared::network::network_protocol::{create_codec, EncryptedCodec};
+use shared::network::traits::PacketCodec;
+use shared::{log_client, log_err_client};
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
-pub struct NetworkClient {
+pub struct ClientConnection {
     runtime: Option<Runtime>,
     stream: Option<Arc<Mutex<TcpStream>>>,
     codec: Arc<EncryptedCodec>,
@@ -16,20 +17,23 @@ pub struct NetworkClient {
     connected: bool,
 }
 
-impl NetworkClient {
+impl ClientConnection {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             runtime: None,
             stream: None,
             codec: Arc::new(create_codec([0u8; 32])),
             player_id: None,
-
             connected: false,
         })
     }
 
     pub fn is_connected(&self) -> bool {
         self.connected
+    }
+
+    pub fn player_id(&self) -> Option<u64> {
+        self.player_id
     }
 
     pub fn connect(&mut self, server_addr: &str) -> Result<(), String> {
@@ -62,14 +66,10 @@ impl NetworkClient {
                 },
             );
 
-            let data = new_codec.encode(&packet);
-            let len = data.len() as u32;
-            stream.write_all(&len.to_be_bytes()).await.map_err(|e| e.to_string())?;
-            stream.write_all(&data).await.map_err(|e| e.to_string())?;
-            stream.flush().await.map_err(|e| e.to_string())?;
+            new_codec.send_packet(&mut *stream, &packet).await.map_err(|e| e.to_string())?;
 
-            let seed_packet = new_codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
-            let player_id = match seed_packet.contenu {
+            let confirmation_packet = new_codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
+            let player_id = match confirmation_packet.contenu {
                 ContenuPaquet::Confirmation { player_id, .. } => player_id,
                 _ => return Err("Unexpected packet".to_string()),
             };
@@ -90,36 +90,6 @@ impl NetworkClient {
         Ok((player_id, server_seed))
     }
 
-    pub fn send_position(&mut self, x: f32, y: f32, z: f32, rx: f32, ry: f32) -> Result<(), String> {
-        if !self.connected {
-            return Ok(());
-        }
-
-        let player_id = self.player_id.ok_or("Not authenticated")?;
-        let stream = self.stream.clone();
-        let codec = self.codec.clone();
-
-        if let Some(stream) = stream {
-            let runtime = self.runtime.as_ref().ok_or("No runtime")?;
-            runtime.spawn(async move {
-                let guard = stream.lock().await;
-                let mut stream = guard;
-                let packet = Paquet::new(
-                    player_id,
-                    shared::network::messages::TypePaquet::PlayerUpdate,
-                    ContenuPaquet::Deplacement {
-                        player_id,
-                        position: Position { x, y, z },
-                        rotation: Rotation { x: rx, y: ry },
-                    },
-                );
-                codec.send_packet(&mut *stream, &packet).await
-            });
-        }
-
-        Ok(())
-    }
-
     pub fn send_packet(&mut self, packet: Paquet) -> Result<(), String> {
         if !self.connected {
             return Ok(());
@@ -133,10 +103,27 @@ impl NetworkClient {
             runtime.spawn(async move {
                 let guard = stream.lock().await;
                 let mut stream = guard;
-                codec.send_packet(&mut *stream, &packet).await
+                if let Err(e) = codec.send_packet(&mut *stream, &packet).await {
+                    log_err_client!("Erreur envoi packet: {}", e);
+                }
             });
         }
 
         Ok(())
+    }
+
+    pub fn receive_packet(&mut self) -> Result<Paquet, String> {
+        if !self.connected {
+            return Err("Not connected".to_string());
+        }
+
+        let runtime = self.runtime.as_ref().ok_or("No runtime")?;
+        let stream = self.stream.as_mut().ok_or("No stream")?;
+        let codec = self.codec.clone();
+
+        runtime.block_on(async {
+            let mut stream = stream.lock().await;
+            codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())
+        })
     }
 }

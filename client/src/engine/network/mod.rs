@@ -1,3 +1,3 @@
-mod network_client;
+mod client;
 
-pub use network_client::NetworkClient;
+pub use client::ClientConnection;

@@ -82,6 +82,10 @@ impl Player {
         self.pos.current().clone()
     }
 
+    pub fn has_moved(&self) -> bool {
+        self.pos.has_changed()
+    }
+
     pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
         self.pos.update(pos);
     }

@@ -86,7 +86,7 @@ impl AppState for GameState {
         self.player.update(frame.dt, &mut self.camera, &mut self.camera_controller);
 
         if let Some(ref mut net) = self.network {
-            if net.is_connected() {
+            if net.is_connected() && self.player.has_moved() {
                 let pos = self.player.get_pos();
                 let (rx, ry) = self.camera_controller.get_rotation(&self.camera);
                 if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {

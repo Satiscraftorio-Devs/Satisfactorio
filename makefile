@@ -4,11 +4,13 @@ build: fmt
 	cargo build >/dev/null 2>&1
 
 server: build
-	cargo run -q --bin server &
+	cargo run -q --bin server | tee logs/server.txt &
 
 client: build
-	cargo run -q --bin client
+	cargo run -q --bin client | tee logs/client.txt
 
+clean-logs:
+	rm logs/* -rf
 
 fmt:
 	cargo fmt
@@ -16,9 +18,7 @@ fmt:
 check: fmt
 	cargo check
 
-run: server client killall
-
-
+run: clean-logs server client killall
 
 killall:
 	pkill -f target/debug/server 2>/dev/null

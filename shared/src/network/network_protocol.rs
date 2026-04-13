@@ -1,5 +1,7 @@
 use crate::network::crypto::{compute_shared_secret, generate_server_id, server_id_to_hex, xor_crypt};
+use crate::network::error::NetworkError;
 use crate::network::messages::{Paquet, MAX_PAQUET_SIZE};
+use crate::network::traits::PacketCodec;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -26,6 +28,7 @@ impl Cipher {
     }
 }
 
+#[derive(Clone)]
 pub struct EncryptedCodec {
     cipher: Arc<Cipher>,
 }
@@ -46,44 +49,61 @@ impl EncryptedCodec {
         result
     }
 
-    pub fn decode(&self, data: &[u8]) -> Result<Paquet, String> {
+    pub fn decode(&self, data: &[u8]) -> Result<Paquet, NetworkError> {
         if data.len() < 4 {
-            return Err("Data too short for length prefix".to_string());
+            return Err(NetworkError::InvalidData("Data too short for length prefix".to_string()));
         }
 
         let len = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
 
         if len > MAX_PAQUET_SIZE {
-            return Err(format!("Packet too large: {}", len));
+            return Err(NetworkError::PacketTooLarge(len));
         }
 
         if data.len() < 4 + len {
-            return Err("Data too short for packet".to_string());
+            return Err(NetworkError::InvalidData("Data too short for packet".to_string()));
         }
 
         let encrypted = &data[4..4 + len];
         let decrypted = self.cipher.decrypt(encrypted);
 
-        Paquet::deserialize(&decrypted).map_err(|e| e.to_string())
+        Paquet::deserialize(&decrypted).map_err(|e| NetworkError::InvalidPacket(e.to_string()))
     }
 
-    pub async fn receive_packet<S: AsyncReadExt + Unpin>(&self, stream: &mut S) -> Result<Paquet, String> {
-        let mut len_buf = [0u8; 4];
-        stream.read_exact(&mut len_buf).await.map_err(|e| e.to_string())?;
-        let len = u32::from_be_bytes(len_buf) as usize;
-
-        let mut data = vec![0u8; len];
-        stream.read_exact(&mut data).await.map_err(|e| e.to_string())?;
-        return self.decode(&data);
+    pub fn cipher(&self) -> Arc<Cipher> {
+        self.cipher.clone()
     }
+}
 
-    pub async fn send_packet<S: AsyncWriteExt + Unpin>(&self, stream: &mut S, packet: &Paquet) -> Result<(), String> {
+impl PacketCodec for EncryptedCodec {
+    async fn send_packet<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
+        &self,
+        stream: &mut S,
+        packet: &Paquet,
+    ) -> Result<(), NetworkError> {
         let data = self.encode(packet);
         let len = data.len() as u32;
-        stream.write_all(&len.to_be_bytes()).await.map_err(|e| e.to_string())?;
-        stream.write_all(&data).await.map_err(|e| e.to_string())?;
-        stream.flush().await.map_err(|e| e.to_string())?;
+        stream.write_all(&len.to_be_bytes()).await?;
+        stream.write_all(&data).await?;
+        stream.flush().await?;
         Ok(())
+    }
+
+    async fn receive_packet<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
+        &self,
+        stream: &mut S,
+    ) -> Result<Paquet, NetworkError> {
+        let mut len_buf = [0u8; 4];
+        stream.read_exact(&mut len_buf).await?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        if len > MAX_PAQUET_SIZE {
+            return Err(NetworkError::PacketTooLarge(len));
+        }
+
+        let mut data = vec![0u8; len];
+        stream.read_exact(&mut data).await?;
+        self.decode(&data)
     }
 }
 
