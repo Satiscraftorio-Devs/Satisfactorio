@@ -25,7 +25,7 @@ use crate::{
 use shared::{log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 100;
+const FPS_CAP: u32 = 1_000_000;
 const DT_CAP: f32 = 1.0 / (FPS_CAP as f32);
 
 pub struct GameState {
@@ -67,7 +67,7 @@ impl AppState for GameState {
 
         if let Some(ref mut audio) = audio_manager {
             if let Err(e) = audio.play_main_theme() {
-                eprintln!("Failed to play main theme: {}", e);
+                log_err_client!("Failed to play main theme: {}", e);
             }
             audio.stop_main_theme();
         }
@@ -90,7 +90,7 @@ impl AppState for GameState {
                 let pos = self.player.get_pos();
                 let (rx, ry) = self.camera_controller.get_rotation(&self.camera);
                 if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
-                    eprintln!("Erreur envoi position: {}", e);
+                    log_err_client!("Erreur envoi position: {}", e);
                 }
             }
         }
@@ -123,7 +123,7 @@ impl AppState for GameState {
         // println!("world meshes: {:?}", self.world_mesh.meshes.len());
 
         for (key, mesh) in self.world_mesh.meshes.iter() {
-            if !chunks_to_render.contains(key) {
+            if mesh.id.is_none() || !chunks_to_render.contains(key) {
                 continue;
             }
 

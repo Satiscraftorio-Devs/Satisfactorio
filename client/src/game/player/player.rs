@@ -6,7 +6,7 @@ use shared::*;
 use std::f32::consts::PI;
 
 const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 9;
-const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 3;
+const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 5;
 
 const DEBUG_HORIZONTAL_SIMULATION_DISTANCE: u16 = DEBUG_HORIZONTAL_RENDER_DISTANCE + 2;
 const DEBUG_VERTICAL_SIMULATION_DISTANCE: u16 = DEBUG_VERTICAL_RENDER_DISTANCE + 2;
@@ -91,7 +91,7 @@ impl Player {
     }
 
     pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
-        println!(
+        log_client!(
             "The player {} has been teleported from {:?} to {:?}",
             self.uuid,
             self.get_pos(),

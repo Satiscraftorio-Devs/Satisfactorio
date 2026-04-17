@@ -1,5 +1,8 @@
 use crate::{
-    engine::render::mesh::mesh::{MeshData, MeshId},
+    engine::render::mesh::{
+        manager::DataEntry,
+        mesh::{MeshData, MeshId},
+    },
     game::{
         render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk},
         world::world::MeshSnapshot,
@@ -340,28 +343,37 @@ impl ChunkMesh {
         }
     }
 
-    /// Makes the greedy mesh of a chunk.
-    /// Very expensive operation.
-    /// Should not be called each frame/frequently.
-    /// Limit usage to necessary.
-    pub fn make_greedy(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) {
+    pub fn update(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) {
         self.dirty.store(false, Ordering::Relaxed);
 
-        // println!("Chunk - {} vertices, {} bytes", vertices.len(), vertices.len() * std::mem::size_of::<Vertex>());
-
         if let Some(mesh_id) = self.id {
-            renderer.render_manager.update_mesh(
-                &renderer.gpu_context.device,
-                &renderer.gpu_context.queue,
-                MeshData::new(vertices, None),
-                mesh_id,
-            );
+            if vertices.len() == 0 {
+                renderer.render_manager.mesh_manager.free_data(mesh_id);
+                self.id = None;
+            } else {
+                renderer.render_manager.mesh_manager.update_data(
+                    &renderer.gpu_context.device,
+                    &renderer.gpu_context.queue,
+                    renderer.frame_encoder.as_mut().unwrap(),
+                    DataEntry::new(mesh_id, bytemuck::cast_slice(&vertices)),
+                );
+            }
         } else {
-            self.id = Some(renderer.render_manager.allocate_mesh(
-                &renderer.gpu_context.device,
-                &renderer.gpu_context.queue,
-                MeshData::new(vertices, None),
-            ));
+            if vertices.len() == 0 {
+                return;
+            }
+            self.id = Some(
+                renderer
+                    .render_manager
+                    .mesh_manager
+                    .add_data(
+                        &renderer.gpu_context.device,
+                        &renderer.gpu_context.queue,
+                        renderer.frame_encoder.as_mut().unwrap(),
+                        bytemuck::cast_slice(&vertices),
+                    )
+                    .expect(&format!("Could not add data - data len: {}", &vertices.len())),
+            );
         }
     }
 }
@@ -373,6 +385,7 @@ impl Parallelizable for GreedyMeshingProcessor {
     type Input = (Arc<Chunk>, MeshSnapshot, i32, i32, i32);
     type Output = Option<Vec<Vertex>>;
 
+    // Make greedy
     fn process(input: Self::Input, _ctx: &Self::Context) -> Self::Output {
         let (main_chunk, neighbors, cx, cy, cz) = input;
 
@@ -382,6 +395,7 @@ impl Parallelizable for GreedyMeshingProcessor {
         ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 0);
         ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 1);
         ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 2);
+
         return Some(vertices);
     }
 }

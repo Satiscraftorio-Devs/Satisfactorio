@@ -5,7 +5,7 @@ use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
 use crate::engine::core::frame::{EngineFrameData, GameFrameData};
 use crate::engine::render::camera::RenderCamera;
-use crate::engine::render::mesh::manager::RenderManager;
+use crate::engine::render::manager::RenderManager;
 use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
@@ -46,7 +46,9 @@ impl State {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: None,
-                required_features: wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::CONSERVATIVE_RASTERIZATION,
+                required_features: wgpu::Features::POLYGON_MODE_LINE
+                    | wgpu::Features::CONSERVATIVE_RASTERIZATION
+                    | wgpu::Features::MULTI_DRAW_INDIRECT_COUNT,
                 experimental_features: wgpu::ExperimentalFeatures::disabled(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: Default::default(),
@@ -67,7 +69,7 @@ impl State {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::AutoVsync,
+            present_mode: wgpu::PresentMode::AutoNoVsync,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
@@ -410,7 +412,7 @@ impl State {
             config,
         };
 
-        let render_manager = RenderManager::new();
+        let render_manager = RenderManager::new(&gpu_context.device);
 
         let renderer = Renderer::new(
             false,

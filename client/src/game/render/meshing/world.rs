@@ -69,10 +69,10 @@ impl WorldMesh {
 
             if let Some(vertices) = vertices_opt {
                 if let Some(mesh) = self.meshes.get_mut(&coords) {
-                    mesh.make_greedy(vertices, renderer);
+                    mesh.update(vertices, renderer);
                 } else {
                     let mut mesh = ChunkMesh::new();
-                    mesh.make_greedy(vertices, renderer);
+                    mesh.update(vertices, renderer);
                     self.meshes.insert(coords, mesh);
                 }
             }

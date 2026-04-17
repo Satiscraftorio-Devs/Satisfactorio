@@ -1,1 +1,1 @@
-pub mod standalone_buffer;
+pub mod smart_buffer;

@@ -1,11 +1,14 @@
 use std::{time::Instant, u32::MAX};
 
 use cgmath::{SquareMatrix, Vector3, Vector4};
-use wgpu::{BindGroup, Buffer, RenderPipeline, TextureView};
+use wgpu::{
+    wgt::{CommandEncoderDescriptor, DrawIndirectArgs},
+    BindGroup, Buffer, CommandEncoder, RenderPipeline, TextureView,
+};
 
 use crate::{
     common::geometry::vertex::Vertex,
-    engine::render::{camera::RenderCamera, mesh::manager::RenderManager, text::TextRenderer, texture::TextureArrayManager},
+    engine::render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureArrayManager},
 };
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 
@@ -51,6 +54,8 @@ pub struct Renderer {
 
     pub depth_texture: wgpu::Texture,
     pub depth_view: TextureView,
+
+    pub frame_encoder: Option<CommandEncoder>,
 }
 
 pub struct GpuContext {
@@ -86,6 +91,9 @@ impl Renderer {
         depth_texture: wgpu::Texture,
         depth_view: TextureView,
     ) -> Self {
+        let frame_encoder = gpu_context.device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Frame encoder"),
+        });
         Self {
             is_surface_configured,
 
@@ -113,6 +121,8 @@ impl Renderer {
 
             depth_texture,
             depth_view,
+
+            frame_encoder: Some(frame_encoder),
         }
     }
 
@@ -124,6 +134,13 @@ impl Renderer {
         let surface = &self.gpu_context.surface;
         let device = &self.gpu_context.device;
         let queue = &self.gpu_context.queue;
+
+        self.render_manager.update_indirect_buffer(device, queue);
+
+        if let Some(encoder) = self.frame_encoder.take() {
+            queue.submit(std::iter::once(encoder.finish()));
+            self.render_manager.mesh_manager.process_pending_destructions();
+        }
 
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera.get_view_proj_raw()));
 
@@ -223,23 +240,41 @@ impl Renderer {
 
             let _start = Instant::now();
 
-            for mesh in meshes {
-                if mesh.get_vertex_count() == 0 || mesh.get_vertex_capacity() == 0 {
-                    _rendered_mesh_count -= 1;
-                    continue;
-                }
+            if _rendered_mesh_count > 0 {
+                render_pass.set_vertex_buffer(0, self.render_manager.mesh_manager.buffer.buffer().slice(..));
 
-                render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
+                const CAN_MULTIDRAW: bool = true;
 
-                if mesh.has_index_buffer() {
-                    render_pass.set_index_buffer(mesh.get_index_buffer().slice(..), mesh.get_index_format());
-                    render_pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
+                if CAN_MULTIDRAW {
+                    render_pass.multi_draw_indirect(&self.render_manager.indirect_buffer.buffer(), 0, meshes.len() as u32);
                 } else {
-                    render_pass.draw(0..mesh.get_vertex_count(), 0..1);
+                    const CMD_SIZE: u64 = std::mem::size_of::<DrawIndirectArgs>() as u64;
+                    for i in 0.._rendered_mesh_count as u32 {
+                        render_pass.draw_indirect(&self.render_manager.indirect_buffer.buffer(), i as u64 * CMD_SIZE);
+                    }
                 }
             }
+            // for mesh in meshes {
+            //     if mesh.get_vertex_count() == 0 || mesh.get_vertex_capacity() == 0 {
+            //         _rendered_mesh_count -= 1;
+            //         continue;
+            //     }
 
-            // println!("Actually drawn {} meshes, took {:.3}ms.", rendered_mesh_count, start.elapsed().as_millis());
+            //     render_pass.set_vertex_buffer(0, mesh.get_vertex_buffer().slice(..));
+
+            //     if mesh.has_index_buffer() {
+            //         render_pass.set_index_buffer(mesh.get_index_buffer().slice(..), mesh.get_index_format());
+            //         render_pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
+            //     } else {
+            //         render_pass.draw(0..mesh.get_vertex_count(), 0..1);
+            //     }
+            // }
+
+            // println!(
+            //     "Actually drawn {} meshes, took {:.3}ms.",
+            //     _rendered_mesh_count,
+            //     _start.elapsed().as_millis()
+            // );
 
             if self.wireframe || self.show_chunk_borders {
                 render_pass.set_pipeline(&self.gizmo_render_pipeline);
@@ -276,6 +311,10 @@ impl Renderer {
 
         queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        self.frame_encoder = Some(device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Frame encoder"),
+        }));
 
         self.render_manager.clear_render_queue();
     }

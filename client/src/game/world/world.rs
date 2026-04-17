@@ -1,4 +1,5 @@
-use crate::engine::render::mesh::manager::RenderManager;
+use crate::engine::render::manager::RenderManager;
+use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use shared::world::{
     data::{
@@ -90,7 +91,7 @@ impl World {
                 self.chunks.remove(&key);
                 if let Some(mesh) = world_mesh.meshes.remove(&key) {
                     if let Some(id) = mesh.id {
-                        render_manager.release_mesh(id);
+                        render_manager.mesh_manager.free_data(id);
                     }
                 }
             }

@@ -23,7 +23,7 @@
 
 use crate::engine::network::ClientConnection;
 use crate::game::network::protocol::GameProtocol;
-use shared::{log_client, network::messages::Paquet};
+use shared::{log_client, log_err, log_err_client, network::messages::Paquet};
 use std::time::{Duration, Instant};
 
 /// Intervalle entre deux envois de position (50ms = 20 updates/sec)
@@ -80,9 +80,9 @@ impl NetworkManager {
     ///
     /// * `server_addr` - Adresse du serveur (ex: "127.0.0.1:5000")
     pub fn connect(&mut self, server_addr: &str) {
-        println!("NetworkManager: tentative de connexion...");
+        log_client!("NetworkManager: tentative de connexion...");
         if let Err(e) = self.connection.connect(server_addr) {
-            println!("NetworkManager: erreur connexion: {}", e);
+            log_err_client!("NetworkManager: erreur connexion: {}", e);
         }
     }
 
@@ -102,17 +102,17 @@ impl NetworkManager {
     /// * `Ok(player_id)` si le handshake a réussi
     /// * `Err(String)` sinon
     pub fn perform_handshake(&mut self, username: &str) -> Result<u64, String> {
-        println!("NetworkManager: handshake...");
+        log_client!("NetworkManager: handshake...");
         match self.connection.perform_handshake(username) {
             Ok((id, seed)) => {
                 // Créer le protocole de jeu avec l'ID du joueur
                 self.protocol = Some(GameProtocol::new(id));
                 self.server_seed = Some(seed as u64);
-                println!("NetworkManager: connecte!");
+                log_client!("NetworkManager: connecte!");
                 Ok(id)
             }
             Err(e) => {
-                println!("NetworkManager: erreur handshake: {}", e);
+                log_err_client!("NetworkManager: erreur handshake: {}", e);
                 Err(e)
             }
         }

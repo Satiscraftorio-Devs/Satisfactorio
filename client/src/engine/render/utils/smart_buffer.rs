@@ -1,0 +1,98 @@
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue};
+
+pub const BUFFER_CAPACITY_MARGIN: f32 = 1.5;
+pub const BUFFER_MIN_CAPACITY: u32 = 4096;
+
+pub struct SmartBuffer {
+    buffer: Buffer,
+    length: u32,
+    capacity: u32,
+    format: Option<IndexFormat>,
+    usage: BufferUsages,
+}
+
+impl SmartBuffer {
+    pub fn from_data(data: &[u8], device: &Device, queue: &Queue, format: Option<IndexFormat>, usages: BufferUsages) -> Self {
+        let length = data.len() as u32;
+        let capacity = BUFFER_MIN_CAPACITY.max((length as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
+
+        // println!("SmartBuffer create: length {}, capacity {}", length, capacity);
+
+        let buffer = device.create_buffer(&BufferDescriptor {
+            label: Some(format!("SmartBuffer (c: {}, l: {})", capacity, length).as_str()),
+            size: capacity as u64,
+            usage: usages,
+            mapped_at_creation: false,
+        });
+
+        queue.write_buffer(&buffer, 0, data);
+
+        SmartBuffer {
+            buffer,
+            length,
+            capacity,
+            format: format,
+            usage: usages,
+        }
+    }
+
+    pub fn from_capacity(capacity_bytes: u32, device: &Device, format: Option<IndexFormat>, usages: BufferUsages) -> Self {
+        let length = capacity_bytes;
+        let capacity = BUFFER_MIN_CAPACITY.max((length as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
+
+        // println!("SmartBuffer create: length {}, capacity {}", length, capacity);
+
+        let buffer = device.create_buffer(&BufferDescriptor {
+            label: Some(format!("SmartBuffer (c: {}, l: {})", capacity, length).as_str()),
+            size: capacity as u64,
+            usage: usages,
+            mapped_at_creation: false,
+        });
+
+        SmartBuffer {
+            buffer,
+            length,
+            capacity,
+            format: format,
+            usage: usages,
+        }
+    }
+
+    pub fn buffer(&self) -> &Buffer {
+        return &self.buffer;
+    }
+
+    pub fn length(&self) -> u32 {
+        return self.length;
+    }
+
+    pub fn capacity(&self) -> u32 {
+        return self.capacity;
+    }
+
+    pub fn format(&self) -> Option<IndexFormat> {
+        return self.format;
+    }
+
+    pub fn usages(&self) -> BufferUsages {
+        return self.usage;
+    }
+
+    pub fn update(&mut self, device: &Device, queue: &Queue, data: &[u8]) {
+        let length = data.len() as u32;
+
+        // println!("SmartBuffer update: length {}, capacity {}", length, self.capacity);
+
+        if self.capacity >= length {
+            self.length = length;
+            queue.write_buffer(&self.buffer, 0, data);
+        } else {
+            self.buffer.destroy();
+            *self = SmartBuffer::from_data(data, device, queue, self.format, self.usage);
+        }
+    }
+
+    pub fn destroy(&mut self) {
+        self.buffer.destroy();
+    }
+}

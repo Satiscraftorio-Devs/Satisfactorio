@@ -1,13 +1,13 @@
 use bytemuck::cast_slice;
 use wgpu::{Buffer, BufferUsages, Device, IndexFormat, Queue};
 
-use crate::{common::geometry::vertex::Vertex, engine::render::utils::standalone_buffer::StandaloneBuffer};
+use crate::{common::geometry::vertex::Vertex, engine::render::utils::smart_buffer::SmartBuffer};
 
 pub type MeshId = u32;
 
 pub struct Mesh {
-    vertices: StandaloneBuffer,
-    indices: Option<StandaloneBuffer>,
+    vertices: SmartBuffer,
+    indices: Option<SmartBuffer>,
 }
 
 pub struct MeshData {
@@ -17,7 +17,7 @@ pub struct MeshData {
 
 impl Mesh {
     pub fn new(device: &Device, queue: &Queue, data: MeshData) -> Self {
-        let vertices = StandaloneBuffer::from(
+        let vertices = SmartBuffer::from_data(
             cast_slice(data.get_vertex_data()),
             device,
             queue,
@@ -26,7 +26,7 @@ impl Mesh {
         );
 
         let indices = if data.has_index_data() {
-            Some(StandaloneBuffer::from(
+            Some(SmartBuffer::from_data(
                 cast_slice(data.get_index_data()),
                 device,
                 queue,
