@@ -1,8 +1,5 @@
 use crate::{
-    engine::render::mesh::{
-        manager::DataEntry,
-        mesh::{MeshData, MeshId},
-    },
+    engine::render::mesh::{manager::DataEntry, mesh::MeshId},
     game::{
         render::utils::{face_mask::FaceMask, padded_chunk::PaddedChunk},
         world::world::MeshSnapshot,

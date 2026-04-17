@@ -2,10 +2,7 @@ use std::usize;
 
 use wgpu::{BufferUsages, CommandEncoder, Device, Queue};
 
-use crate::engine::render::{
-    mesh::mesh::MeshId,
-    utils::smart_buffer::{SmartBuffer, BUFFER_CAPACITY_MARGIN},
-};
+use crate::engine::render::{mesh::mesh::MeshId, utils::smart_buffer::SmartBuffer};
 
 pub struct DataEntry<'a> {
     pub id: MeshId,

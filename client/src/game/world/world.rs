@@ -1,12 +1,11 @@
 use crate::engine::render::manager::RenderManager;
-use noise::{Perlin, Seedable};
 use rand::prelude::*;
 use shared::world::{
     data::{
         block::BlockInstance,
         chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
     },
-    generation::chunk::{ChunkGenerator, ChunkWithChecksum},
+    generation::chunk::ChunkGenerator,
 };
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
