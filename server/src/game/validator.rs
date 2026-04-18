@@ -86,7 +86,7 @@ impl ChunkValidator {
         if valide {
             // Succès : reset le compteur pour ce chunk
             self.failed_attempts.remove(&(x, y, z));
-            log_server!("Chunk ({}, {}, {}) Valide !", x, y, z);
+            // log_server!("Chunk ({}, {}, {}) Valide !", x, y, z);
             ValidationResult::Valid
         } else {
             // Échec : incrémente le compteur

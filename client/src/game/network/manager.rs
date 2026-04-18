@@ -167,7 +167,7 @@ impl NetworkManager {
             let packet = protocol.create_chunk_validation_request(x, y, z, checksum);
 
             // Log pour le débogage
-            log_client!("Envoi chunk validation ({}, {}, {})", x, y, z);
+            // log_client!("Envoi chunk validation ({}, {}, {})", x, y, z);
 
             // Envoyer via la connexion
             self.connection.send_packet(packet)

@@ -3,6 +3,17 @@ pub mod parallel;
 pub mod world;
 
 #[macro_export]
+macro_rules! time {
+    ($label:expr, $block:block) => {{
+        let start = std::time::Instant::now();
+        let result = $block;
+        let duration = start.elapsed();
+        println!("{}: {:?}", $label, duration);
+        result
+    }};
+}
+
+#[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
         println!("> {}", format_args!($($args)*));

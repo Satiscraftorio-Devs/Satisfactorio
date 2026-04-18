@@ -2,6 +2,7 @@ use std::usize;
 
 use wgpu::{BufferUsages, CommandEncoder, Device, Queue};
 
+use shared::time;
 use crate::engine::render::{mesh::mesh::MeshId, utils::smart_buffer::SmartBuffer};
 
 pub struct DataEntry<'a> {
@@ -243,7 +244,7 @@ impl MeshManager {
         if index.is_none() {
             let needed = self.data.iter().fold(0, |acc, x| acc + x.length) + data.len();
             self.reallocate_defragment(device, encoder, needed);
-
+            
             index = self.find_place(data.len());
         }
 

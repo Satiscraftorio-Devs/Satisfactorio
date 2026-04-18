@@ -70,7 +70,7 @@ impl PacketHandler {
             // === Validation de chunk ===
             // Le client envoie un chunk généré localement pour validation
             ContenuPaquet::ChunkValidationRequest { x, y, z, checksum } => {
-                log_server!("Reception chunk validation ({}, {}, {})", x, y, z);
+                // log_server!("Reception chunk validation ({}, {}, {})", x, y, z);
 
                 // Récupère la seed du serveur pour générer le chunk de référence
                 let seed = get_server_seed();
