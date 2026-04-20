@@ -1,17 +1,19 @@
 use crate::{
     engine::render::mesh::{manager::DataEntry, mesh::MeshId},
     game::{
-        render::utils::{face_mask::FaceMask, padded_chunk::{PADDED_CHUNK_BLOCK_NUMBER, PADDED_CHUNK_SIZE, PADDED_CHUNK_SIZE_SQR, PaddedChunk}},
+        render::utils::{
+            face_mask::FaceMask,
+            padded_chunk::{PaddedChunk, PADDED_CHUNK_BLOCK_NUMBER, PADDED_CHUNK_SIZE, PADDED_CHUNK_SIZE_SQR},
+        },
         world::world::MeshSnapshot,
     },
 };
 use cgmath::Vector3;
-use shared::{parallel::Parallelizable, time};
 use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use shared::{parallel::Parallelizable, time};
+use std::{mem, sync::{
+    Arc, atomic::{AtomicBool, Ordering}
+}};
 
 use crate::{
     common::geometry::{direction::Direction, vertex::Vertex},
@@ -128,7 +130,7 @@ impl ChunkMesh {
 
         const CLEARED_MASK: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] =
             [[FaceMask::empty(); CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
-        let mut mask = CLEARED_MASK;
+        let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
         // Faces enum's dictionary based on the axis used
         // [0]s are positive axis
@@ -140,100 +142,98 @@ impl ChunkMesh {
             _ => unreachable!(),
         };
 
-        let mut solidity = vec![false; PADDED_CHUNK_BLOCK_NUMBER];
+        let mut solidity = [false; PADDED_CHUNK_BLOCK_NUMBER];
 
         for i in 0..PADDED_CHUNK_BLOCK_NUMBER {
             solidity[i] = padded_chunk.get_block_from_i(i).is_solid();
         }
 
-        let get_solidity = |pos: Vector3<i32>| -> bool {
-            solidity[((pos[0] + 1) + (pos[1] + 1) * PADDED_CHUNK_SIZE + (pos[2] + 1) * PADDED_CHUNK_SIZE_SQR) as usize]
-        };
-
         // D loop must occur CHUNK_SIZE + 1 times since for N blocs there are N + 1 possible faces (pointing out of the chunk and in between each block)
         for d in 0..=CHUNK_SIZE {
+            let last_e_d = e_d * (d-1);
             time!("make greedy axis mask reset", {
-                for u in 0..CHUNK_SIZE as usize {
-                    for v in 0..CHUNK_SIZE as usize {
-                        mask[u][v] = FaceMask::empty();
-                    }
-                }
+                mask = CLEARED_MASK;
             });
 
             let d_f = d as f32;
             time!("make greedy axis masking", {
                 // MASKING + AO
                 for u in 0..=LAST_CHUNK_AXIS_INDEX {
+                    let current_e_u = e_u * u;
                     for v in 0..=LAST_CHUNK_AXIS_INDEX {
-                        let previous_pos = e_d * (d - 1) + e_u * u + e_v * v;
-                        let current_pos = e_d * d + e_u * u + e_v * v;
+                        let previous_pos = last_e_d + current_e_u + e_v * v;
+                        let current_pos = previous_pos + e_d;
 
-                        let previous_is_solid = get_solidity(previous_pos);
-                        let current_is_solid = get_solidity(current_pos);
+                        let previous_is_solid =
+                            solidity[((previous_pos[0] + 1) + (previous_pos[1] + 1) * PADDED_CHUNK_SIZE + (previous_pos[2] + 1) * PADDED_CHUNK_SIZE_SQR) as usize];
+                        let current_is_solid = 
+                            solidity[((current_pos[0] + 1) + (current_pos[1] + 1) * PADDED_CHUNK_SIZE + (current_pos[2] + 1) * PADDED_CHUNK_SIZE_SQR) as usize];
 
-                        match (previous_is_solid, current_is_solid) {
-                            // If both blocks are either plain or air, making faces is useless
-                            (true, true) | (false, false) => {}
-                            (false, true) => {
-                                let current = padded_chunk.get_block_from_chunk_xyz(current_pos[0], current_pos[1], current_pos[2]);
+                        if previous_is_solid == current_is_solid {
+                            continue;
+                        }
 
-                                let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomLeft);
-                                let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomRight);
-                                let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopLeft);
-                                let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopRight);
+                        if !previous_is_solid && current_is_solid {
+                            let current = padded_chunk.get_block_from_chunk_xyz(current_pos[0], current_pos[1], current_pos[2]);
 
-                                let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_0_neighbors);
-                                let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_1_neighbors);
-                                let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_2_neighbors);
-                                let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_3_neighbors);
+                            // let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomLeft);
+                            // let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::BottomRight);
+                            // let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopLeft);
+                            // let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[1], Corner::TopRight);
 
-                                let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
+                            // let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_0_neighbors);
+                            // let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_1_neighbors);
+                            // let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_2_neighbors);
+                            // let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, current_pos, vertex_3_neighbors);
 
-                                // We mark the mask as unvisited so the mesher will know we need to make a face out of this
-                                mask[u as usize][v as usize] = FaceMask::from(
-                                    false,
-                                    current.texture_index(),
-                                    match axis {
-                                        0 => Direction::Left,
-                                        1 => Direction::Bottom,
-                                        2 => Direction::Back,
-                                        _ => unreachable!(),
-                                    },
-                                    ao_packed,
-                                );
+                            // let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
 
-                                // println!("1 visited: {}", mask[u as usize][v as usize].get_visited());
-                            }
-                            (true, false) => {
-                                let previous = padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
+                            // We mark the mask as unvisited so the mesher will know we need to make a face out of this
+                            mask[u as usize][v as usize] = FaceMask::from(
+                                false,
+                                current.texture_index(),
+                                match axis {
+                                    0 => Direction::Left,
+                                    1 => Direction::Bottom,
+                                    2 => Direction::Back,
+                                    _ => unreachable!(),
+                                },
+                                3,
+                                // ao_packed,
+                            );
 
-                                let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
-                                let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
-                                let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopLeft);
-                                let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopRight);
+                            // println!("1 visited: {}", mask[u as usize][v as usize].get_visited());
+                        }
+                        else {
+                            let previous =
+                                padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
 
-                                let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_0_neighbors);
-                                let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_1_neighbors);
-                                let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_2_neighbors);
-                                let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_3_neighbors);
+                            // let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
+                            // let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
+                            // let vertex_2_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopLeft);
+                            // let vertex_3_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::TopRight);
 
-                                let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
+                            // let vertex_0_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_0_neighbors);
+                            // let vertex_1_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_1_neighbors);
+                            // let vertex_2_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_2_neighbors);
+                            // let vertex_3_ao = ChunkMesh::get_v_ao(padded_chunk, previous_pos, vertex_3_neighbors);
 
-                                // We mark the mask as unvisited so the mesher will know we need to make a face out of this
-                                mask[u as usize][v as usize] = FaceMask::from(
-                                    false,
-                                    previous.texture_index(),
-                                    match axis {
-                                        0 => Direction::Right,
-                                        1 => Direction::Top,
-                                        2 => Direction::Front,
-                                        _ => unreachable!(),
-                                    },
-                                    ao_packed,
-                                );
+                            // let ao_packed = (vertex_0_ao << 6) | (vertex_1_ao << 4) | (vertex_2_ao << 2) | (vertex_3_ao << 0);
 
-                                // println!("2 visited: {}", mask[u as usize][v as usize].get_visited());
-                            }
+                            // We mark the mask as unvisited so the mesher will know we need to make a face out of this
+                            mask[u as usize][v as usize] = FaceMask::from(
+                                false,
+                                previous.texture_index(),
+                                match axis {
+                                    0 => Direction::Right,
+                                    1 => Direction::Top,
+                                    2 => Direction::Front,
+                                    _ => unreachable!(),
+                                },
+                                3, // ao_packed,
+                            );
+
+                            // println!("2 visited: {}", mask[u as usize][v as usize].get_visited());
                         }
                     }
                 }
