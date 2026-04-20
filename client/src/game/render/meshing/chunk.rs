@@ -3,13 +3,13 @@ use crate::{
     game::{
         render::utils::{
             face_mask::FaceMask,
-            padded_chunk::{PaddedChunk, PADDED_CHUNK_BLOCK_NUMBER, PADDED_CHUNK_SIZE, PADDED_CHUNK_SIZE_SQR},
+            padded_chunk::{PADDED_CHUNK_BLOCK_NUMBER, PADDED_CHUNK_SIZE, PADDED_CHUNK_SIZE_SQR, PADDED_CHUNK_SIZE_SQR_USIZE, PADDED_CHUNK_SIZE_USIZE, PaddedChunk},
         },
         world::world::MeshSnapshot,
     },
 };
 use cgmath::Vector3;
-use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE};
+use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F, CHUNK_SIZE_SQR_USIZE, CHUNK_SIZE_USIZE, Chunk, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE};
 use shared::{parallel::Parallelizable, time};
 use std::{mem, sync::{
     Arc, atomic::{AtomicBool, Ordering}
@@ -366,6 +366,216 @@ impl ChunkMesh {
         }
     }
 
+    /// Makes the greedy mesh for the x axis, in both directions (+, -).
+    pub fn make_greedy_x(padded_chunk: &PaddedChunk, vertices: &mut Vec<Vertex>, cx: i32, cy: i32, cz: i32) {
+        let chunk_origin_x = (cx as f32) * CHUNK_SIZE_F;
+        let chunk_origin_y = (cy as f32) * CHUNK_SIZE_F;
+        let chunk_origin_z = (cz as f32) * CHUNK_SIZE_F;
+
+        const CLEARED_MASK: [FaceMask; CHUNK_SIZE_SQR_USIZE] = [FaceMask::empty(); CHUNK_SIZE_SQR_USIZE];
+        let mut mask: [FaceMask; CHUNK_SIZE_SQR_USIZE];
+
+        // Faces enum's dictionary based on the axis used
+        // [0]s are positive axis
+        // [1]s are negative axis
+        let faces: [Direction; 2] = [Direction::Right, Direction::Left];
+
+        let mut solidity = [false; PADDED_CHUNK_BLOCK_NUMBER];
+
+        for i in 0..PADDED_CHUNK_BLOCK_NUMBER {
+            solidity[i] = padded_chunk.get_block_from_i(i).is_solid();
+        }
+
+        // D loop must occur CHUNK_SIZE + 1 times since for N blocs there are N + 1 possible faces (pointing out of the chunk and in between each block)
+        for d in 0..=CHUNK_SIZE {
+            time!("X: make greedy axis mask reset", {
+                mask = CLEARED_MASK;
+            });
+
+            let d_usize = d as usize;
+            let d_f = d as f32;
+            time!("X: make greedy axis masking", {
+                // MASKING + AO
+                for u in 0..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                    let iu = u * CHUNK_SIZE_USIZE;
+                    for v in 0..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                        let previous_pos = [d_usize, u+1, v+1];
+                        let current_pos = [d_usize+1, u+1, v+1];
+
+                        let previous_i = previous_pos[0] + previous_pos[1] * PADDED_CHUNK_SIZE_USIZE + previous_pos[2] * PADDED_CHUNK_SIZE_SQR_USIZE;
+                        let current_i = current_pos[0] + current_pos[1] * PADDED_CHUNK_SIZE_USIZE + current_pos[2] * PADDED_CHUNK_SIZE_SQR_USIZE;
+
+                        let previous_is_solid = solidity[previous_i];
+                        let current_is_solid = solidity[current_i];
+
+                        if previous_is_solid == current_is_solid {
+                            continue;
+                        }
+
+                        println!("p: {:?} {} c: {:?} {}", previous_pos, previous_i, current_pos, current_i);
+
+                        if !previous_is_solid && current_is_solid {
+                            let current = padded_chunk.get_block_from_i(current_i);
+
+                            // We mark the mask as unvisited so the mesher will know we need to make a face out of this
+                            mask[iu + v] = FaceMask::from(
+                                false,
+                                current.texture_index(),
+                                faces[1],
+                                255,
+                                // ao_packed,
+                            );
+                        }
+                        else {
+                            let previous = padded_chunk.get_block_from_i(previous_i);
+
+                            // We mark the mask as unvisited so the mesher will know we need to make a face out of this
+                            mask[iu + v] = FaceMask::from(
+                                false,
+                                previous.texture_index(),
+                                faces[0],
+                                255, // ao_packed,
+                            );
+                        }
+                    }
+                }
+            });
+
+            time!("X: make greedy axis meshing", {
+                // MESHING
+                for u in 0..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                    let iu = u * CHUNK_SIZE_USIZE;
+                    let mut v = 0;
+
+                    while v <= LAST_CHUNK_AXIS_INDEX_USIZE {
+                        let face = mask[iu + v];
+
+                        if face.get_visited() {
+                            v += 1;
+                            continue;
+                        }
+
+                        mask[iu + v].set_visited(true);
+
+                        let mut width = 1;
+                        let mut height = 1;
+
+                        // Expansion in the U axis
+                        for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                            let idx = u_2 * CHUNK_SIZE_USIZE + v;
+                            if width >= GREEDY_MESH_MAX_FACE_WIDTH || mask[idx].get_visited() || mask[idx].data != face.data {
+                                break;
+                            }
+                            width += 1;
+                            mask[idx].set_visited(true);
+                        }
+
+                        // Expansion in the V axis
+                        'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
+                            if height >= GREEDY_MESH_MAX_FACE_HEIGHT {
+                                break;
+                            }
+                            // For each time we increment in the V axis, we must verify that every block in the U axis is compatible.
+                            for u_2 in u..(u + width) {
+                                let idx = u_2 * CHUNK_SIZE_USIZE + v_2;
+                                if mask[idx].get_visited() || mask[idx].data != face.data {
+                                    break 'expand;
+                                }
+                            }
+
+                            height += 1;
+
+                            for u_2 in u..(u + width) {
+                                mask[u_2 * CHUNK_SIZE_USIZE + v_2].set_visited(true);
+                            }
+                        }
+
+                        let u_f32 = u as f32;
+                        let v_f32 = v as f32;
+                        let w_f32 = width as f32;
+                        let h_f32 = height as f32;
+
+                        let block_pos = [
+                            chunk_origin_x + d_f,
+                            chunk_origin_y + u_f32,
+                            chunk_origin_z + v_f32,
+                        ];
+                        // let block_pos = chunk_origin + V_V_F * v_f32 + V_U_F * u_f32 + V_D_F * d_f;
+
+                        // let e_u_w = [0.0, w_f32, 0.0];
+                        // let e_v_h = [0.0, 0.0, h_f32];
+                        // let e_uv_wh = [0.0, w_f32, h_f32];
+
+                        let local_position_v0 = block_pos;
+                        let local_position_v1 = [block_pos[0], block_pos[1], block_pos[2] + h_f32];
+                        let local_position_v2 = [block_pos[0], block_pos[1] + w_f32, block_pos[2]];
+                        let local_position_v3 = [block_pos[0], block_pos[1] + w_f32, block_pos[2] + h_f32];
+
+                        let vertex_0_ao = face.get_ao() >> 6;
+                        let vertex_1_ao = (face.get_ao() >> 4) & 0b11;
+                        let vertex_2_ao = (face.get_ao() >> 2) & 0b11;
+                        let vertex_3_ao = face.get_ao() & 0b11;
+
+                        let texture_index = face.get_block_id();
+
+                        let uv_u0 = 0.0;
+                        let uv_v0 = 0.0;
+                        let uv_u1 = w_f32;
+                        let uv_v1 = h_f32;
+
+                        let vertex_0 = Vertex::new(
+                            local_position_v0[0] as f32,
+                            local_position_v0[1] as f32,
+                            local_position_v0[2] as f32,
+                            texture_index,
+                            (vertex_0_ao as i32) as f32,
+                            uv_u0,
+                            uv_v0,
+                        );
+                        let vertex_1 = Vertex::new(
+                            local_position_v1[0] as f32,
+                            local_position_v1[1] as f32,
+                            local_position_v1[2] as f32,
+                            texture_index,
+                            (vertex_1_ao as i32) as f32,
+                            uv_u0,
+                            uv_v1,
+                        );
+                        let vertex_2 = Vertex::new(
+                            local_position_v2[0] as f32,
+                            local_position_v2[1] as f32,
+                            local_position_v2[2] as f32,
+                            texture_index,
+                            (vertex_2_ao as i32) as f32,
+                            uv_u1,
+                            uv_v0,
+                        );
+                        let vertex_3 = Vertex::new(
+                            local_position_v3[0] as f32,
+                            local_position_v3[1] as f32,
+                            local_position_v3[2] as f32,
+                            texture_index,
+                            (vertex_3_ao as i32) as f32,
+                            uv_u1,
+                            uv_v1,
+                        );
+
+                        let reverse_faces = face.get_face().is_negative();
+
+                        // Because of back culling, we must invert the normal of the face by swaping vertices of the triangles on the horizontal axis
+                        if reverse_faces {
+                            vertices.extend_from_slice(&[vertex_0, vertex_1, vertex_2, vertex_2, vertex_1, vertex_3]);
+                        } else {
+                            vertices.extend_from_slice(&[vertex_1, vertex_0, vertex_3, vertex_3, vertex_0, vertex_2]);
+                        }
+
+                        v += height;
+                    }
+                }
+            })
+        }
+    }
+
     pub fn update(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) {
         self.dirty.store(false, Ordering::Relaxed);
 
@@ -416,7 +626,7 @@ impl Parallelizable for GreedyMeshingProcessor {
         let mut vertices = Vec::new();
 
         time!("greedy_meshing", {
-            ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 0);
+            ChunkMesh::make_greedy_x(&padded, &mut vertices, cx, cy, cz);
             ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 1);
             ChunkMesh::make_greedy_axis(&padded, &mut vertices, cx, cy, cz, 2);
         });

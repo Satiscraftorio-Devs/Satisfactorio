@@ -3,9 +3,11 @@ use sha2::{Digest, Sha512};
 
 use crate::world::data::block::BlockInstance;
 
-pub const CHUNK_SIZE: i32 = 32;
+pub const CHUNK_SIZE: i32 = 8;
 pub const CHUNK_SIZE_F: f32 = CHUNK_SIZE as f32;
+pub const CHUNK_SIZE_USIZE: usize = CHUNK_SIZE as usize;
 pub const CHUNK_SIZE_SQR: i32 = CHUNK_SIZE * CHUNK_SIZE;
+pub const CHUNK_SIZE_SQR_USIZE: usize = CHUNK_SIZE_SQR as usize;
 pub const CHUNK_BLOCK_NUMBER: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 pub const LAST_CHUNK_AXIS_INDEX: i32 = CHUNK_SIZE - 1;
 pub const LAST_CHUNK_AXIS_INDEX_USIZE: usize = LAST_CHUNK_AXIS_INDEX as usize;
