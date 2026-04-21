@@ -134,6 +134,22 @@ impl PaddedChunk {
         return self.get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
     }
 
+    /// Abstraction of `get_block_from_i` but with components.
+    ///
+    /// Prefer using `get_block_from_i` whenever possible, as it saves computing power and time.
+    ///
+    /// # WARNING
+    /// 
+    /// Use with caution, as bounds are NOT checked. May panic and abort the program if used incorrectly.
+    #[inline(always)]
+    pub fn get_block_from_xyz_unsafe(&self, x: i32, y: i32, z: i32) -> BlockInstance {
+        debug_assert!(
+            !(x < 0 || y < 0 || z < 0 || x >= PADDED_CHUNK_SIZE || y >= PADDED_CHUNK_SIZE || z >= PADDED_CHUNK_SIZE),
+            "PaddedChunk get block from xyz - Out of bounds",
+        );
+        return self.get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
+    }
+
     #[inline(always)]
     pub fn get_block_from_i(&self, i: usize) -> BlockInstance {
         return self.blocks[i];

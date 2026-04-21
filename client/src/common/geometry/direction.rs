@@ -28,6 +28,11 @@ impl Direction {
     }
 
     #[inline(always)]
+    pub const fn to_usize(self) -> usize {
+        self as usize
+    }
+
+    #[inline(always)]
     pub const fn is_positive(self) -> bool {
         self as u8 >= 3
     }
