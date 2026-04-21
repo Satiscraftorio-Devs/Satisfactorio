@@ -98,7 +98,7 @@ impl AppState for GameState {
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
         let pending_validations = self.world.take_pending_validations();
-        if !pending_validations.is_empty() && self.network.is_some() {
+        if pending_validations.len() >= 16 && self.network.is_some() {
             let chunks: Vec<_> = pending_validations
                 .into_iter()
                 .map(|(cx, cy, cz, checksum)| shared::network::messages::BatchChunkChecksum {
