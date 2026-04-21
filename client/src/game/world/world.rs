@@ -1,5 +1,4 @@
 use crate::engine::render::manager::RenderManager;
-use rand::prelude::*;
 use shared::world::{
     data::{
         block::BlockInstance,
@@ -29,7 +28,7 @@ pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
     seed: u32,
     chunk_generator: ChunkGenerator,
-    pending_validations: Vec<(i32, i32, i32, Vec<u8>)>,
+    pending_validations: Vec<(i32, i32, i32, [u8; 2])>,
 }
 
 impl World {
@@ -222,7 +221,7 @@ impl World {
         true
     }
 
-    pub fn take_pending_validations(&mut self) -> Vec<(i32, i32, i32, Vec<u8>)> {
+    pub fn take_pending_validations(&mut self) -> Vec<(i32, i32, i32, [u8; 2])> {
         std::mem::take(&mut self.pending_validations)
     }
 }

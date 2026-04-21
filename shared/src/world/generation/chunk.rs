@@ -5,7 +5,7 @@ use noise::{NoiseFn, Perlin, Seedable};
 
 pub struct ChunkWithChecksum {
     pub chunk_data: ChunkData,
-    pub checksum: Vec<u8>,
+    pub checksum: [u8; 2],
 }
 
 pub struct ChunkGen;
@@ -18,7 +18,7 @@ impl Parallelizable for ChunkGen {
     fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
         let (cx, cy, cz) = input;
         let chunk = Chunk::generate(cx, cy, cz, *ctx);
-        let checksum = chunk.compute_checksum().to_vec();
+        let checksum = chunk.compute_checksum();
         let chunk_data = ChunkData::new(chunk);
         (cx, cy, cz, ChunkWithChecksum { chunk_data, checksum })
     }

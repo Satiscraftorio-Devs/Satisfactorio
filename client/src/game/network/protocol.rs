@@ -6,7 +6,7 @@
 //! Il fait la ponte entre la logique de jeu (positions, chunks) et le système
 //! de paquets réseau.
 
-use shared::network::messages::{ContenuPaquet, Paquet, Position, Rotation};
+use shared::network::messages::{BatchChunkChecksum, ContenuPaquet, Paquet, Position, Rotation};
 
 /// Protocol de jeu pour le client.
 ///
@@ -73,5 +73,9 @@ impl GameProtocol {
     /// Un `Paquet` prêt à être envoyé
     pub fn create_chunk_validation_request(&self, x: i32, y: i32, z: i32, checksum: Vec<u8>) -> Paquet {
         shared::network::messages::new_chunk_validation_request(x, y, z, checksum)
+    }
+
+    pub fn create_chunk_validation_batch_request(&self, chunks: Vec<BatchChunkChecksum>) -> Paquet {
+        shared::network::messages::new_chunk_validation_batch_request(chunks)
     }
 }

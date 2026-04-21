@@ -70,7 +70,7 @@ impl PacketHandler {
             // === Validation de chunk ===
             // Le client envoie un chunk généré localement pour validation
             ContenuPaquet::ChunkValidationRequest { x, y, z, checksum } => {
-                // log_server!("Reception chunk validation ({}, {}, {})", x, y, z);
+                log_server!("Reception ChunkValidationRequest ({}, {}, {})", x, y, z);
 
                 // Récupère la seed du serveur pour générer le chunk de référence
                 let seed = get_server_seed();
@@ -94,6 +94,14 @@ impl PacketHandler {
                         Some(response)
                     }
                 }
+            }
+
+            ContenuPaquet::ChunkValidationBatchRequest { chunks } => {
+                log_server!("Reception ChunkValidationBatchRequest avec {} chunks", chunks.len());
+                let seed = get_server_seed();
+                let results = self.validator.validate_batch(chunks, seed);
+                log_server!("Envoi ChunkValidationBatchResponse avec {} résultats", results.len());
+                Some(messages::new_chunk_validation_batch_response(results))
             }
 
             // === Type inconnu ===

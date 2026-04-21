@@ -1,7 +1,20 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha512};
 
 use crate::world::data::block::BlockInstance;
+
+pub const CHUNK_VALIDATION_BATCH_SIZE: usize = 20;
+
+fn fletcher16(data: &[u8]) -> [u8; 2] {
+    let mut sum1: u16 = 0;
+    let mut sum2: u16 = 0;
+    for &byte in data {
+        sum1 = sum1.wrapping_add(byte as u16);
+        sum2 = sum2.wrapping_add(sum1);
+    }
+    sum1 = sum1 % 255;
+    sum2 = sum2 % 255;
+    [(sum1 as u8), (sum2 as u8)]
+}
 
 pub const CHUNK_SIZE: i32 = 32;
 pub const CHUNK_SIZE_F: f32 = CHUNK_SIZE as f32;
@@ -65,10 +78,8 @@ impl Chunk {
         self.blocks[i] = block;
     }
 
-    pub fn compute_checksum(&self) -> [u8; 64] {
+    pub fn compute_checksum(&self) -> [u8; 2] {
         let bytes = bincode::serialize(&self).unwrap();
-        let mut hasher = Sha512::new();
-        hasher.update(&bytes);
-        hasher.finalize().into()
+        fletcher16(&bytes)
     }
 }

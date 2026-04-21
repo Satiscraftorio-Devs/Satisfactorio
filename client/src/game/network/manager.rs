@@ -23,7 +23,10 @@
 
 use crate::engine::network::ClientConnection;
 use crate::game::network::protocol::GameProtocol;
-use shared::{log_client, log_err_client, network::messages::Paquet};
+use shared::{
+    log_client, log_err_client,
+    network::messages::{BatchChunkChecksum, Paquet},
+};
 use std::time::{Duration, Instant};
 
 /// Intervalle entre deux envois de position (50ms = 20 updates/sec)
@@ -163,16 +166,18 @@ impl NetworkManager {
     /// * `checksum` - Somme de contrôle du chunk
     pub fn send_chunk_validation(&mut self, x: i32, y: i32, z: i32, checksum: Vec<u8>) -> Result<(), String> {
         if let Some(protocol) = &self.protocol {
-            // Créer le paquet de validation
             let packet = protocol.create_chunk_validation_request(x, y, z, checksum);
-
-            // Log pour le débogage
-            // log_client!("Envoi chunk validation ({}, {}, {})", x, y, z);
-
-            // Envoyer via la connexion
             self.connection.send_packet(packet)
         } else {
-            // Pas encore de protocole (pas connecté)
+            Ok(())
+        }
+    }
+
+    pub fn send_chunk_validation_batch(&mut self, chunks: Vec<BatchChunkChecksum>) -> Result<(), String> {
+        if let Some(protocol) = &self.protocol {
+            let packet = protocol.create_chunk_validation_batch_request(chunks);
+            self.connection.send_packet(packet)
+        } else {
             Ok(())
         }
     }

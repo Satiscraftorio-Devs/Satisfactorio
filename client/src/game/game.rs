@@ -22,7 +22,7 @@ use crate::{
         world::world::World,
     },
 };
-use shared::{log_err_client, world::data::chunk::CHUNK_SIZE_F};
+use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 1_000_000;
@@ -98,10 +98,24 @@ impl AppState for GameState {
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
         let pending_validations = self.world.take_pending_validations();
-        for (cx, cy, cz, checksum) in pending_validations {
-            if let Some(ref mut net) = self.network {
-                if let Err(e) = net.send_chunk_validation(cx, cy, cz, checksum) {
-                    log_err_client!("Erreur validation chunk ({}, {}, {}): {}", cx, cy, cz, e);
+        if !pending_validations.is_empty() && self.network.is_some() {
+            let chunks: Vec<_> = pending_validations
+                .into_iter()
+                .map(|(cx, cy, cz, checksum)| shared::network::messages::BatchChunkChecksum {
+                    x: cx,
+                    y: cy,
+                    z: cz,
+                    checksum,
+                })
+                .collect();
+
+            for chunk_batch in chunks.chunks(20) {
+                if let Some(ref mut net) = self.network {
+                    let batch: Vec<_> = chunk_batch.to_vec();
+                    log_client!("Envoi ChunkValidationBatchRequest avec {} chunks", batch.len());
+                    if let Err(e) = net.send_chunk_validation_batch(batch) {
+                        log_err_client!("Erreur validation batch: {}", e);
+                    }
                 }
             }
         }

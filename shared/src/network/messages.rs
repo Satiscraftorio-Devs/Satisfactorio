@@ -9,6 +9,8 @@ pub enum TypePaquet {
     HandshakeAck,
     ChunkValidationRequest,
     ChunkValidationResponse,
+    ChunkValidationBatchRequest,
+    ChunkValidationBatchResponse,
     ServerSeed,
     PlayerUpdate,
     WorldData,
@@ -45,6 +47,12 @@ pub enum ContenuPaquet {
         valide: bool,
         regneration: bool,
     },
+    ChunkValidationBatchRequest {
+        chunks: Vec<BatchChunkChecksum>,
+    },
+    ChunkValidationBatchResponse {
+        results: Vec<BatchValidationResult>,
+    },
     ServerSeed {
         seed: u32,
     },
@@ -69,6 +77,23 @@ pub struct ChunkData {
     pub y: i32,
     pub z: i32,
     pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BatchChunkChecksum {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub checksum: [u8; 2],
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BatchValidationResult {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub valide: bool,
+    pub regneration: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -138,6 +163,22 @@ pub fn new_chunk_validation_response(x: i32, y: i32, z: i32, valide: bool, regne
             valide,
             regneration,
         },
+    }
+}
+
+pub fn new_chunk_validation_batch_request(chunks: Vec<BatchChunkChecksum>) -> Paquet {
+    Paquet {
+        id: 0,
+        type_paquet: TypePaquet::ChunkValidationBatchRequest,
+        contenu: ContenuPaquet::ChunkValidationBatchRequest { chunks },
+    }
+}
+
+pub fn new_chunk_validation_batch_response(results: Vec<BatchValidationResult>) -> Paquet {
+    Paquet {
+        id: 0,
+        type_paquet: TypePaquet::ChunkValidationBatchResponse,
+        contenu: ContenuPaquet::ChunkValidationBatchResponse { results },
     }
 }
 

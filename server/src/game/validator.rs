@@ -3,6 +3,7 @@
 //! Ce module valide les chunks générés par les clients pour détecter toute tricherie.
 //! Le serveur génère le même chunk avec la même seed et compare les checksums.
 
+use shared::network::messages::{BatchChunkChecksum, BatchValidationResult};
 use shared::world::data::chunk::Chunk;
 use shared::*;
 use std::collections::HashMap;
@@ -56,40 +57,15 @@ impl ChunkValidator {
         }
     }
 
-    /// Valide un chunk envoyé par le client.
-    ///
-    /// # Arguments
-    ///
-    /// * `x, y, z` - Coordonnées du chunk
-    /// * `checksum` - Checksum envoyé par le client
-    /// * `seed` - Seed du serveur pour générer le chunk de référence
-    ///
-    /// # Returns
-    ///
-    /// * `ValidationResult::Valid` si les checksums correspondent
-    /// * `ValidationResult::Invalid { should_kick }` sinon
-    ///
-    /// # Effets de bord
-    ///
-    /// Met à jour le compteur de tentatives pour ce chunk.
-    /// Si le nombre de tentatives max est dépassé, `should_kick` est true.
     pub fn validate(&mut self, x: i32, y: i32, z: i32, checksum: Vec<u8>, seed: u32) -> ValidationResult {
-        // Génère le chunk de référence avec la seed du serveur
         let chunk = Chunk::generate(x, y, z, seed);
-
-        // Calcule le checksum côté serveur
         let server_checksum = chunk.compute_checksum();
-
-        // Compare les checksums
-        let valide = checksum == server_checksum;
+        let valide = checksum == server_checksum.to_vec();
 
         if valide {
-            // Succès : reset le compteur pour ce chunk
             self.failed_attempts.remove(&(x, y, z));
-            // log_server!("Chunk ({}, {}, {}) Valide !", x, y, z);
             ValidationResult::Valid
         } else {
-            // Échec : incrémente le compteur
             let key = (x, y, z);
             let attempt = self.failed_attempts.entry(key).or_insert(0);
             *attempt += 1;
@@ -103,10 +79,8 @@ impl ChunkValidator {
                 MAX_VALIDATION_ATTEMPT
             );
 
-            // Vérifie si on doit kicker le joueur
             let should_kick = *attempt >= MAX_VALIDATION_ATTEMPT;
             if should_kick {
-                // Reset après kick
                 self.failed_attempts.remove(&key);
             }
 
@@ -114,11 +88,36 @@ impl ChunkValidator {
         }
     }
 
-    /// Réinitialise tous les compteurs de tentatives.
-    ///
-    /// Utile lors de la reconnexion d'un joueur ou pour tester.
-    pub fn clear(&mut self) {
-        self.failed_attempts.clear();
+    pub fn validate_batch(&mut self, chunks: Vec<BatchChunkChecksum>, seed: u32) -> Vec<BatchValidationResult> {
+        let mut results = Vec::with_capacity(chunks.len());
+
+        for chunk_data in chunks {
+            let key = (chunk_data.x, chunk_data.y, chunk_data.z);
+            let chunk = Chunk::generate(key.0, key.1, key.2, seed);
+            let server_checksum = chunk.compute_checksum();
+            let valide = chunk_data.checksum == server_checksum;
+
+            if valide {
+                self.failed_attempts.remove(&key);
+            } else {
+                let attempt = self.failed_attempts.entry(key).or_insert(0);
+                *attempt += 1;
+
+                if *attempt >= MAX_VALIDATION_ATTEMPT {
+                    self.failed_attempts.remove(&key);
+                }
+            }
+
+            results.push(BatchValidationResult {
+                x: chunk_data.x,
+                y: chunk_data.y,
+                z: chunk_data.z,
+                valide,
+                regneration: false,
+            });
+        }
+
+        results
     }
 }
 
