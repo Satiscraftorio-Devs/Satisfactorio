@@ -1,5 +1,11 @@
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    mpsc, Arc, Mutex,
+};
 use std::thread::{Builder, JoinHandle};
+
+#[derive(Debug)]
+pub struct QueueFull;
 
 pub struct WorkItem<I, O> {
     pub input: I,
@@ -25,13 +31,20 @@ pub struct WorkerPool<P: Parallelizable> {
     result_rx: mpsc::Receiver<WorkResult<P::Output>>,
     workers: Vec<JoinHandle<()>>,
     context: P::Context,
+    max_pending: Option<usize>,
+    pending_count: Arc<AtomicUsize>,
 }
 
 impl<P: Parallelizable> WorkerPool<P> {
     pub fn new(num_workers: usize, context: P::Context) -> Self {
+        Self::with_max_pending(num_workers, context, None)
+    }
+
+    pub fn with_max_pending(num_workers: usize, context: P::Context, max_pending: Option<usize>) -> Self {
         let (request_tx, request_rx) = mpsc::channel::<WorkItem<P::Input, P::Output>>();
         let (result_tx, result_rx) = mpsc::channel::<WorkResult<P::Output>>();
         let request_rx = Arc::new(Mutex::new(request_rx));
+        let pending_count = Arc::new(AtomicUsize::new(0));
 
         let mut workers = Vec::new();
 
@@ -39,6 +52,7 @@ impl<P: Parallelizable> WorkerPool<P> {
             let rx = request_rx.clone();
             let tx = result_tx.clone();
             let ctx = context.clone();
+            let pending = pending_count.clone();
 
             let worker = Builder::new()
                 .name(format!("WorkerPool-{}", worker_id))
@@ -51,6 +65,7 @@ impl<P: Parallelizable> WorkerPool<P> {
                             Err(_) => break,
                         }
                     };
+                    pending.fetch_sub(1, Ordering::Relaxed);
 
                     let output = P::process(item.input, &ctx);
                     let result = WorkResult {
@@ -69,16 +84,25 @@ impl<P: Parallelizable> WorkerPool<P> {
             result_rx,
             workers,
             context,
+            max_pending,
+            pending_count,
         }
     }
 
-    pub fn submit(&self, input: P::Input, coords: (i32, i32, i32)) {
+    pub fn submit(&self, input: P::Input, coords: (i32, i32, i32)) -> Result<(), QueueFull> {
+        if let Some(max) = self.max_pending {
+            if self.pending_count.load(Ordering::Relaxed) >= max {
+                return Err(QueueFull);
+            }
+        }
+        self.pending_count.fetch_add(1, Ordering::Relaxed);
         let item = WorkItem {
             input,
             coords,
             _phantom: None,
         };
         let _ = self.request_tx.send(item);
+        Ok(())
     }
 
     pub fn try_recv(&self) -> Option<WorkResult<P::Output>> {

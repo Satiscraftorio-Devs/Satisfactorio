@@ -1,15 +1,12 @@
 use crate::common::utils::updatable::Updatable;
 use crate::game::player::camera::{Camera, CameraController};
 use cgmath::{num_traits::ToPrimitive, InnerSpace, Point3, Vector3};
+use shared::world::constants::{
+    HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
+};
 use shared::world::data::chunk::CHUNK_SIZE;
 use shared::*;
 use std::f32::consts::PI;
-
-const DEBUG_HORIZONTAL_RENDER_DISTANCE: u16 = 9;
-const DEBUG_VERTICAL_RENDER_DISTANCE: u16 = 5;
-
-const DEBUG_HORIZONTAL_SIMULATION_DISTANCE: u16 = DEBUG_HORIZONTAL_RENDER_DISTANCE + 2;
-const DEBUG_VERTICAL_SIMULATION_DISTANCE: u16 = DEBUG_VERTICAL_RENDER_DISTANCE + 2;
 
 pub struct Player {
     uuid: i32,
@@ -29,10 +26,10 @@ impl Player {
             pos: Updatable::new(cgmath::Point3::new(0.0, 0.0, 0.0)),
             vel: cgmath::Vector3::new(0.0, 0.0, 0.0),
             yaw: 0.0,
-            horizontal_render_distance: DEBUG_HORIZONTAL_RENDER_DISTANCE,
-            vertical_render_distance: DEBUG_VERTICAL_RENDER_DISTANCE,
-            horizontal_simulation_distance: DEBUG_HORIZONTAL_SIMULATION_DISTANCE,
-            vertical_simulation_distance: DEBUG_VERTICAL_SIMULATION_DISTANCE,
+            horizontal_render_distance: HORIZONTAL_RENDER_DISTANCE,
+            vertical_render_distance: VERTICAL_RENDER_DISTANCE,
+            horizontal_simulation_distance: HORIZONTAL_SIMULATION_DISTANCE,
+            vertical_simulation_distance: VERTICAL_SIMULATION_DISTANCE,
         };
     }
 

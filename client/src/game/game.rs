@@ -22,7 +22,7 @@ use crate::{
         world::world::World,
     },
 };
-use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
+use shared::{log_client, log_err_client, world::constants::MAX_CHUNKS_PER_BATCH, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 1_000_000;
@@ -109,7 +109,7 @@ impl AppState for GameState {
                 })
                 .collect();
 
-            for chunk_batch in chunks.chunks(20) {
+            for chunk_batch in chunks.chunks(MAX_CHUNKS_PER_BATCH) {
                 if let Some(ref mut net) = self.network {
                     let batch: Vec<_> = chunk_batch.to_vec();
                     log_client!("Envoi ChunkValidationBatchRequest avec {} chunks", batch.len());

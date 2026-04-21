@@ -1,5 +1,6 @@
 use crate::engine::render::manager::RenderManager;
 use shared::world::{
+    constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE},
     data::{
         block::BlockInstance,
         chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
@@ -33,7 +34,8 @@ pub struct World {
 
 impl World {
     pub fn new(seed: u32) -> World {
-        let chunk_generator = ChunkGenerator::new(seed);
+        let max_chunks = max_chunks_in_queue() as usize;
+        let chunk_generator = ChunkGenerator::with_max_pending(seed, max_chunks);
 
         return World {
             chunks: HashMap::new(),
@@ -104,10 +106,34 @@ impl World {
             .cloned()
             .collect();
 
-        let player_cx = (player.get_pos().x / CHUNK_SIZE as f32).floor() as i32;
-        let player_cz = (player.get_pos().z / CHUNK_SIZE as f32).floor() as i32;
+        let player_pos = player.get_pos();
+        let player_cx = (player_pos.x / CHUNK_SIZE as f32).floor() as i32;
+        let player_cy = (player_pos.y / CHUNK_SIZE as f32).floor() as i32;
+        let player_cz = (player_pos.z / CHUNK_SIZE as f32).floor() as i32;
 
-        let mut sorted_missing: Vec<_> = missing_keys
+        let priority_distance_sq = CHUNK_PRIORITY_DISTANCE.powi(2);
+
+        let mut priority_chunks: Vec<(i32, i32, i32)> = Vec::new();
+        let mut normal_chunks: Vec<(i32, i32, i32)> = Vec::new();
+
+        for key in missing_keys {
+            let wx = key.0 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
+            let wy = key.1 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
+            let wz = key.2 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
+
+            let dx = wx - player_pos.x;
+            let dy = wy - player_pos.y;
+            let dz = wz - player_pos.z;
+            let dist_sq = dx * dx + dy * dy + dz * dz;
+
+            if dist_sq < priority_distance_sq {
+                priority_chunks.push(key);
+            } else {
+                normal_chunks.push(key);
+            }
+        }
+
+        let mut sorted_priority: Vec<_> = priority_chunks
             .into_iter()
             .map(|key| {
                 let dx = key.0 - player_cx;
@@ -116,12 +142,24 @@ impl World {
                 (key, dist_2)
             })
             .collect();
+        sorted_priority.sort_by(|a, b| a.1.cmp(&b.1));
 
-        // Trier par distance croissante (+proche IMPLIQUE +prioritaire)
-        sorted_missing.sort_by(|a, b| a.1.cmp(&b.1));
+        let mut sorted_normal: Vec<_> = normal_chunks
+            .into_iter()
+            .map(|key| {
+                let dx = key.0 - player_cx;
+                let dz = key.2 - player_cz;
+                let dist_2 = dx * dx + dz * dz;
+                (key, dist_2)
+            })
+            .collect();
+        sorted_normal.sort_by(|a, b| a.1.cmp(&b.1));
 
-        for (key, _) in sorted_missing {
-            self.chunk_generator.request(key.0, key.1, key.2);
+        for (key, _) in sorted_priority {
+            let _ = self.chunk_generator.request(key.0, key.1, key.2);
+        }
+        for (key, _) in sorted_normal {
+            let _ = self.chunk_generator.request(key.0, key.1, key.2);
         }
 
         while let Some(result) = self.chunk_generator.try_recv() {

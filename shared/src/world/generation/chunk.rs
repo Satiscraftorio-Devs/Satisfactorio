@@ -1,4 +1,4 @@
-use crate::parallel::{Parallelizable, WorkResult, WorkerPool};
+use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
 use crate::world::data::block::{BlockInstance, BlockType};
 use crate::world::data::chunk::{Chunk, ChunkData, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
 use noise::{NoiseFn, Perlin, Seedable};
@@ -35,8 +35,14 @@ impl ChunkGenerator {
         }
     }
 
-    pub fn request(&self, cx: i32, cy: i32, cz: i32) {
-        self.inner.submit((cx, cy, cz), (cx, cy, cz));
+    pub fn with_max_pending(seed: u32, max_pending: usize) -> Self {
+        Self {
+            inner: WorkerPool::with_max_pending(num_cpus::get(), seed, Some(max_pending)),
+        }
+    }
+
+    pub fn request(&self, cx: i32, cy: i32, cz: i32) -> Result<(), QueueFull> {
+        self.inner.submit((cx, cy, cz), (cx, cy, cz))
     }
 
     pub fn try_recv(&self) -> Option<WorkResult<(i32, i32, i32, ChunkWithChecksum)>> {
