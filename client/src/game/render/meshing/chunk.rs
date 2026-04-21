@@ -1,13 +1,16 @@
 use crate::{
     engine::render::mesh::{manager::DataEntry, mesh::MeshId},
     game::{
-        render::utils::{face_mask::FaceMask, padded_chunk::{PADDED_CHUNK_BLOCK_NUMBER, PADDED_CHUNK_SIZE, PADDED_CHUNK_SIZE_SQR, PaddedChunk}},
+        render::utils::{
+            face_mask::FaceMask,
+            padded_chunk::{PaddedChunk, PADDED_CHUNK_BLOCK_NUMBER, PADDED_CHUNK_SIZE, PADDED_CHUNK_SIZE_SQR},
+        },
         world::world::MeshSnapshot,
     },
 };
 use cgmath::Vector3;
-use shared::{parallel::Parallelizable, time};
 use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F, LAST_CHUNK_AXIS_INDEX, LAST_CHUNK_AXIS_INDEX_USIZE};
+use shared::{parallel::Parallelizable, time};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -205,7 +208,8 @@ impl ChunkMesh {
                                 // println!("1 visited: {}", mask[u as usize][v as usize].get_visited());
                             }
                             (true, false) => {
-                                let previous = padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
+                                let previous =
+                                    padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
 
                                 let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
                                 let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);
