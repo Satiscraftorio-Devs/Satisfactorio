@@ -3,6 +3,7 @@
 //! Ce module valide les chunks générés par les clients pour détecter toute tricherie.
 //! Le serveur génère le même chunk avec la même seed et compare les checksums.
 
+use crate::state::GameState;
 use shared::network::messages::{BatchChunkChecksum, BatchValidationResult};
 use shared::world::data::chunk::Chunk;
 use shared::*;
@@ -30,8 +31,10 @@ pub enum ValidationResult {
 /// # Mécanisme de validation
 ///
 /// 1. Le client envoie un chunk généré localement avec un checksum
-/// 2. Le serveur génère le même chunk avec la même seed
-/// 3. Le serveur calcule son propre checksum
+/// 2. Vérifier si le chunk est déjà en cache dans GameState
+///    - Si oui: utiliser le checksum du chunk cached
+///    - Si non: générer le chunk, le mettre en cache, calculer le checksum
+/// 3. Comparer les checksums
 /// 4. Si les checksums correspondent → Valide
 /// 5. Si les checksums différent → Invalide (compte les tentatives)
 ///
@@ -57,10 +60,17 @@ impl ChunkValidator {
         }
     }
 
-    pub fn validate(&mut self, x: i32, y: i32, z: i32, checksum: Vec<u8>, seed: u32) -> ValidationResult {
-        let chunk = Chunk::generate(x, y, z, seed);
-        let server_checksum = chunk.compute_checksum();
-        let valide = checksum == server_checksum.to_vec();
+    pub fn validate(&mut self, x: i32, y: i32, z: i32, checksum: Vec<u8>, seed: u32, game_state: &GameState) -> ValidationResult {
+        let server_checksum = if let Some(cached_checksum) = game_state.get_cached_checksum(x, y, z) {
+            log_server!("Chunk ({}, {}, {}) trouve en cache", x, y, z);
+            cached_checksum.to_vec()
+        } else {
+            let chunk = Chunk::generate(x, y, z, seed);
+            game_state.cache_chunk(x, y, z, chunk);
+            game_state.get_cached_checksum(x, y, z).unwrap().to_vec()
+        };
+
+        let valide = checksum == server_checksum;
 
         if valide {
             self.failed_attempts.remove(&(x, y, z));
@@ -88,13 +98,20 @@ impl ChunkValidator {
         }
     }
 
-    pub fn validate_batch(&mut self, chunks: Vec<BatchChunkChecksum>, seed: u32) -> Vec<BatchValidationResult> {
+    pub fn validate_batch(&mut self, chunks: Vec<BatchChunkChecksum>, seed: u32, game_state: &GameState) -> Vec<BatchValidationResult> {
         let mut results = Vec::with_capacity(chunks.len());
 
         for chunk_data in chunks {
             let key = (chunk_data.x, chunk_data.y, chunk_data.z);
-            let chunk = Chunk::generate(key.0, key.1, key.2, seed);
-            let server_checksum = chunk.compute_checksum();
+
+            let server_checksum = if let Some(cached_checksum) = game_state.get_cached_checksum(key.0, key.1, key.2) {
+                cached_checksum
+            } else {
+                let chunk = Chunk::generate(key.0, key.1, key.2, seed);
+                game_state.cache_chunk(key.0, key.1, key.2, chunk);
+                game_state.get_cached_checksum(key.0, key.1, key.2).unwrap()
+            };
+
             let valide = chunk_data.checksum == server_checksum;
 
             if valide {

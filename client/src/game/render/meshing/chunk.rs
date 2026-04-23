@@ -208,8 +208,7 @@ impl ChunkMesh {
                                 // println!("1 visited: {}", mask[u as usize][v as usize].get_visited());
                             }
                             (true, false) => {
-                                let previous =
-                                    padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
+                                let previous = padded_chunk.get_block_from_chunk_xyz(previous_pos[0], previous_pos[1], previous_pos[2]);
 
                                 let vertex_0_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomLeft);
                                 let vertex_1_neighbors = ChunkMesh::get_ao_offsets(faces[0], Corner::BottomRight);

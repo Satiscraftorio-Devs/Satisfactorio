@@ -150,8 +150,7 @@ impl AppState for GameState {
             // If any of the above is true, we do not render the chunk.
             // We do the frustum check after the first one because it is more expansive,
             // and the first one would already eliminate ~50% of the chunks very quickly.
-            if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) || !is_chunk_in_camera_frustum(&min, &max, &cam_frustum)
-            {
+            if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) || !is_chunk_in_camera_frustum(&min, &max, &cam_frustum) {
                 continue;
             }
 

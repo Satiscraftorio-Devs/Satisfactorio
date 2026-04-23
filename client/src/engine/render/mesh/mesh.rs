@@ -145,9 +145,7 @@ impl MeshData {
         return self
             .indices
             .as_ref()
-            .expect(
-                "Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh data is not indexed?",
-            )
+            .expect("Error:\ntry to get index format of a mesh's index buffer but its value is None.\nMaybe the mesh data is not indexed?")
             .1;
     }
 
