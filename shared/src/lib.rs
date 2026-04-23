@@ -17,6 +17,16 @@ macro_rules! time {
 }
 
 #[macro_export]
+macro_rules! time_noprint {
+    ($block:block) => {{
+        let start = std::time::Instant::now();
+        let result = $block;
+        let duration = start.elapsed();
+        (result, duration)
+    }};
+}
+
+#[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
         println!("> {}", format_args!($($args)*));
