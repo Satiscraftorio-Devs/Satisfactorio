@@ -7,11 +7,10 @@ mod state;
 use crate::game::PacketHandler;
 use crate::network::ServerConnection;
 use crate::state::GAME_STATE;
+use anyhow::Result;
 use shared::network::crypto::generate_server_id;
 use shared::network::messages::{self, new_server_seed_paquet};
 use shared::*;
-
-use anyhow::Result;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::net::*;
 
@@ -46,9 +45,9 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     log_server!("Joueur {} ajoute a l'etat du jeu", username);
 
     // Créer le gestionnaire de paquets pour ce client
-    let mut handler = PacketHandler::new();
+    let mut packet_handler = PacketHandler::new();
 
-    handler.handle_packet(packet);
+    packet_handler.handle_packet(packet);
 
     let ack = messages::create_handshake_ack(player_id, 0);
     if let Err(e) = conn.send_packet(&mut stream, &ack).await {
@@ -64,10 +63,11 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         log_server!("La Seed a ete envoyee au joueur {}", player_id);
     }
 
+    // Loop de check
     loop {
         match conn.receive_packet(&mut stream).await {
             Ok(packet) => {
-                if let Some(response) = handler.handle_packet(packet) {
+                if let Some(response) = packet_handler.handle_packet(packet) {
                     conn.send_packet(&mut stream, &response).await?;
                 } else {
                     log_server!("Le joueur {} a ete ejecte", player_id);
@@ -77,6 +77,16 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
             Err(e) => {
                 log_err_server!("Erreur reception paquet: {}", e);
                 break;
+            }
+        }
+
+        // Update pub player's info packet handler
+        match packet_handler.get_players_position_packet() {
+            Ok(packet) => {
+                conn.send_packet(&mut stream, &packet).await.unwrap();
+            }
+            Err(e) => {
+                log_err_server!("Failed to generate packet, {}", e);
             }
         }
     }

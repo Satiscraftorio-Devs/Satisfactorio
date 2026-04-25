@@ -49,6 +49,10 @@ impl GameState {
         self.inner.read().unwrap().get_seed()
     }
 
+    pub fn get_all_players_vec(&self) -> Option<Vec<Player>> {
+        self.inner.read().unwrap().get_players_vec()
+    }
+
     pub fn add_player(&self, id: u64, username: String) {
         self.inner.write().unwrap().add_player(id, username);
     }
@@ -120,6 +124,10 @@ impl GameStateInner {
 
     pub fn get_player(&self, id: &u64) -> Option<&Player> {
         self.players.get(id)
+    }
+
+    pub fn get_players_vec(&self) -> Option<Vec<Player>> {
+        Some(self.players.values().cloned().collect())
     }
 
     pub fn update_player_position(&mut self, id: u64, position: Position, rotation: Rotation) {

@@ -6,7 +6,7 @@
 //! Il fait la ponte entre la logique de jeu (positions, chunks) et le système
 //! de paquets réseau.
 
-use shared::network::messages::{BatchChunkChecksum, ContenuPaquet, Paquet, Position, Rotation};
+use shared::network::messages::{BatchChunkChecksum, ContenuPaquet, Paquet, PlayerTransformation, Position, Rotation};
 
 /// Protocol de jeu pour le client.
 ///
@@ -47,12 +47,13 @@ impl GameProtocol {
     /// Un `Paquet` prêt à être envoyé
     pub fn create_position_update(&self, x: f32, y: f32, z: f32, rx: f32, ry: f32) -> Paquet {
         Paquet::new(
-            self.player_id,
-            shared::network::messages::TypePaquet::PlayerUpdate,
-            ContenuPaquet::Deplacement {
-                player_id: self.player_id,
-                position: Position { x, y, z },
-                rotation: Rotation { x: rx, y: ry },
+            shared::network::messages::TypePaquet::PlayerTransformation,
+            ContenuPaquet::PlayerTransformation {
+                data: PlayerTransformation {
+                    player_id: self.player_id,
+                    position: Position { x, y, z },
+                    rotation: Rotation { x: rx, y: ry },
+                },
             },
         )
     }

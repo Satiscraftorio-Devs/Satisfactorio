@@ -1,7 +1,10 @@
 use crate::game::validator::{ChunkValidator, ValidationResult};
-use crate::state::GAME_STATE;
+use crate::state::{Player, GAME_STATE};
+use shared::network::messages::*;
 use shared::network::messages::{self, ContenuPaquet, Paquet};
+use shared::world::data;
 use shared::*;
+use std::io::Error;
 
 pub struct PacketHandler {
     validator: ChunkValidator,
@@ -21,12 +24,8 @@ impl PacketHandler {
                 Some(packet)
             }
 
-            ContenuPaquet::Deplacement {
-                player_id,
-                position,
-                rotation,
-            } => {
-                GAME_STATE.update_player_position(*player_id, position.clone(), rotation.clone());
+            ContenuPaquet::PlayerTransformation { data } => {
+                GAME_STATE.update_player_position(data.player_id, data.position.clone(), data.rotation.clone());
                 Some(packet)
             }
 
@@ -40,6 +39,32 @@ impl PacketHandler {
             }
 
             _ => None,
+        }
+    }
+    pub fn get_players_position_packet(&mut self) -> Result<Paquet, std::io::Error> {
+        let players = GAME_STATE.get_all_players_vec();
+        match players {
+            Some(players_vec) => {
+                let players_vec = players_vec
+                    .into_iter()
+                    .map(|player| PlayerTransformation {
+                        player_id: player.id,
+                        position: player.position,
+                        rotation: player.rotation,
+                    })
+                    .collect();
+
+                return Ok(Paquet::new(
+                    TypePaquet::MultiplePlayerTransformation,
+                    ContenuPaquet::MultiplePlayerTransformation { data: players_vec },
+                ));
+            }
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "La génération du packet a échouée",
+                ));
+            }
         }
     }
 }

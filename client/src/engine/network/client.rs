@@ -146,7 +146,6 @@ impl ClientConnection {
 
             // Étape 3: Envoyer le paquet de handshake
             let packet = Paquet::new(
-                0,
                 shared::network::messages::TypePaquet::Handshake,
                 ContenuPaquet::DonneesConnexion {
                     version: CURRENT_VERSION,
