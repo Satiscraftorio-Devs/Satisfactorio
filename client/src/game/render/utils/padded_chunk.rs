@@ -7,7 +7,7 @@ use shared::world::data::{
 };
 
 pub const PADDED_CHUNK_SIZE: i32 = CHUNK_SIZE + 2;
-pub const PADDED_CHUNK_SIZE_USIZE: usize = (PADDED_CHUNK_SIZE + 2) as usize;
+pub const PADDED_CHUNK_SIZE_USIZE: usize = PADDED_CHUNK_SIZE as usize;
 pub const PADDED_CHUNK_SIZE_DOUBLE: usize = (PADDED_CHUNK_SIZE * 2) as usize;
 pub const PADDED_CHUNK_SIZE_SQR: i32 = PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE;
 pub const PADDED_CHUNK_SIZE_SQR_USIZE: usize = PADDED_CHUNK_SIZE_SQR as usize;
