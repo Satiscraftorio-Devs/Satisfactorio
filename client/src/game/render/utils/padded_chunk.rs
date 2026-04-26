@@ -7,8 +7,10 @@ use shared::world::data::{
 };
 
 pub const PADDED_CHUNK_SIZE: i32 = CHUNK_SIZE + 2;
+pub const PADDED_CHUNK_SIZE_USIZE: usize = PADDED_CHUNK_SIZE as usize;
 pub const PADDED_CHUNK_SIZE_DOUBLE: usize = (PADDED_CHUNK_SIZE * 2) as usize;
 pub const PADDED_CHUNK_SIZE_SQR: i32 = PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE;
+pub const PADDED_CHUNK_SIZE_SQR_USIZE: usize = PADDED_CHUNK_SIZE_SQR as usize;
 pub const PADDED_CHUNK_BLOCK_NUMBER: usize = (PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE * PADDED_CHUNK_SIZE) as usize;
 pub const FIRST_PADDED_CHUNK_CENTER_INDEX: i32 = 1;
 pub const LAST_PADDED_CHUNK_CENTER_INDEX: i32 = PADDED_CHUNK_SIZE - 2;
@@ -129,6 +131,22 @@ impl PaddedChunk {
         if x < 0 || y < 0 || z < 0 || x >= PADDED_CHUNK_SIZE || y >= PADDED_CHUNK_SIZE || z >= PADDED_CHUNK_SIZE {
             return BlockInstance::air();
         }
+        return self.get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
+    }
+
+    /// Abstraction of `get_block_from_i` but with components.
+    ///
+    /// Prefer using `get_block_from_i` whenever possible, as it saves computing power and time.
+    ///
+    /// # WARNING
+    /// 
+    /// Use with caution, as bounds are NOT checked. May panic and abort the program if used incorrectly.
+    #[inline(always)]
+    pub fn get_block_from_xyz_unsafe(&self, x: i32, y: i32, z: i32) -> BlockInstance {
+        debug_assert!(
+            !(x < 0 || y < 0 || z < 0 || x >= PADDED_CHUNK_SIZE || y >= PADDED_CHUNK_SIZE || z >= PADDED_CHUNK_SIZE),
+            "PaddedChunk get block from xyz - Out of bounds",
+        );
         return self.get_block_from_i((x + y * PADDED_CHUNK_SIZE + z * PADDED_CHUNK_SIZE_SQR) as usize);
     }
 

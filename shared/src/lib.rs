@@ -8,8 +8,21 @@ macro_rules! time {
         let start = std::time::Instant::now();
         let result = $block;
         let duration = start.elapsed();
-        println!("{}: {:?}", $label, duration);
+        let millis = duration.as_millis();
+        let micros = duration.as_micros();
+        let nanos = duration.as_nanos();
+        println!("{}: {}ms/{}µs/{}ns", $label, millis, micros, nanos);
         result
+    }};
+}
+
+#[macro_export]
+macro_rules! time_noprint {
+    ($block:block) => {{
+        let start = std::time::Instant::now();
+        let result = $block;
+        let duration = start.elapsed();
+        (result, duration)
     }};
 }
 
