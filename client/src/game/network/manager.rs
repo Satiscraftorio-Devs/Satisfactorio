@@ -182,6 +182,24 @@ impl NetworkManager {
         }
     }
 
+    pub fn send_ping(&mut self, timestamp: u64) -> Result<(), String> {
+        if let Some(protocol) = &self.protocol {
+            let packet = protocol.create_ping(timestamp);
+            self.connection.send_packet(packet)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn send_pong(&mut self, timestamp: u64) -> Result<(), String> {
+        if let Some(protocol) = &self.protocol {
+            let packet = protocol.create_pong(timestamp);
+            self.connection.send_packet(packet)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Reçoit un paquet du serveur.
     ///
     /// Cette méthode peut être utilisée pour recevoir des mises à jour

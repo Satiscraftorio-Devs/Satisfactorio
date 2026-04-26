@@ -25,6 +25,8 @@ pub enum TypePaquet {
     ServerSeed,
     WorldData,
     MovePlayer,
+    Ping,
+    Pong,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -67,6 +69,12 @@ pub enum ContenuPaquet {
     },
     ServerSeed {
         seed: u32,
+    },
+    Ping {
+        timestamp: u64,
+    },
+    Pong {
+        timestamp: u64,
     },
 }
 
@@ -198,4 +206,12 @@ pub fn new_chunk_validation_batch_response(results: Vec<BatchValidationResult>) 
 
 pub fn new_server_seed_paquet(seed: u32) -> Paquet {
     Paquet::new(TypePaquet::ServerSeed, ContenuPaquet::ServerSeed { seed })
+}
+
+pub fn new_ping_paquet(timestamp: u64) -> Paquet {
+    Paquet::new(TypePaquet::Ping, ContenuPaquet::Ping { timestamp })
+}
+
+pub fn new_pong_paquet(timestamp: u64) -> Paquet {
+    Paquet::new(TypePaquet::Pong, ContenuPaquet::Pong { timestamp })
 }

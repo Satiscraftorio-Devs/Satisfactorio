@@ -42,6 +42,16 @@ impl PacketHandler {
                 Some(messages::new_chunk_validation_batch_response(vec![]))
             }
 
+            ContenuPaquet::Ping { timestamp } => {
+                log_server!("Ping recu du joueur, reponse Pong");
+                Some(messages::new_pong_paquet(*timestamp))
+            }
+
+            ContenuPaquet::Pong { .. } => {
+                log_server!("Pong recu!");
+                Some(packet)
+            }
+
             _ => None,
         }
     }

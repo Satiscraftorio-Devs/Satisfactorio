@@ -1,4 +1,7 @@
-use std::{thread::sleep, time::Duration};
+use std::{
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 
@@ -31,6 +34,7 @@ use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 1_000_000;
 const DT_CAP: f32 = 1.0 / (FPS_CAP as f32);
+const PING_INTERVAL: Duration = Duration::from_secs(10);
 
 pub struct GameState {
     pub world: World,
@@ -40,6 +44,7 @@ pub struct GameState {
     pub camera_controller: CameraController,
     pub delay_ms: f32,
     pub network: Option<NetworkManager>,
+    last_ping: Instant,
 }
 
 impl GameState {
@@ -60,6 +65,7 @@ impl GameState {
             camera_controller: CameraController::new(16.0, 0.004),
             delay_ms: 0.0,
             network: Some(network),
+            last_ping: Instant::now(),
         }
     }
 }
@@ -85,6 +91,22 @@ impl AppState for GameState {
         }
 
         self.delay_ms -= DT_CAP;
+
+        // Envoi ping toutes les 10 secondes
+        if let Some(ref mut net) = self.network {
+            if net.is_connected() && self.last_ping.elapsed() >= PING_INTERVAL {
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                if let Err(e) = net.send_ping(timestamp) {
+                    log_err_client!("Erreur envoi ping: {}", e);
+                } else {
+                    log_client!("Ping envoye!");
+                    self.last_ping = Instant::now();
+                }
+            }
+        }
 
         // LOGIC
         self.player.update(frame.dt, &mut self.camera, &mut self.camera_controller);

@@ -1,13 +1,17 @@
 SHELL := /bin/bash
 
 build: fmt
-	cargo build >/dev/null 2>&1
+	RUSTFLAGS="-Awarnings" cargo build >/dev/null 2>&1
+
+server-bg: build
+	RUSTFLAGS="-Awarnings" cargo run -q --bin server | tee logs/server.txt &
 
 server: build
-	cargo run -q --bin server | tee logs/server.txt &
+	RUSTFLAGS="-Awarnings" cargo run -q --bin server |tee logs/server.txt
+
 
 client: build
-	cargo run -q --bin client | tee logs/client.txt
+	RUSTFLAGS="-Awarnings" cargo run -q --bin client | tee logs/client.txt
 
 clean-logs:
 	rm logs/* -rf
@@ -18,7 +22,7 @@ fmt:
 check: fmt
 	cargo check
 
-run: clean-logs server client killall
+run: clean-logs server-bg client killall
 
 killall:
 	pkill -f target/debug/server 2>/dev/null

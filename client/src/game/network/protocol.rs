@@ -79,4 +79,12 @@ impl GameProtocol {
     pub fn create_chunk_validation_batch_request(&self, chunks: Vec<BatchChunkChecksum>) -> Paquet {
         shared::network::messages::new_chunk_validation_batch_request(chunks)
     }
+
+    pub fn create_ping(&self, timestamp: u64) -> Paquet {
+        shared::network::messages::new_ping_paquet(timestamp)
+    }
+
+    pub fn create_pong(&self, timestamp: u64) -> Paquet {
+        shared::network::messages::new_pong_paquet(timestamp)
+    }
 }
