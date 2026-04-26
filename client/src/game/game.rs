@@ -22,7 +22,11 @@ use crate::{
         world::world::World,
     },
 };
-use shared::{log_client, log_err_client, world::constants::MAX_CHUNKS_PER_BATCH, world::data::chunk::CHUNK_SIZE_F};
+use shared::{
+    log_client, log_err_client,
+    world::constants::{MAX_CHUNKS_PER_BATCH, MIN_CHUNKS_PER_BATCH},
+    world::data::chunk::CHUNK_SIZE_F,
+};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 1_000_000;
@@ -98,17 +102,23 @@ impl AppState for GameState {
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
         let pending_validations = self.world.take_pending_validations();
-        if pending_validations.len() >= 16 && self.network.is_some() {
-            let chunks: Vec<_> = pending_validations
-                .into_iter()
-                .map(|(cx, cy, cz, checksum)| shared::network::messages::BatchChunkChecksum {
-                    x: cx,
-                    y: cy,
-                    z: cz,
-                    checksum,
-                })
-                .collect();
 
+        // Filtrer pour n'envoyer que les chunks dans la distance de rendu
+        let render_range = self.player.get_rendered_chunk_range();
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = render_range;
+
+        let chunks: Vec<_> = pending_validations
+            .into_iter()
+            .filter(|(cx, cy, cz, _)| *cx >= min_cx && *cx <= max_cx && *cy >= min_cy && *cy <= max_cy && *cz >= min_cz && *cz <= max_cz)
+            .map(|(cx, cy, cz, checksum)| shared::network::messages::BatchChunkChecksum {
+                x: cx,
+                y: cy,
+                z: cz,
+                checksum,
+            })
+            .collect();
+
+        if chunks.len() >= MIN_CHUNKS_PER_BATCH && self.network.is_some() {
             for chunk_batch in chunks.chunks(MAX_CHUNKS_PER_BATCH) {
                 if let Some(ref mut net) = self.network {
                     let batch: Vec<_> = chunk_batch.to_vec();
