@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use shared::network::messages::{Position, Rotation};
 use shared::world::data::chunk::Chunk;
+use shared::world::generation::chunk_generator::generate_chunks_parallel;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -195,7 +196,7 @@ impl GameStateInner {
             }
         }
 
-        let results = crate::chunk_generator::generate_chunks_parallel(self.seed, coords);
+        let results = generate_chunks_parallel(self.seed, coords);
         for ((cx, cy, cz), chunk_data) in results {
             self.cache_cached_chunk(
                 cx,
@@ -228,7 +229,7 @@ impl GameStateInner {
             }
         }
 
-        let results = crate::chunk_generator::generate_chunks_parallel(self.seed, coords);
+        let results = generate_chunks_parallel(self.seed, coords);
         for ((cx, cy, cz), chunk_data) in results {
             self.cache_cached_chunk(
                 cx,

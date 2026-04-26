@@ -1,6 +1,5 @@
 //! Serveur Satisfactorio - Point d'entrée.
 
-mod chunk_generator;
 mod game;
 mod network;
 mod state;

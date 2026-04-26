@@ -1094,11 +1094,11 @@ impl Parallelizable for GreedyMeshingProcessor {
             });
         });
 
-        println!("Greedy Mesh on {} {} {}", cx, cy, cz);
-        println!("Greedy Mesh - X: {}µs/{}ns", x.as_micros(), x.as_nanos());
-        println!("Greedy Mesh - Y: {}µs/{}ns", z.as_micros(), y.as_nanos());
-        println!("Greedy Mesh - Z: {}µs/{}ns", y.as_micros(), z.as_nanos());
-        println!("Greedy Mesh - Total: {}ms/{}µs", total.as_millis(), total.as_micros());
+        // println!("Greedy Mesh on {} {} {}", cx, cy, cz);
+        // println!("Greedy Mesh - X: {}µs/{}ns", x.as_micros(), x.as_nanos());
+        // println!("Greedy Mesh - Y: {}µs/{}ns", z.as_micros(), y.as_nanos());
+        // println!("Greedy Mesh - Z: {}µs/{}ns", y.as_micros(), z.as_nanos());
+        // println!("Greedy Mesh - Total: {}ms/{}µs", total.as_millis(), total.as_micros());
 
         return Some(vertices);
     }

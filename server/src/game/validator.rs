@@ -3,10 +3,10 @@
 //! Ce module valide les chunks générés par les clients pour détecter toute tricherie.
 //! Le serveur génère le même chunk avec la même seed et compare les checksums.
 
-use crate::chunk_generator::generate_chunks_parallel;
 use crate::state::GameState;
 use shared::network::messages::{BatchChunkChecksum, BatchValidationResult};
 use shared::world::data::chunk::Chunk;
+use shared::world::generation::chunk_generator::generate_chunks_parallel;
 use shared::*;
 use std::collections::HashMap;
 
