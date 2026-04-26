@@ -15,8 +15,8 @@ server = []
 
 [dependencies]
 noise = "0.9.0"
-rayon = "1.11.0"
 cgmath = "0.18.0"
+num_cpus = "1.17.0"
 
 shared = { path = "../shared" }
 tokio = { workspace = true }

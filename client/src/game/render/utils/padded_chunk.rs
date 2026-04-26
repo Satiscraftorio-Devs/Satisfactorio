@@ -139,7 +139,7 @@ impl PaddedChunk {
     /// Prefer using `get_block_from_i` whenever possible, as it saves computing power and time.
     ///
     /// # WARNING
-    /// 
+    ///
     /// Use with caution, as bounds are NOT checked. May panic and abort the program if used incorrectly.
     #[inline(always)]
     pub fn get_block_from_xyz_unsafe(&self, x: i32, y: i32, z: i32) -> BlockInstance {

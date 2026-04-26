@@ -67,6 +67,7 @@ fn is_cave_block(wx: f64, wy: f64, wz: f64, cave_noise_1: &Perlin, cave_noise_2:
 }
 
 impl Chunk {
+    #[inline]
     pub fn generate(cx: i32, cy: i32, cz: i32, seed: u32) -> Chunk {
         let perlin = Perlin::default().set_seed(seed);
         let cave_noise_1 = Perlin::default().set_seed(seed.wrapping_add(1000));

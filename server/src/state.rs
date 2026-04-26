@@ -1,14 +1,16 @@
+use cgmath::Point3;
 use lazy_static::lazy_static;
+use serde::{Deserialize, Serialize};
+use shared::network::messages::{Position, Rotation};
+use shared::parallel::{Parallelizable, WorkerPool};
+use shared::world::data::chunk::Chunk;
+use shared::world::generation::chunk::ChunkWithChecksum;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 lazy_static! {
     pub static ref GAME_STATE: GameState = GameState::new();
 }
-
-use serde::{Deserialize, Serialize};
-use shared::network::messages::{Position, Rotation};
-use shared::world::data::chunk::Chunk;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Player {
@@ -22,6 +24,14 @@ pub struct Player {
 pub struct CachedChunk {
     pub chunk: Chunk,
     pub checksum: [u8; 2],
+}
+impl CachedChunk {
+    pub fn new(chunk: Chunk, checksum: [u8; 2]) -> CachedChunk {
+        return CachedChunk {
+            chunk: chunk,
+            checksum: checksum,
+        };
+    }
 }
 
 #[derive(Clone)]
@@ -76,6 +86,12 @@ impl GameState {
 
     pub fn get_cached_checksum(&self, x: i32, y: i32, z: i32) -> Option<[u8; 2]> {
         self.inner.read().unwrap().get_cached_checksum(x, y, z)
+    }
+    pub fn generate_chunks_between_2_pos(&self, p1: Point3<i32>, p2: Point3<i32>) {
+        self.inner.write().unwrap().generate_chunks_between_2_pos(p1, p2);
+    }
+    pub fn generate_chunks_in_radius(&self, p1: Point3<i32>, radius: i32) {
+        self.inner.write().unwrap().generate_chunks_in_radius(p1, radius);
     }
 }
 
@@ -139,6 +155,89 @@ impl GameStateInner {
 
     pub fn cache_chunk(&mut self, x: i32, y: i32, z: i32, chunk: Chunk, checksum: [u8; 2]) {
         self.chunk_cache.insert((x, y, z), CachedChunk { chunk, checksum });
+    }
+    pub fn cache_cached_chunk(&mut self, x: i32, y: i32, z: i32, cached_chunk: CachedChunk) {
+        self.chunk_cache.insert((x, y, z), cached_chunk);
+    }
+
+    pub fn is_chunk_already_generated(&mut self, x: i32, y: i32, z: i32) -> bool {
+        match self.get_cached_chunk(x, y, z) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
+    pub fn generate_chunk_at(x: i32, y: i32, z: i32) -> CachedChunk {
+        let chunk = Chunk::generate(x, y, z, GAME_STATE.get_seed());
+        let checksum = chunk.compute_checksum();
+        return CachedChunk::new(chunk, checksum);
+    }
+
+    // Square
+    pub fn generate_chunks_between_2_pos(&mut self, p1: Point3<i32>, p2: Point3<i32>) {
+        let min_x = p1.x.min(p2.x);
+        let max_x = p1.x.max(p2.x);
+        let min_y = p1.y.min(p2.y);
+        let max_y = p1.y.max(p2.y);
+        let min_z = p1.z.min(p2.z);
+        let max_z = p1.z.max(p2.z);
+
+        let mut coords = Vec::new();
+        for cx in min_x..=max_x {
+            for cy in min_y..=max_y {
+                for cz in min_z..=max_z {
+                    if !self.is_chunk_already_generated(cx, cy, cz) {
+                        coords.push((cx, cy, cz));
+                    }
+                }
+            }
+        }
+
+        let results = crate::chunk_generator::generate_chunks_parallel(self.seed, coords);
+        for ((cx, cy, cz), chunk_data) in results {
+            self.cache_cached_chunk(
+                cx,
+                cy,
+                cz,
+                CachedChunk {
+                    chunk: chunk_data.chunk_data.chunk,
+                    checksum: chunk_data.checksum,
+                },
+            );
+        }
+    }
+
+    pub fn generate_chunks_in_radius(&mut self, center: Point3<i32>, radius: i32) {
+        let radius_sq = (radius as i64) * (radius as i64);
+
+        let mut coords = Vec::new();
+        for cx in (center.x - radius)..=(center.x + radius) {
+            for cy in (center.y - radius)..=(center.y + radius) {
+                for cz in (center.z - radius)..=(center.z + radius) {
+                    let dx = (cx as i64 - center.x as i64).pow(2);
+                    let dy = (cy as i64 - center.y as i64).pow(2);
+                    let dz = (cz as i64 - center.z as i64).pow(2);
+                    if dx + dy + dz <= radius_sq {
+                        if !self.is_chunk_already_generated(cx, cy, cz) {
+                            coords.push((cx, cy, cz));
+                        }
+                    }
+                }
+            }
+        }
+
+        let results = crate::chunk_generator::generate_chunks_parallel(self.seed, coords);
+        for ((cx, cy, cz), chunk_data) in results {
+            self.cache_cached_chunk(
+                cx,
+                cy,
+                cz,
+                CachedChunk {
+                    chunk: chunk_data.chunk_data.chunk,
+                    checksum: chunk_data.checksum,
+                },
+            );
+        }
     }
 
     pub fn get_cached_chunk(&self, x: i32, y: i32, z: i32) -> Option<&CachedChunk> {

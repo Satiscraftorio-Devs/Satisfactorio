@@ -1,5 +1,6 @@
 //! Serveur Satisfactorio - Point d'entrée.
 
+mod chunk_generator;
 mod game;
 mod network;
 mod state;
@@ -8,6 +9,7 @@ use crate::game::PacketHandler;
 use crate::network::ServerConnection;
 use crate::state::GAME_STATE;
 use anyhow::Result;
+use cgmath::Point3;
 use shared::network::crypto::generate_server_id;
 use shared::network::messages::{self, new_server_seed_paquet};
 use shared::*;
@@ -98,10 +100,17 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    log_server!("Démarrage de l'initialisation du serveur");
     GAME_STATE.init_random_seed();
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:5000").await?;
+    // log_server!("Début de la prégénération du monde");
+    // let p1 = Point3::new(0, 0, 1);
+    // time!(format!("Temps pris par la prégénération"), {
+    //     GAME_STATE.generate_chunks_in_radius(p1, 12);
+    // });
+    log_server!("Fin de la prégénération du monde");
 
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:5000").await?;
     log_server!("Serveur demarre sur 127.0.0.1:5000");
 
     loop {
