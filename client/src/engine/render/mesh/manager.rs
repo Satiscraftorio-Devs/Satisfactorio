@@ -1,4 +1,4 @@
-use std::usize;
+use std::{time::Instant, usize};
 
 use wgpu::{Buffer, BufferUsages, CommandEncoder, Device, Queue};
 
@@ -22,14 +22,17 @@ pub struct MeshEntry {
 }
 
 #[derive(Clone)]
-pub struct Gap {
+struct Gap {
     pub position: usize,
     pub length: usize,
 }
 
-// pub struct WriteOperation {
-//     data: &[u8],
-// }
+struct WriteOperation {
+    mesh_id: MeshId,
+    offset: usize,
+    len: usize,
+    arena_offset: usize,
+}
 
 pub struct MeshManager {
     buffer: SmartBuffer,
@@ -38,7 +41,9 @@ pub struct MeshManager {
     defrag_strategy: DefragmentationStrategy,
     pending_destruction: Vec<SmartBuffer>,
     next_id: MeshId,
-    // write_operations: Vec<WriteOperation>,
+    write_operations: Vec<WriteOperation>,
+    schedule_merge: bool,
+    arena: Vec<u8>
 }
 
 enum DefragmentationStrategy {
@@ -53,8 +58,15 @@ impl Gap {
     }
 }
 
+const BYTES_PER_FRAME_CAP: usize = 1024 * 1024;
+const MAX_MILLIS_PER_FRAME_CAP: u128 = 2;
+const MAX_WRITE_OPERATIONS_PER_FRAME: usize = 4;
+const ARENA_MIN_SIZE: usize = 1024 * 1024 * 16;
+
 impl MeshManager {
     pub fn new(device: &Device) -> Self {
+        let mut arena = Vec::new();
+        arena.reserve(ARENA_MIN_SIZE);
         Self {
             buffer: SmartBuffer::from_capacity(
                 0,
@@ -67,6 +79,9 @@ impl MeshManager {
             pending_destruction: vec![],
             next_id: 0,
             defrag_strategy: DefragmentationStrategy::EventBased,
+            write_operations: vec![],
+            schedule_merge: false,
+            arena: arena,
         }
     }
 
@@ -74,7 +89,10 @@ impl MeshManager {
         self.buffer.buffer()
     }
 
-    fn reallocate_defragment(&mut self, device: &Device, encoder: &mut CommandEncoder, needed: usize) {
+    fn reallocate_defragment(&mut self, device: &Device, queue: &Queue, encoder: &mut CommandEncoder, needed: usize) {
+        if !self.write_operations.is_empty() {
+            self.flush(queue);
+        }
         // println!("Reallocate + defragment - needed: {}", needed);
 
         // Reallocate
@@ -126,8 +144,94 @@ impl MeshManager {
         self.gaps.iter().position(|gap| gap.position == position)
     }
 
-    fn write_at(&mut self, queue: &Queue, position: usize, data: &[u8]) {
-        queue.write_buffer(self.buffer.buffer(), position as u64, data);
+    fn write_at(&mut self, position: usize, data: &[u8], mesh_id: MeshId) {
+        // let now = Instant::now();
+        let arena_offset = self.arena.len();
+        self.arena.extend_from_slice(data);
+        self.write_operations.push(
+            WriteOperation {
+                mesh_id,
+                offset: position,
+                len: data.len(),
+                arena_offset: arena_offset,
+            }
+        );
+        self.schedule_merge = true;
+        // let time_took = now.elapsed();
+        // println!("submit: write op - mesh {} pos {} ({}b) in {} ms", mesh_id, position, data.len(), time_took.as_millis());
+        // queue.write_buffer(self.buffer.buffer(), position as u64, data);
+    }
+
+    fn merge_commands(&mut self) {
+        self.write_operations.sort_by_key(|op| op.offset);
+
+        let mut merged: Vec<WriteOperation> = Vec::with_capacity(self.write_operations.len());
+
+        for op in self.write_operations.drain(..) {
+            if let Some(last) = merged.last_mut() {
+                if last.offset + last.len == op.offset {
+                    last.len += op.len;
+                    continue;
+                }
+            }
+            merged.push(op);
+        }
+
+        self.write_operations = merged;
+    }
+
+    pub fn flush(&mut self, queue: &Queue) {
+        if self.write_operations.is_empty() {
+            return;
+        }
+
+        if self.schedule_merge {
+            self.merge_commands();
+            self.schedule_merge = false;
+        }
+
+        let mut used_bytes = 0;
+        let mut used_ops = 0;
+        let mut time_took_millis = 0;
+        let mut i = 0;
+
+        while i < self.write_operations.len() {
+            let op = &self.write_operations[i];
+
+            if time_took_millis >= MAX_MILLIS_PER_FRAME_CAP || used_bytes >= BYTES_PER_FRAME_CAP || used_ops >= MAX_WRITE_OPERATIONS_PER_FRAME
+            {
+                break;
+            }
+
+            used_bytes += op.len;
+            used_ops += 1;
+
+            let now = Instant::now();
+
+            queue.write_buffer(
+                self.buffer.buffer(),
+                op.offset as u64,
+                &self.arena[op.arena_offset..op.arena_offset + op.len],
+            );
+
+            time_took_millis += now.elapsed().as_millis();
+
+            i += 1;
+        }
+
+        self.write_operations.drain(0..i);
+        
+        // println!(
+        //     "Flushing {} ops ({} bytes) in {}ms. {} left.",
+        //     used_ops,
+        //     used_bytes,
+        //     time_took_millis,
+        //     self.write_operations.len()
+        // );
+        
+        if self.write_operations.is_empty() {
+            self.arena.clear();
+        }
     }
 
     fn insert_gap_after(&mut self, gap: Gap, position: usize) {
@@ -142,11 +246,11 @@ impl MeshManager {
         }
     }
 
-    fn consume_gap_for(&mut self, queue: &Queue, gap_index: usize, entry: &DataEntry) {
+    fn consume_gap_for(&mut self, gap_index: usize, entry: &DataEntry) {
         let position = self.gaps[gap_index].position;
         let data_length = entry.data.len();
 
-        self.write_at(queue, position, entry.data);
+        self.write_at(position, entry.data, entry.id);
 
         let gap = &mut self.gaps[gap_index];
         gap.position += data_length;
@@ -170,7 +274,7 @@ impl MeshManager {
 
         // Cas 1: les nouvelles données ont une taille inférieure ou égale aux précédentes
         if new_len <= old_len {
-            self.write_at(queue, position, entry.data);
+            self.write_at(position, entry.data, entry.id);
 
             if new_len < old_len {
                 if let Some(gap_index) = self.get_data_next_gap(&self.data[index]) {
@@ -199,7 +303,7 @@ impl MeshManager {
 
             // Si taille(anciennes données + trou) suffisent
             if new_len <= old_len + gap_length {
-                self.write_at(queue, position, entry.data);
+                self.write_at(position, entry.data, entry.id);
 
                 let gap = &mut self.gaps[gap_index];
                 gap.position = position + new_len;
@@ -232,18 +336,18 @@ impl MeshManager {
 
         // Cas 3: on regarde s'il existe un trou suffisant pour accueillir les nouvelles données...
         if let Some(gap_index) = self.find_place(new_len) {
-            self.consume_gap_for(queue, gap_index, &entry);
+            self.consume_gap_for(gap_index, &entry);
             return;
         }
 
         // Cas 4: c'est la merde, donc on réalloue et défragmente pour avoir assez d'espace pour les nouvelles données (DERNIER RECOURS)
         let needed = self.data.iter().fold(0, |acc, x| acc + x.length) + new_len;
-        self.reallocate_defragment(device, encoder, needed);
+        self.reallocate_defragment(device, queue, encoder, needed);
 
         let gap_index = self
             .find_place(new_len)
             .expect("Failed to update data. No free space found even after reallocation.");
-        self.consume_gap_for(queue, gap_index, &entry);
+        self.consume_gap_for(gap_index, &entry);
     }
 
     pub fn add_data(&mut self, device: &Device, queue: &Queue, encoder: &mut CommandEncoder, data: &[u8]) -> Option<MeshId> {
@@ -251,7 +355,7 @@ impl MeshManager {
 
         if index.is_none() {
             let needed = self.data.iter().fold(0, |acc, x| acc + x.length) + data.len();
-            self.reallocate_defragment(device, encoder, needed);
+            self.reallocate_defragment(device, queue, encoder, needed);
 
             index = self.find_place(data.len());
         }
@@ -278,7 +382,6 @@ impl MeshManager {
         //     self.buffer.capacity(),
         //     self.buffer.length()
         // );
-        self.write_at(queue, position, data);
 
         if gap_length == 0 {
             self.gaps.remove(index);
@@ -286,6 +389,8 @@ impl MeshManager {
 
         let id = self.next_id;
         self.next_id += 1;
+
+        self.write_at(position, data, id);
 
         let entry = MeshEntry {
             id: id,
@@ -329,6 +434,7 @@ impl MeshManager {
         self.try_merge_gap(position);
 
         self.data.remove(data_index);
+        self.write_operations.retain(|element| element.mesh_id != id);
     }
 
     fn merge_gaps(&mut self) {

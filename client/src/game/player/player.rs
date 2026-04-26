@@ -11,6 +11,7 @@ use std::f32::consts::PI;
 pub struct Player {
     uuid: i32,
     pub pos: Updatable<cgmath::Point3<f32>>,
+    pub cpos: Updatable<cgmath::Point3<i32>>,
     pub vel: cgmath::Vector3<f32>,
     yaw: f32,
     pub horizontal_render_distance: u16,
@@ -24,6 +25,7 @@ impl Player {
         return Player {
             uuid: -1,
             pos: Updatable::new(cgmath::Point3::new(0.0, 0.0, 0.0)),
+            cpos: Updatable::new(cgmath::Point3::new(0, 0, 0)),
             vel: cgmath::Vector3::new(0.0, 0.0, 0.0),
             yaw: 0.0,
             horizontal_render_distance: HORIZONTAL_RENDER_DISTANCE,
@@ -65,6 +67,7 @@ impl Player {
         }
 
         self.pos.update(self.pos.current() + self.vel);
+        self.cpos.update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
         self.yaw = camera.yaw % (2.0 * PI);
         // log_client!("Player pos: {:?}", self.get_pos());
         camera_controller.update_camera(camera, self);
@@ -79,12 +82,17 @@ impl Player {
         self.pos.current().clone()
     }
 
+    pub fn get_cpos(&self) -> cgmath::Point3<i32> {
+        self.cpos.current().clone()
+    }
+
     pub fn has_moved(&self) -> bool {
         self.pos.has_changed()
     }
 
     pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
         self.pos.update(pos);
+        self.cpos.update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
     }
 
     pub fn teleport(&mut self, x: f32, y: f32, z: f32) {

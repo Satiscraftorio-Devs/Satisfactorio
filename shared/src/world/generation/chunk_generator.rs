@@ -2,6 +2,7 @@ use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
 use crate::world::data::chunk::{Chunk, ChunkData};
 use crate::world::generation::chunk::ChunkWithChecksum;
 use noise::{NoiseFn, Perlin, Seedable};
+use std::cmp::{max, min};
 use std::sync::Arc;
 
 pub const CAVE_SCALE: f64 = 0.025;
@@ -62,15 +63,17 @@ pub struct ChunkGenerator {
 impl ChunkGenerator {
     pub fn new(seed: u32) -> Self {
         let ctx = ChunkGenContext::new(seed);
+        let worker_count = num_cpus::get();
         Self {
-            inner: WorkerPool::new(num_cpus::get(), ctx),
+            inner: WorkerPool::new(worker_count, ctx),
         }
     }
 
     pub fn with_max_pending(seed: u32, max_pending: usize) -> Self {
         let ctx = ChunkGenContext::new(seed);
+        let worker_count = num_cpus::get();
         Self {
-            inner: WorkerPool::with_max_pending(num_cpus::get(), ctx, Some(max_pending)),
+            inner: WorkerPool::with_max_pending(worker_count, ctx, Some(max_pending)),
         }
     }
 

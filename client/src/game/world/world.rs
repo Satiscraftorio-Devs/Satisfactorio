@@ -77,103 +77,101 @@ impl World {
     }
 
     pub fn update(&mut self, render_manager: &mut RenderManager, world_mesh: &mut WorldMesh, player: &Player) {
-        if !player.pos.has_changed() {
-            return;
-        }
-
         let _world_update_start = Instant::now();
+        if player.cpos.has_changed() {
+            let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
 
-        let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
-
-        let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
-        for key in current_keys {
-            if !needed_simulation_keys.contains(&key) {
-                self.chunks.remove(&key);
-                if let Some(mesh) = world_mesh.meshes.remove(&key) {
-                    if let Some(id) = mesh.id {
-                        render_manager.mesh_manager.free_data(id);
+            let current_keys: Vec<_> = self.chunks.keys().cloned().collect();
+            for key in current_keys {
+                if !needed_simulation_keys.contains(&key) {
+                    self.chunks.remove(&key);
+                    if let Some(mesh) = world_mesh.meshes.remove(&key) {
+                        if let Some(id) = mesh.id {
+                            render_manager.mesh_manager.free_data(id);
+                        }
                     }
                 }
             }
-        }
 
-        // println!("Time to unload chunks: {:3}ms.", world_update_start.elapsed().as_millis());
+            // Identifier les chunks manquants
+            let missing_keys: Vec<_> = needed_simulation_keys
+                .iter()
+                .filter(|k| !self.chunks.contains_key(k))
+                .cloned()
+                .collect();
 
-        // Identifier les chunks manquants
-        let missing_keys: Vec<_> = needed_simulation_keys
-            .iter()
-            .filter(|k| !self.chunks.contains_key(k))
-            .cloned()
-            .collect();
+            let player_pos = player.get_pos();
+            let player_cpos = player.get_cpos();
 
-        let player_pos = player.get_pos();
-        let player_cx = (player_pos.x / CHUNK_SIZE as f32).floor() as i32;
-        let _player_cy = (player_pos.y / CHUNK_SIZE as f32).floor() as i32;
-        let player_cz = (player_pos.z / CHUNK_SIZE as f32).floor() as i32;
+            let priority_distance_sq = CHUNK_PRIORITY_DISTANCE.powi(2);
 
-        let priority_distance_sq = CHUNK_PRIORITY_DISTANCE.powi(2);
+            let mut priority_chunks: Vec<(i32, i32, i32)> = Vec::new();
+            let mut normal_chunks: Vec<(i32, i32, i32)> = Vec::new();
 
-        let mut priority_chunks: Vec<(i32, i32, i32)> = Vec::new();
-        let mut normal_chunks: Vec<(i32, i32, i32)> = Vec::new();
+            for key in missing_keys {
+                let wx = key.0 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
+                let wy = key.1 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
+                let wz = key.2 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
 
-        for key in missing_keys {
-            let wx = key.0 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
-            let wy = key.1 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
-            let wz = key.2 as f32 * CHUNK_SIZE as f32 + CHUNK_SIZE as f32 / 2.0;
+                let dx = wx - player_pos.x;
+                let dy = wy - player_pos.y;
+                let dz = wz - player_pos.z;
+                let dist_sq = dx * dx + dy * dy + dz * dz;
 
-            let dx = wx - player_pos.x;
-            let dy = wy - player_pos.y;
-            let dz = wz - player_pos.z;
-            let dist_sq = dx * dx + dy * dy + dz * dz;
-
-            if dist_sq < priority_distance_sq {
-                priority_chunks.push(key);
-            } else {
-                normal_chunks.push(key);
+                if dist_sq < priority_distance_sq {
+                    priority_chunks.push(key);
+                } else {
+                    normal_chunks.push(key);
+                }
             }
-        }
 
-        let mut sorted_priority: Vec<_> = priority_chunks
-            .into_iter()
-            .map(|key| {
-                let dx = key.0 - player_cx;
-                let dz = key.2 - player_cz;
-                let dist_2 = dx * dx + dz * dz;
-                (key, dist_2)
-            })
-            .collect();
-        sorted_priority.sort_by(|a, b| a.1.cmp(&b.1));
+            let mut sorted_priority: Vec<_> = priority_chunks
+                .into_iter()
+                .map(|key| {
+                    let dx = key.0 - player_cpos.x;
+                    let dz = key.2 - player_cpos.z;
+                    let dist_2 = dx * dx + dz * dz;
+                    (key, dist_2)
+                })
+                .collect();
+            sorted_priority.sort_by(|a, b| a.1.cmp(&b.1));
 
-        let mut sorted_normal: Vec<_> = normal_chunks
-            .into_iter()
-            .map(|key| {
-                let dx = key.0 - player_cx;
-                let dz = key.2 - player_cz;
-                let dist_2 = dx * dx + dz * dz;
-                (key, dist_2)
-            })
-            .collect();
-        sorted_normal.sort_by(|a, b| a.1.cmp(&b.1));
+            let mut sorted_normal: Vec<_> = normal_chunks
+                .into_iter()
+                .map(|key| {
+                    let dx = key.0 - player_cpos.x;
+                    let dz = key.2 - player_cpos.z;
+                    let dist_2 = dx * dx + dz * dz;
+                    (key, dist_2)
+                })
+                .collect();
+            sorted_normal.sort_by(|a, b| a.1.cmp(&b.1));
 
-        for (key, _) in sorted_priority {
-            let _ = self.chunk_generator.request(key.0, key.1, key.2);
-        }
-        for (key, _) in sorted_normal {
-            let _ = self.chunk_generator.request(key.0, key.1, key.2);
+            for (key, _) in sorted_priority {
+                let _ = self.chunk_generator.request(key.0, key.1, key.2);
+            }
+            for (key, _) in sorted_normal {
+                let _ = self.chunk_generator.request(key.0, key.1, key.2);
+            }
         }
 
         while let Some(result) = self.chunk_generator.try_recv() {
             let (cx, cy, cz, chunk_with_checksum) = result.output;
 
-            for dx in -1..=1 {
-                for dy in -1..=1 {
-                    for dz in -1..=1 {
-                        if let Some(neighbor) = self.chunks.get_mut(&(cx + dx, cy + dy, cz + dz)) {
-                            neighbor.is_dirty = true;
-                        }
-                    }
-                }
-            }
+            // const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
+            //     (-1, 0, 0),
+            //     (1, 0, 0),
+            //     (0, -1, 0),
+            //     (0, 1, 0),
+            //     (0, 0, -1),
+            //     (0, 0, 1),
+            // ];
+
+            // for (dx, dy, dz) in DIRECT_NEIGHBORS {
+            //     if let Some(neighbor) = self.chunks.get_mut(&(cx + dx, cy + dy, cz + dz)) {
+            //         neighbor.is_dirty = true;
+            //     }
+            // }
 
             let mut new_chunk_data = chunk_with_checksum.chunk_data;
             new_chunk_data.is_dirty = true;
@@ -181,6 +179,11 @@ impl World {
 
             self.pending_validations.push((cx, cy, cz, chunk_with_checksum.checksum));
         }
+
+        // let _world_update_end = _world_update_start.elapsed().as_millis();
+        // if _world_update_end > 0 {
+        //     println!("Time took for world update: {} ms", _world_update_end);
+        // }
     }
 
     pub fn get_player_rendered_chunks(&self, player: &Player) -> Vec<&Chunk> {

@@ -518,6 +518,7 @@ impl State {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        self.renderer.render_manager.mesh_manager.flush(&self.renderer.gpu_context.queue);
         self.renderer.render(&self.game_frame_data.camera, Some(&mut self.text_renderer));
 
         Ok(())

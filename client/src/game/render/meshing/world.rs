@@ -6,10 +6,10 @@ use crate::{
         world::world::World,
     },
 };
+use cgmath::num_traits::ToPrimitive;
 use shared::parallel::{WorkResult, WorkerPool};
 use std::{
-    collections::{HashMap, HashSet},
-    time::Instant,
+    cmp::{max, min}, collections::{HashMap, HashSet}, time::Instant
 };
 
 pub struct WorldMesh {
@@ -20,14 +20,17 @@ pub struct WorldMesh {
 
 impl WorldMesh {
     pub fn new() -> WorldMesh {
+        let worker_count = num_cpus::get();
         WorldMesh {
             meshes: HashMap::new(),
-            mesh_worker: WorkerPool::new(num_cpus::get(), ()),
+            mesh_worker: WorkerPool::new(worker_count, ()),
             pending: HashSet::new(),
         }
     }
 
     pub fn update(&mut self, renderer: &mut Renderer, world: &World, player: &Player) {
+        let _world_mesh_make_start = Instant::now();
+        
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
         let mut needed_rendered_keys: Vec<(i32, i32, i32)> = Vec::new();
 
@@ -38,8 +41,6 @@ impl WorldMesh {
                 }
             }
         }
-
-        let _world_mesh_make_start = Instant::now();
 
         for &(cx, cy, cz) in needed_rendered_keys.iter() {
             let key = (cx, cy, cz);
@@ -78,6 +79,9 @@ impl WorldMesh {
             }
         }
 
-        // println!("WorldMesh update took {:.3}ms.", world_mesh_make_start.elapsed().as_micros().to_f64().unwrap() / 1_000.0);
+        // let elapsed = _world_mesh_make_start.elapsed().as_millis();
+        // if elapsed > 3 {
+        //     println!("WorldMesh update took {}ms.", elapsed);
+        // }
     }
 }
