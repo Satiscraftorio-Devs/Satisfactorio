@@ -1,5 +1,6 @@
 use crate::common::utils::updatable::Updatable;
-use crate::game::player::camera::{Camera, CameraController};
+use crate::game::player::camera::Camera;
+use crate::game::player::controllers::{CameraController, PlayerController};
 use crate::game::systems::inputs::InputState;
 use cgmath::{num_traits::ToPrimitive, Point3, Vector3};
 use shared::world::constants::{
@@ -8,15 +9,10 @@ use shared::world::constants::{
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::*;
 
-pub trait PlayerController {
-    fn update(&self, dt: f32, inputs: &mut InputState, player_pos: &mut Point3<f32>, camera: &Camera);
-}
-
 pub struct Player {
     uuid: i32,
     pub pos: Updatable<cgmath::Point3<f32>>,
     pub cpos: Updatable<cgmath::Point3<i32>>,
-    pub vel: cgmath::Vector3<f32>,
     pub horizontal_render_distance: u16,
     pub vertical_render_distance: u16,
     pub horizontal_simulation_distance: u16,
@@ -35,7 +31,6 @@ impl Player {
             uuid: -1,
             pos: Updatable::new(Point3::new(0.0, 0.0, 0.0)),
             cpos: Updatable::new(Point3::new(0, 0, 0)),
-            vel: Vector3::new(0.0, 0.0, 0.0),
             horizontal_render_distance: HORIZONTAL_RENDER_DISTANCE,
             vertical_render_distance: VERTICAL_RENDER_DISTANCE,
             horizontal_simulation_distance: HORIZONTAL_SIMULATION_DISTANCE,

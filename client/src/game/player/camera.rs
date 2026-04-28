@@ -1,6 +1,6 @@
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3};
 
-use crate::{engine::render::camera::OPENGL_TO_WGPU_MATRIX, game::systems::inputs::InputState};
+use crate::engine::render::camera::OPENGL_TO_WGPU_MATRIX;
 
 #[derive(Clone)]
 pub struct Camera {
@@ -11,10 +11,6 @@ pub struct Camera {
     pub aspect: f32,
     pub znear: f32,
     pub zfar: f32,
-}
-
-pub trait CameraController {
-    fn update(&self, dt: f32, inputs: &mut InputState, camera: &mut Camera, player_pos: &Point3<f32>);
 }
 
 impl Camera {

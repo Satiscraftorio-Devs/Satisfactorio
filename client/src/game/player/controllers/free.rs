@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use cgmath::{InnerSpace, Point3, Vector3};
 use winit::keyboard::KeyCode;
 
-use crate::game::{systems::inputs::InputState, player::{camera::{Camera, CameraController}, player::PlayerController}};
+use crate::game::{player::{camera::Camera, controllers::{CameraController, PlayerController}}, systems::inputs::InputState};
 
 //
 //
