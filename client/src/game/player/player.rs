@@ -67,7 +67,8 @@ impl Player {
         }
 
         self.pos.update(self.pos.current() + self.vel);
-        self.cpos.update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
+        self.cpos
+            .update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
         self.yaw = camera.yaw % (2.0 * PI);
         // log_client!("Player pos: {:?}", self.get_pos());
         camera_controller.update_camera(camera, self);
@@ -92,7 +93,8 @@ impl Player {
 
     pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
         self.pos.update(pos);
-        self.cpos.update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
+        self.cpos
+            .update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
     }
 
     pub fn teleport(&mut self, x: f32, y: f32, z: f32) {

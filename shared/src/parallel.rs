@@ -7,15 +7,17 @@ use std::thread::{Builder, JoinHandle};
 #[derive(Debug)]
 pub struct QueueFull;
 
+static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 pub struct WorkItem<I, O> {
     pub input: I,
-    pub coords: (i32, i32, i32),
+    pub id: usize,
     _phantom: Option<O>,
 }
 
 pub struct WorkResult<O> {
     pub output: O,
-    pub coords: (i32, i32, i32),
+    pub id: usize,
 }
 
 pub trait Parallelizable: Send + 'static {
@@ -68,10 +70,7 @@ impl<P: Parallelizable> WorkerPool<P> {
                     pending.fetch_sub(1, Ordering::Relaxed);
 
                     let output = P::process(item.input, &ctx);
-                    let result = WorkResult {
-                        output,
-                        coords: item.coords,
-                    };
+                    let result = WorkResult { output, id: item.id };
                     let _ = tx.send(result);
                 })
                 .expect("Failed to spawn worker thread");
@@ -89,20 +88,17 @@ impl<P: Parallelizable> WorkerPool<P> {
         }
     }
 
-    pub fn submit(&self, input: P::Input, coords: (i32, i32, i32)) -> Result<(), QueueFull> {
+    pub fn submit(&self, input: P::Input) -> Result<usize, QueueFull> {
         if let Some(max) = self.max_pending {
             if self.pending_count.load(Ordering::Relaxed) >= max {
                 return Err(QueueFull);
             }
         }
+        let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
         self.pending_count.fetch_add(1, Ordering::Relaxed);
-        let item = WorkItem {
-            input,
-            coords,
-            _phantom: None,
-        };
+        let item = WorkItem { input, id, _phantom: None };
         let _ = self.request_tx.send(item);
-        Ok(())
+        Ok(id)
     }
 
     pub fn try_recv(&self) -> Option<WorkResult<P::Output>> {

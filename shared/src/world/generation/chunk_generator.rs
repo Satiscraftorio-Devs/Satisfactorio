@@ -77,8 +77,8 @@ impl ChunkGenerator {
         }
     }
 
-    pub fn request(&self, cx: i32, cy: i32, cz: i32) -> Result<(), QueueFull> {
-        self.inner.submit((cx, cy, cz), (cx, cy, cz))
+    pub fn request(&self, cx: i32, cy: i32, cz: i32) -> Result<usize, QueueFull> {
+        self.inner.submit((cx, cy, cz))
     }
 
     pub fn try_recv(&self) -> Option<WorkResult<(i32, i32, i32, ChunkWithChecksum)>> {
@@ -101,13 +101,16 @@ pub fn generate_chunks_parallel(seed: u32, coords: Vec<(i32, i32, i32)>) -> std:
     let pool = WorkerPool::<ChunkGen>::new(num_cpus, ctx);
 
     for coord in &coords {
-        let _ = pool.submit(*coord, *coord);
+        let _ = pool.submit(*coord);
     }
 
     let mut received = 0;
+    let mut coord_iter = coords.iter();
     while received < coords.len() {
         if let Some(result) = pool.try_recv() {
-            result_map.insert(result.coords, result.output.3);
+            if let Some(coord) = coord_iter.next() {
+                result_map.insert(*coord, result.output.3);
+            }
             received += 1;
         }
     }

@@ -43,7 +43,7 @@ pub struct MeshManager {
     next_id: MeshId,
     write_operations: Vec<WriteOperation>,
     schedule_merge: bool,
-    arena: Vec<u8>
+    arena: Vec<u8>,
 }
 
 enum DefragmentationStrategy {
@@ -148,14 +148,12 @@ impl MeshManager {
         // let now = Instant::now();
         let arena_offset = self.arena.len();
         self.arena.extend_from_slice(data);
-        self.write_operations.push(
-            WriteOperation {
-                mesh_id,
-                offset: position,
-                len: data.len(),
-                arena_offset: arena_offset,
-            }
-        );
+        self.write_operations.push(WriteOperation {
+            mesh_id,
+            offset: position,
+            len: data.len(),
+            arena_offset: arena_offset,
+        });
         self.schedule_merge = true;
         // let time_took = now.elapsed();
         // println!("submit: write op - mesh {} pos {} ({}b) in {} ms", mesh_id, position, data.len(), time_took.as_millis());
@@ -198,7 +196,9 @@ impl MeshManager {
         while i < self.write_operations.len() {
             let op = &self.write_operations[i];
 
-            if time_took_millis >= MAX_MILLIS_PER_FRAME_CAP || used_bytes >= BYTES_PER_FRAME_CAP || used_ops >= MAX_WRITE_OPERATIONS_PER_FRAME
+            if time_took_millis >= MAX_MILLIS_PER_FRAME_CAP
+                || used_bytes >= BYTES_PER_FRAME_CAP
+                || used_ops >= MAX_WRITE_OPERATIONS_PER_FRAME
             {
                 break;
             }
@@ -220,7 +220,7 @@ impl MeshManager {
         }
 
         self.write_operations.drain(0..i);
-        
+
         // println!(
         //     "Flushing {} ops ({} bytes) in {}ms. {} left.",
         //     used_ops,
@@ -228,7 +228,7 @@ impl MeshManager {
         //     time_took_millis,
         //     self.write_operations.len()
         // );
-        
+
         if self.write_operations.is_empty() {
             self.arena.clear();
         }

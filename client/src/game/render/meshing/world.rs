@@ -9,13 +9,15 @@ use crate::{
 use cgmath::num_traits::ToPrimitive;
 use shared::parallel::{WorkResult, WorkerPool};
 use std::{
-    cmp::{max, min}, collections::{HashMap, HashSet}, time::Instant
+    collections::{HashMap, HashSet},
+    time::Instant,
 };
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
     mesh_worker: WorkerPool<GreedyMeshingProcessor>,
-    pending: HashSet<(i32, i32, i32)>,
+    pending: HashMap<usize, (i32, i32, i32)>,
+    pending_keys: HashSet<(i32, i32, i32)>,
 }
 
 impl WorldMesh {
@@ -24,13 +26,14 @@ impl WorldMesh {
         WorldMesh {
             meshes: HashMap::new(),
             mesh_worker: WorkerPool::new(worker_count, ()),
-            pending: HashSet::new(),
+            pending: HashMap::new(),
+            pending_keys: HashSet::new(),
         }
     }
 
     pub fn update(&mut self, renderer: &mut Renderer, world: &World, player: &Player) {
         let _world_mesh_make_start = Instant::now();
-        
+
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
         let mut needed_rendered_keys: Vec<(i32, i32, i32)> = Vec::new();
 
@@ -45,7 +48,7 @@ impl WorldMesh {
         for &(cx, cy, cz) in needed_rendered_keys.iter() {
             let key = (cx, cy, cz);
 
-            if self.pending.contains(&key) {
+            if self.pending_keys.contains(&key) {
                 continue;
             }
 
@@ -54,27 +57,23 @@ impl WorldMesh {
 
                 if needs_processing && world.are_all_neighbors_ready(cx, cy, cz) {
                     let snapshot = world.get_mesh_snapshot(cx, cy, cz);
-                    self.pending.insert(key);
-                    self.mesh_worker
-                        .submit((chunk_data.chunk.clone().into(), snapshot, cx, cy, cz), key);
+                    if let Ok(id) = self.mesh_worker.submit((chunk_data.chunk.clone().into(), snapshot, cx, cy, cz)) {
+                        self.pending.insert(id, key);
+                        self.pending_keys.insert(key);
+                    }
                 }
             }
         }
 
-        while let Some(WorkResult {
-            output: vertices_opt,
-            coords,
-        }) = self.mesh_worker.try_recv()
-        {
-            self.pending.remove(&coords);
+        while let Some(WorkResult { output: vertices_opt, id }) = self.mesh_worker.try_recv() {
+            if let Some(key) = self.pending.remove(&id) {
+                self.pending_keys.remove(&key);
+                self.meshes.remove(&key);
 
-            if let Some(vertices) = vertices_opt {
-                if let Some(mesh) = self.meshes.get_mut(&coords) {
-                    mesh.update(vertices, renderer);
-                } else {
+                if let Some(vertices) = vertices_opt {
                     let mut mesh = ChunkMesh::new();
                     mesh.update(vertices, renderer);
-                    self.meshes.insert(coords, mesh);
+                    self.meshes.insert(key, mesh);
                 }
             }
         }
