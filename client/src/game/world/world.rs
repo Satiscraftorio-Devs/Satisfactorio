@@ -1,9 +1,9 @@
 use crate::engine::render::manager::RenderManager;
 use shared::world::{
-    constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE},
+    constants::{CHUNK_PRIORITY_DISTANCE, max_chunks_in_queue},
     data::{
-        block::BlockInstance,
-        chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
+        block::{BlockData, BlockInstance, BlockManager},
+        chunk::{CHUNK_SIZE, Chunk, ChunkData, ChunkState},
     },
     generation::chunk_generator::ChunkGenerator,
 };
@@ -30,18 +30,37 @@ pub struct World {
     seed: u32,
     chunk_generator: ChunkGenerator,
     pending_validations: Vec<(i32, i32, i32, [u8; 2])>,
+    block_manager: Arc<BlockManager>,
 }
 
 impl World {
     pub fn new(seed: u32) -> World {
+        let block_manager = {
+            let mut block_manager = BlockManager::new();
+
+            let blocks = [
+                BlockData::new("air"),
+                BlockData::new("stone"),
+                BlockData::new("dirt"),
+                BlockData::new("grass"),
+            ];
+            
+            for block in blocks {
+                block_manager.register(block);
+            }
+
+            Arc::new(block_manager)
+        };
+
         let max_chunks = max_chunks_in_queue() as usize;
-        let chunk_generator = ChunkGenerator::with_max_pending(seed, max_chunks);
+        let chunk_generator = ChunkGenerator::with_max_pending(Arc::clone(&block_manager), seed, max_chunks);
 
         return World {
             chunks: HashMap::new(),
             seed: seed,
             chunk_generator: chunk_generator,
             pending_validations: vec![],
+            block_manager: block_manager,
         };
     }
 

@@ -1,4 +1,6 @@
-use crate::world::data::block::{BlockInstance, BlockType};
+use std::sync::Arc;
+
+use crate::world::data::block::{BlockInstance, BlockManager, BlockType};
 use crate::world::data::chunk::{Chunk, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
 use crate::world::generation::chunk_generator::ChunkGenContext;
 use noise::NoiseFn;
@@ -10,8 +12,8 @@ pub struct ChunkWithChecksum {
 
 impl Chunk {
     #[inline]
-    pub fn generate(cx: i32, cy: i32, cz: i32, seed: u32) -> Chunk {
-        let ctx = ChunkGenContext::new(seed);
+    pub fn generate(block_manager: Arc<BlockManager>, cx: i32, cy: i32, cz: i32, seed: u32) -> Chunk {
+        let ctx = ChunkGenContext::new(seed, block_manager);
         Self::generate_with_context(cx, cy, cz, &ctx)
     }
 
@@ -31,6 +33,8 @@ impl Chunk {
         let scale = 0.02;
         let base_height = 16;
         let amplitude = 10.0;
+
+
 
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {

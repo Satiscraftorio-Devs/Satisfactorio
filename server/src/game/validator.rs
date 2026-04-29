@@ -5,10 +5,12 @@
 
 use crate::state::GameState;
 use shared::network::messages::{BatchChunkChecksum, BatchValidationResult};
+use shared::world::data::block::BlockManager;
 use shared::world::data::chunk::Chunk;
 use shared::world::generation::chunk_generator::generate_chunks_parallel;
 use shared::*;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Nombre maximum de tentatives de validation autorisé avant de kicker le joueur.
 const MAX_VALIDATION_ATTEMPT: u8 = 3;
@@ -66,9 +68,11 @@ impl ChunkValidator {
             log_server!("Chunk ({}, {}, {}) trouve en cache", x, y, z);
             cached_checksum.to_vec()
         } else {
-            let chunk = Chunk::generate(x, y, z, seed);
-            game_state.cache_chunk(x, y, z, chunk);
-            game_state.get_cached_checksum(x, y, z).unwrap().to_vec()
+            // TODO: si jamais on génère des chunks faut mettre le BlockManager, j'ai pas trouvé comment par contre
+            // let chunk = Chunk::generate(, x, y, z, seed);
+            // game_state.cache_chunk(x, y, z, chunk);
+            // game_state.get_cached_checksum(x, y, z).unwrap().to_vec()
+            vec![]
         };
 
         let valide = checksum == server_checksum;
@@ -99,7 +103,7 @@ impl ChunkValidator {
         }
     }
 
-    pub fn validate_batch(&mut self, chunks: Vec<BatchChunkChecksum>, seed: u32, game_state: &GameState) -> Vec<BatchValidationResult> {
+    pub fn validate_batch(&mut self, block_manager: Arc<BlockManager>, chunks: Vec<BatchChunkChecksum>, seed: u32, game_state: &GameState) -> Vec<BatchValidationResult> {
         let mut results = Vec::with_capacity(chunks.len());
 
         // Sépare les chunks en deux catégories:
@@ -124,7 +128,7 @@ impl ChunkValidator {
 
         // Génère les chunks manquants en parallèle
         if !coords_to_generate.is_empty() {
-            let generated = generate_chunks_parallel(seed, coords_to_generate);
+            let generated = generate_chunks_parallel(block_manager, seed, coords_to_generate);
 
             // Met en cache les chunks générés pourusage futur
             for ((cx, cy, cz), chunk_with_checksum) in generated {

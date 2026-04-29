@@ -36,7 +36,7 @@ impl PacketHandler {
                 tokio::spawn(async move {
                     let seed = GAME_STATE.get_seed();
                     let mut validator = ChunkValidator::new();
-                    let _results = validator.validate_batch(chunks_vec, seed, &GAME_STATE);
+                    let _results = validator.validate_batch(GAME_STATE.get_block_manager(), chunks_vec, seed, &GAME_STATE);
                 });
 
                 Some(messages::new_chunk_validation_batch_response(vec![]))

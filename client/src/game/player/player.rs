@@ -23,10 +23,7 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(
-        camera_controller: Box<dyn CameraController>,
-        player_controller: Box<dyn PlayerController>,
-    ) -> Player {
+    pub fn new(camera_controller: Box<dyn CameraController>, player_controller: Box<dyn PlayerController>) -> Player {
         return Player {
             uuid: -1,
             pos: Updatable::new(Point3::new(0.0, 0.0, 0.0)),
@@ -46,7 +43,8 @@ impl Player {
         self.set_pos(self.get_pos());
         self.camera_controller.update(dt, inputs, &mut self.camera, pos);
         self.player_controller.update(dt, inputs, self.pos.current_mut(), &self.camera);
-        self.cpos.update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE_F).floor() as i32));
+        self.cpos
+            .update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE_F).floor() as i32));
     }
 
     pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {

@@ -2,6 +2,7 @@ use cgmath::Point3;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use shared::network::messages::{Position, Rotation};
+use shared::world::data::block::BlockManager;
 use shared::world::data::chunk::Chunk;
 use shared::world::generation::chunk_generator::generate_chunks_parallel;
 use std::collections::HashMap;
@@ -43,6 +44,10 @@ impl GameState {
         Self {
             inner: Arc::new(RwLock::new(GameStateInner::new())),
         }
+    }
+
+    pub fn get_block_manager(&self) -> Arc<BlockManager> {
+        Arc::clone(&self.inner.read().unwrap().block_manager)
     }
 
     pub fn init_random_seed(&self) {
@@ -90,11 +95,11 @@ impl GameState {
     pub fn get_cached_checksum(&self, x: i32, y: i32, z: i32) -> Option<[u8; 2]> {
         self.inner.read().unwrap().get_cached_checksum(x, y, z)
     }
-    pub fn generate_chunks_between_2_pos(&self, p1: Point3<i32>, p2: Point3<i32>) {
-        self.inner.write().unwrap().generate_chunks_between_2_pos(p1, p2);
+    pub fn generate_chunks_between_2_pos(&self, block_manager: Arc<BlockManager>, p1: Point3<i32>, p2: Point3<i32>) {
+        self.inner.write().unwrap().generate_chunks_between_2_pos(block_manager, p1, p2);
     }
-    pub fn generate_chunks_in_radius(&self, p1: Point3<i32>, radius: i32) {
-        self.inner.write().unwrap().generate_chunks_in_radius(p1, radius);
+    pub fn generate_chunks_in_radius(&self, block_manager: Arc<BlockManager>, p1: Point3<i32>, radius: i32) {
+        self.inner.write().unwrap().generate_chunks_in_radius(block_manager, p1, radius);
     }
 }
 
@@ -102,6 +107,7 @@ pub struct GameStateInner {
     pub seed: u32,
     pub players: HashMap<u64, Player>,
     pub chunk_cache: HashMap<(i32, i32, i32), CachedChunk>,
+    pub block_manager: Arc<BlockManager>,
 }
 
 impl Default for GameStateInner {
@@ -116,6 +122,7 @@ impl GameStateInner {
             seed: 0,
             players: HashMap::new(),
             chunk_cache: HashMap::new(),
+            block_manager: Arc::new(BlockManager::new()),
         }
     }
 
@@ -170,14 +177,14 @@ impl GameStateInner {
         }
     }
 
-    pub fn generate_chunk_at(x: i32, y: i32, z: i32) -> CachedChunk {
-        let chunk = Chunk::generate(x, y, z, GAME_STATE.get_seed());
+    pub fn generate_chunk_at(block_manager: Arc<BlockManager>, x: i32, y: i32, z: i32) -> CachedChunk {
+        let chunk = Chunk::generate(block_manager, x, y, z, GAME_STATE.get_seed());
         let checksum = chunk.compute_checksum();
         return CachedChunk::new(chunk, checksum);
     }
 
     // Square
-    pub fn generate_chunks_between_2_pos(&mut self, p1: Point3<i32>, p2: Point3<i32>) {
+    pub fn generate_chunks_between_2_pos(&mut self, block_manager: Arc<BlockManager>, p1: Point3<i32>, p2: Point3<i32>) {
         let min_x = p1.x.min(p2.x);
         let max_x = p1.x.max(p2.x);
         let min_y = p1.y.min(p2.y);
@@ -196,7 +203,7 @@ impl GameStateInner {
             }
         }
 
-        let results = generate_chunks_parallel(self.seed, coords);
+        let results = generate_chunks_parallel(block_manager, self.seed, coords);
         for ((cx, cy, cz), chunk_data) in results {
             self.cache_cached_chunk(
                 cx,
@@ -210,7 +217,7 @@ impl GameStateInner {
         }
     }
 
-    pub fn generate_chunks_in_radius(&mut self, center: Point3<i32>, radius: i32) {
+    pub fn generate_chunks_in_radius(&mut self, block_manager: Arc<BlockManager>, center: Point3<i32>, radius: i32) {
         let radius_sq = (radius as i64) * (radius as i64);
 
         let mut coords = Vec::new();
@@ -229,7 +236,7 @@ impl GameStateInner {
             }
         }
 
-        let results = generate_chunks_parallel(self.seed, coords);
+        let results = generate_chunks_parallel(block_manager, self.seed, coords);
         for ((cx, cy, cz), chunk_data) in results {
             self.cache_cached_chunk(
                 cx,

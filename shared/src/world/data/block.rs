@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum BlockType {
     Air = 0,
@@ -27,6 +29,7 @@ impl BlockType {
     }
 }
 
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockInstance {
     pub id: u32,
@@ -55,5 +58,63 @@ impl BlockInstance {
 
     pub fn texture_index(&self) -> u32 {
         self.block_type().texture_index()
+    }
+}
+
+pub struct BlockData {
+    pub id: Option<u32>,
+    pub id_str: String, // e.g.: "base:dirt"
+
+    // properties: solid, hardness, resistance, ...
+}
+
+impl BlockData {
+    pub fn new(id: &str) -> Self {
+        Self {
+            id: None,
+            id_str: id.to_owned(),
+        }
+    }
+}
+
+pub struct BlockManager {
+    blocks: Vec<BlockData>,
+    mapped_blocks: HashMap<String, u32>,
+}
+
+impl BlockManager {
+    pub fn new() -> Self {
+        let blocks = Vec::with_capacity(256);
+        let mapped_blocks = HashMap::with_capacity(256);
+        Self {
+            blocks,
+            mapped_blocks,
+        }
+    }
+
+    pub fn block_count(&self) -> usize {
+        self.blocks.len()
+    }
+
+    pub fn get_block_by_id(&self, id: u32) -> Option<&BlockData> {
+        self.blocks.get(id as usize)
+    }
+
+    pub fn get_block_by_string(&self, id_str: String) -> Option<&BlockData> {
+        if let Some(id) = self.mapped_blocks.get(&id_str) {
+            return self.get_block_by_id(*id);
+        }
+        None
+    }
+
+    pub fn register(&mut self, mut block: BlockData) {
+        if self.mapped_blocks.contains_key(&block.id_str) {
+            panic!("BlockManager: trying to insert a new block but its id_str is already registered: \"{}\"", block.id_str);
+        }
+
+        let id = self.block_count() as u32;
+        block.id = Some(id);
+        self.mapped_blocks.insert(block.id_str.clone(), id);
+        self.blocks.push(block);
     }
 }

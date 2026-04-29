@@ -1,4 +1,5 @@
 use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
+use crate::world::data::block::BlockManager;
 use crate::world::data::chunk::{Chunk, ChunkData};
 use crate::world::generation::chunk::ChunkWithChecksum;
 use noise::{NoiseFn, Perlin, Seedable};
@@ -14,15 +15,17 @@ pub struct ChunkGenContext {
     pub perlin: Arc<Perlin>,
     pub cave_noise_1: Arc<Perlin>,
     pub cave_noise_2: Arc<Perlin>,
+    pub block_manager: Arc<BlockManager>,
 }
 
 impl ChunkGenContext {
-    pub fn new(seed: u32) -> Self {
+    pub fn new(seed: u32, block_manager: Arc<BlockManager>) -> Self {
         Self {
             seed,
             perlin: Arc::new(Perlin::default().set_seed(seed)),
             cave_noise_1: Arc::new(Perlin::default().set_seed(seed.wrapping_add(1000))),
             cave_noise_2: Arc::new(Perlin::default().set_seed(seed.wrapping_add(2000))),
+            block_manager,
         }
     }
 
@@ -60,16 +63,16 @@ pub struct ChunkGenerator {
 }
 
 impl ChunkGenerator {
-    pub fn new(seed: u32) -> Self {
-        let ctx = ChunkGenContext::new(seed);
+    pub fn new(block_manager: Arc<BlockManager>, seed: u32) -> Self {
+        let ctx = ChunkGenContext::new(seed, block_manager);
         let worker_count = num_cpus::get();
         Self {
             inner: WorkerPool::new(worker_count, ctx),
         }
     }
 
-    pub fn with_max_pending(seed: u32, max_pending: usize) -> Self {
-        let ctx = ChunkGenContext::new(seed);
+    pub fn with_max_pending(block_manager: Arc<BlockManager>, seed: u32, max_pending: usize) -> Self {
+        let ctx = ChunkGenContext::new(seed, block_manager);
         let worker_count = num_cpus::get();
         Self {
             inner: WorkerPool::with_max_pending(worker_count, ctx, Some(max_pending)),
@@ -85,7 +88,7 @@ impl ChunkGenerator {
     }
 }
 
-pub fn generate_chunks_parallel(seed: u32, coords: Vec<(i32, i32, i32)>) -> std::collections::HashMap<(i32, i32, i32), ChunkWithChecksum> {
+pub fn generate_chunks_parallel(block_manager: Arc<BlockManager>, seed: u32, coords: Vec<(i32, i32, i32)>) -> std::collections::HashMap<(i32, i32, i32), ChunkWithChecksum> {
     use crate::parallel::WorkerPool;
     use std::collections::HashMap;
 
@@ -96,7 +99,7 @@ pub fn generate_chunks_parallel(seed: u32, coords: Vec<(i32, i32, i32)>) -> std:
     }
 
     let num_cpus = num_cpus::get();
-    let ctx = ChunkGenContext::new(seed);
+    let ctx = ChunkGenContext::new(seed, block_manager);
     let pool = WorkerPool::<ChunkGen>::new(num_cpus, ctx);
 
     for coord in &coords {

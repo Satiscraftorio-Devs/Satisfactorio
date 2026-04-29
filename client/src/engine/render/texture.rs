@@ -78,7 +78,13 @@ pub struct TextureArrayManager {
     pub layer_count: u32,
 }
 
+type TextureID = u32;
+
 impl TextureArrayManager {
+    pub fn register() -> TextureID {
+        todo!()
+    }
+
     pub fn make_array(device: &wgpu::Device, queue: &wgpu::Queue, textures: Vec<&[u8]>, width: u32, height: u32) -> Self {
         let layer_count = textures.len() as u32;
 

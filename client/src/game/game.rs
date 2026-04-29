@@ -18,10 +18,11 @@ use crate::{
     game::{
         network::NetworkManager,
         player::{
-            controllers::free::{FreeCameraController, FreePlayerController}, player::Player
+            controllers::free::{FreeCameraController, FreePlayerController},
+            player::Player,
         },
-        systems::inputs::InputState,
         render::meshing::world::WorldMesh,
+        systems::inputs::InputState,
         world::world::World,
     },
 };
@@ -59,10 +60,7 @@ impl GameState {
             .expect("La seed est vide");
 
         Self {
-            player: Player::new(
-                Box::new(FreeCameraController::new(1.0)),
-                Box::new(FreePlayerController::new(16.0)),
-            ),
+            player: Player::new(Box::new(FreeCameraController::new(1.0)), Box::new(FreePlayerController::new(16.0))),
             world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
             inputs: InputState::new(),
@@ -95,6 +93,12 @@ impl AppState for GameState {
 
         self.delay_ms -= DT_CAP;
 
+        // LOGIC
+        self.player.update(frame.dt, &mut self.inputs);
+        self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
+
+        // NETWORK
+
         // Envoi ping toutes les 10 secondes
         if let Some(ref mut net) = self.network {
             if net.is_connected() && self.last_ping.elapsed() >= PING_INTERVAL {
@@ -111,26 +115,10 @@ impl AppState for GameState {
             }
         }
 
-        // LOGIC
-        self.player.update(frame.dt, &mut self.inputs);
-
-        if let Some(ref mut net) = self.network {
-            if net.is_connected() && self.player.has_moved() {
-                let pos = self.player.get_pos();
-                let (rx, ry) = self.player.camera.get_rotation();
-                if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
-                    log_err_client!("Erreur envoi position: {}", e);
-                }
-            }
-        }
-
-        self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
-
         let pending_validations = self.world.take_pending_validations();
 
         // Filtrer pour n'envoyer que les chunks dans la distance de rendu
-        let render_range = self.player.get_rendered_chunk_range();
-        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = render_range;
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.player.get_rendered_chunk_range();
 
         let chunks: Vec<_> = pending_validations
             .into_iter()
@@ -142,6 +130,16 @@ impl AppState for GameState {
                 checksum,
             })
             .collect();
+
+        if let Some(ref mut net) = self.network {
+            if net.is_connected() && self.player.has_moved() {
+                let pos = self.player.get_pos();
+                let (rx, ry) = self.player.camera.get_rotation();
+                if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
+                    log_err_client!("Erreur envoi position: {}", e);
+                }
+            }
+        }
 
         if chunks.len() >= MIN_CHUNKS_PER_BATCH && self.network.is_some() {
             for chunk_batch in chunks.chunks(MAX_CHUNKS_PER_BATCH) {
@@ -155,6 +153,7 @@ impl AppState for GameState {
             }
         }
 
+        // MESHING
         self.world_mesh.update(renderer, &self.world, &self.player);
 
         // RENDER
@@ -167,9 +166,6 @@ impl AppState for GameState {
         let cam_frustum = extract_camera_frustum_planes(view_proj);
 
         let chunks_to_render = self.player.get_rendered_chunk_keys();
-
-        // println!("chunks to render: {:?}", chunks_to_render);
-        // println!("world meshes: {:?}", self.world_mesh.meshes.len());
 
         for (key, mesh) in self.world_mesh.meshes.iter() {
             if mesh.id.is_none() || !chunks_to_render.contains(key) {
