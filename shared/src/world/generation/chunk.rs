@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::time_noprint;
 use crate::world::data::block::{BlockInstance, BlockManager, BlockType};
-use crate::world::data::chunk::{CHUNK_BLOCK_NUMBER, CHUNK_SIZE, CHUNK_SIZE_F64, Chunk};
+use crate::world::data::chunk::{Chunk, CHUNK_BLOCK_NUMBER, CHUNK_SIZE, CHUNK_SIZE_F64};
 use crate::world::generation::chunk_generator::ChunkGenContext;
 use noise::NoiseFn;
 
@@ -65,7 +65,7 @@ impl Chunk {
                     let wx_f = x_f64 + cx_f64 * CHUNK_SIZE_F64;
                     let wz_f = z_f64 + cz_f64 * CHUNK_SIZE_F64;
                     // let (is_cave, cave_time) = time_noprint!({
-                    let is_cave=    ctx.is_cave_block(wx_f, wy as f64, wz_f, depth);
+                    let is_cave = ctx.is_cave_block(wx_f, wy as f64, wz_f, depth);
                     // });
                     // cave_perlin_times.push(cave_time.as_micros() as f64);
 

@@ -3,7 +3,6 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use shared::network::messages::{Position, Rotation};
 use shared::world::data::block::BlockManager;
-use shared::world::data::chunk::Chunk;
 use shared::world::generation::chunk_generator::generate_chunks_parallel;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -18,20 +17,6 @@ pub struct Player {
     pub username: String,
     pub position: Position,
     pub rotation: Rotation,
-}
-
-#[derive(Clone)]
-pub struct CachedChunk {
-    pub chunk: Chunk,
-    pub checksum: [u8; 2],
-}
-impl CachedChunk {
-    pub fn new(chunk: Chunk, checksum: [u8; 2]) -> CachedChunk {
-        return CachedChunk {
-            chunk: chunk,
-            checksum: checksum,
-        };
-    }
 }
 
 #[derive(Clone)]
@@ -78,23 +63,6 @@ impl GameState {
     pub fn update_player_position(&self, id: u64, position: Position, rotation: Rotation) {
         self.inner.write().unwrap().update_player_position(id, position, rotation);
     }
-
-    pub fn cache_chunk(&self, x: i32, y: i32, z: i32, chunk: Chunk) {
-        let checksum = chunk.compute_checksum();
-        self.inner.write().unwrap().cache_chunk(x, y, z, chunk, checksum);
-    }
-
-    pub fn cache_chunk_with_checksum(&self, x: i32, y: i32, z: i32, chunk: Chunk, checksum: [u8; 2]) {
-        self.inner.write().unwrap().cache_chunk(x, y, z, chunk, checksum);
-    }
-
-    pub fn get_cached_chunk(&self, x: i32, y: i32, z: i32) -> Option<Chunk> {
-        self.inner.read().unwrap().get_cached_chunk(x, y, z).map(|c| c.chunk.clone())
-    }
-
-    pub fn get_cached_checksum(&self, x: i32, y: i32, z: i32) -> Option<[u8; 2]> {
-        self.inner.read().unwrap().get_cached_checksum(x, y, z)
-    }
     pub fn generate_chunks_between_2_pos(&self, block_manager: Arc<BlockManager>, p1: Point3<i32>, p2: Point3<i32>) {
         self.inner.write().unwrap().generate_chunks_between_2_pos(block_manager, p1, p2);
     }
@@ -106,7 +74,6 @@ impl GameState {
 pub struct GameStateInner {
     pub seed: u32,
     pub players: HashMap<u64, Player>,
-    pub chunk_cache: HashMap<(i32, i32, i32), CachedChunk>,
     pub block_manager: Arc<BlockManager>,
 }
 
@@ -121,7 +88,6 @@ impl GameStateInner {
         Self {
             seed: 0,
             players: HashMap::new(),
-            chunk_cache: HashMap::new(),
             block_manager: Arc::new(BlockManager::new()),
         }
     }
@@ -163,26 +129,6 @@ impl GameStateInner {
         }
     }
 
-    pub fn cache_chunk(&mut self, x: i32, y: i32, z: i32, chunk: Chunk, checksum: [u8; 2]) {
-        self.chunk_cache.insert((x, y, z), CachedChunk { chunk, checksum });
-    }
-    pub fn cache_cached_chunk(&mut self, x: i32, y: i32, z: i32, cached_chunk: CachedChunk) {
-        self.chunk_cache.insert((x, y, z), cached_chunk);
-    }
-
-    pub fn is_chunk_already_generated(&mut self, x: i32, y: i32, z: i32) -> bool {
-        match self.get_cached_chunk(x, y, z) {
-            Some(_) => true,
-            None => false,
-        }
-    }
-
-    pub fn generate_chunk_at(block_manager: Arc<BlockManager>, x: i32, y: i32, z: i32) -> CachedChunk {
-        let chunk = Chunk::generate(block_manager, x, y, z, GAME_STATE.get_seed());
-        let checksum = chunk.compute_checksum();
-        return CachedChunk::new(chunk, checksum);
-    }
-
     // Square
     pub fn generate_chunks_between_2_pos(&mut self, block_manager: Arc<BlockManager>, p1: Point3<i32>, p2: Point3<i32>) {
         let min_x = p1.x.min(p2.x);
@@ -196,25 +142,12 @@ impl GameStateInner {
         for cx in min_x..=max_x {
             for cy in min_y..=max_y {
                 for cz in min_z..=max_z {
-                    if !self.is_chunk_already_generated(cx, cy, cz) {
-                        coords.push((cx, cy, cz));
-                    }
+                    coords.push((cx, cy, cz));
                 }
             }
         }
 
-        let results = generate_chunks_parallel(block_manager, self.seed, coords);
-        for ((cx, cy, cz), chunk_data) in results {
-            self.cache_cached_chunk(
-                cx,
-                cy,
-                cz,
-                CachedChunk {
-                    chunk: chunk_data.chunk_data.chunk,
-                    checksum: chunk_data.checksum,
-                },
-            );
-        }
+        let _results = generate_chunks_parallel(block_manager, self.seed, coords);
     }
 
     pub fn generate_chunks_in_radius(&mut self, block_manager: Arc<BlockManager>, center: Point3<i32>, radius: i32) {
@@ -228,33 +161,12 @@ impl GameStateInner {
                     let dy = (cy as i64 - center.y as i64).pow(2);
                     let dz = (cz as i64 - center.z as i64).pow(2);
                     if dx + dy + dz <= radius_sq {
-                        if !self.is_chunk_already_generated(cx, cy, cz) {
-                            coords.push((cx, cy, cz));
-                        }
+                        coords.push((cx, cy, cz));
                     }
                 }
             }
         }
 
-        let results = generate_chunks_parallel(block_manager, self.seed, coords);
-        for ((cx, cy, cz), chunk_data) in results {
-            self.cache_cached_chunk(
-                cx,
-                cy,
-                cz,
-                CachedChunk {
-                    chunk: chunk_data.chunk_data.chunk,
-                    checksum: chunk_data.checksum,
-                },
-            );
-        }
-    }
-
-    pub fn get_cached_chunk(&self, x: i32, y: i32, z: i32) -> Option<&CachedChunk> {
-        self.chunk_cache.get(&(x, y, z))
-    }
-
-    pub fn get_cached_checksum(&self, x: i32, y: i32, z: i32) -> Option<[u8; 2]> {
-        self.chunk_cache.get(&(x, y, z)).map(|c| c.checksum)
+        let _results = generate_chunks_parallel(block_manager, self.seed, coords);
     }
 }

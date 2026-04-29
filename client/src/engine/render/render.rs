@@ -7,7 +7,7 @@ use wgpu::{
 };
 
 use crate::{
-    common::geometry::vertex::{Vertex, generate_cube},
+    common::geometry::vertex::{generate_cube, Vertex},
     engine::render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureArrayManager},
 };
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
@@ -278,7 +278,7 @@ impl Renderer {
                     render_pass.set_vertex_buffer(0, self.chunk_borders_buffer.slice(..));
                     render_pass.draw(0..self.chunk_borders_vertices.len() as u32, 0..1);
                 }
-                
+
                 // Player mesh
                 render_pass.set_vertex_buffer(0, self.player_mesh.slice(..));
                 render_pass.draw(0..36, 0..1);

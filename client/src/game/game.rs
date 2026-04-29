@@ -26,11 +26,7 @@ use crate::{
         world::world::World,
     },
 };
-use shared::{
-    log_client, log_err_client,
-    world::constants::{MAX_CHUNKS_PER_BATCH, MIN_CHUNKS_PER_BATCH},
-    world::data::chunk::CHUNK_SIZE_F,
-};
+use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 1_000_000;
@@ -115,40 +111,12 @@ impl AppState for GameState {
             }
         }
 
-        let pending_validations = self.world.take_pending_validations();
-
-        // Filtrer pour n'envoyer que les chunks dans la distance de rendu
-        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.player.get_rendered_chunk_range();
-
-        let chunks: Vec<_> = pending_validations
-            .into_iter()
-            .filter(|(cx, cy, cz, _)| *cx >= min_cx && *cx <= max_cx && *cy >= min_cy && *cy <= max_cy && *cz >= min_cz && *cz <= max_cz)
-            .map(|(cx, cy, cz, checksum)| shared::network::messages::BatchChunkChecksum {
-                x: cx,
-                y: cy,
-                z: cz,
-                checksum,
-            })
-            .collect();
-
         if let Some(ref mut net) = self.network {
             if net.is_connected() && self.player.has_moved() {
                 let pos = self.player.get_pos();
                 let (rx, ry) = self.player.camera.get_rotation();
                 if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
                     log_err_client!("Erreur envoi position: {}", e);
-                }
-            }
-        }
-
-        if chunks.len() >= MIN_CHUNKS_PER_BATCH && self.network.is_some() {
-            for chunk_batch in chunks.chunks(MAX_CHUNKS_PER_BATCH) {
-                if let Some(ref mut net) = self.network {
-                    let batch: Vec<_> = chunk_batch.to_vec();
-                    log_client!("Envoi ChunkValidationBatchRequest avec {} chunks", batch.len());
-                    if let Err(e) = net.send_chunk_validation_batch(batch) {
-                        log_err_client!("Erreur validation batch: {}", e);
-                    }
                 }
             }
         }

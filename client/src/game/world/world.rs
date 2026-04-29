@@ -1,9 +1,9 @@
 use crate::engine::render::manager::RenderManager;
 use shared::world::{
-    constants::{CHUNK_PRIORITY_DISTANCE, max_chunks_in_queue},
+    constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE},
     data::{
         block::{BlockData, BlockInstance, BlockManager},
-        chunk::{CHUNK_SIZE, Chunk, ChunkData, ChunkState},
+        chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE},
     },
     generation::chunk_generator::ChunkGenerator,
 };
@@ -29,7 +29,6 @@ pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
     seed: u32,
     chunk_generator: ChunkGenerator,
-    pending_validations: Vec<(i32, i32, i32, [u8; 2])>,
     block_manager: Arc<BlockManager>,
 }
 
@@ -44,7 +43,7 @@ impl World {
                 BlockData::new("dirt"),
                 BlockData::new("grass"),
             ];
-            
+
             for block in blocks {
                 block_manager.register(block);
             }
@@ -59,7 +58,6 @@ impl World {
             chunks: HashMap::new(),
             seed: seed,
             chunk_generator: chunk_generator,
-            pending_validations: vec![],
             block_manager: block_manager,
         };
     }
@@ -195,8 +193,6 @@ impl World {
             let mut new_chunk_data = chunk_with_checksum.chunk_data;
             new_chunk_data.is_dirty = true;
             self.chunks.insert((cx, cy, cz), new_chunk_data);
-
-            self.pending_validations.push((cx, cy, cz, chunk_with_checksum.checksum));
         }
 
         // let _world_update_end = _world_update_start.elapsed().as_millis();
@@ -279,9 +275,5 @@ impl World {
             }
         }
         true
-    }
-
-    pub fn take_pending_validations(&mut self) -> Vec<(i32, i32, i32, [u8; 2])> {
-        std::mem::take(&mut self.pending_validations)
     }
 }

@@ -2,7 +2,7 @@ use crate::common::utils::updatable::Updatable;
 use crate::game::player::camera::Camera;
 use crate::game::player::controllers::{CameraController, PlayerController};
 use crate::game::systems::inputs::InputState;
-use cgmath::{num_traits::ToPrimitive, Point3, Vector3};
+use cgmath::{num_traits::ToPrimitive, Point3};
 use shared::world::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };

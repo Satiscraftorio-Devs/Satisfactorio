@@ -69,7 +69,7 @@ pub struct BlockData {
     pub id: Option<u32>,
     pub id_str: String, // e.g.: "base:dirt"
 
-    // properties: solid, hardness, resistance, ...
+                        // properties: solid, hardness, resistance, ...
 }
 
 impl BlockData {
@@ -90,10 +90,7 @@ impl BlockManager {
     pub fn new() -> Self {
         let blocks = Vec::with_capacity(256);
         let mapped_blocks = HashMap::with_capacity(256);
-        Self {
-            blocks,
-            mapped_blocks,
-        }
+        Self { blocks, mapped_blocks }
     }
 
     pub fn block_count(&self) -> usize {
@@ -113,7 +110,10 @@ impl BlockManager {
 
     pub fn register(&mut self, mut block: BlockData) {
         if self.mapped_blocks.contains_key(&block.id_str) {
-            panic!("BlockManager: trying to insert a new block but its id_str is already registered: \"{}\"", block.id_str);
+            panic!(
+                "BlockManager: trying to insert a new block but its id_str is already registered: \"{}\"",
+                block.id_str
+            );
         }
 
         let id = self.block_count() as u32;

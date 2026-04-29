@@ -119,7 +119,6 @@ pub fn generate_cube(x: f32, y: f32, z: f32) -> Vec<Vertex> {
         Vertex::new_simplified(p000.0, p000.1, p000.2),
         Vertex::new_simplified(p010.0, p010.1, p010.2),
         Vertex::new_simplified(p011.0, p011.1, p011.2),
-
         Vertex::new_simplified(p000.0, p000.1, p000.2),
         Vertex::new_simplified(p011.0, p011.1, p011.2),
         Vertex::new_simplified(p001.0, p001.1, p001.2),
@@ -130,7 +129,6 @@ pub fn generate_cube(x: f32, y: f32, z: f32) -> Vec<Vertex> {
         Vertex::new_simplified(p100.0, p100.1, p100.2),
         Vertex::new_simplified(p101.0, p101.1, p101.2),
         Vertex::new_simplified(p111.0, p111.1, p111.2),
-
         Vertex::new_simplified(p100.0, p100.1, p100.2),
         Vertex::new_simplified(p111.0, p111.1, p111.2),
         Vertex::new_simplified(p110.0, p110.1, p110.2),
@@ -141,7 +139,6 @@ pub fn generate_cube(x: f32, y: f32, z: f32) -> Vec<Vertex> {
         Vertex::new_simplified(p000.0, p000.1, p000.2),
         Vertex::new_simplified(p001.0, p001.1, p001.2),
         Vertex::new_simplified(p101.0, p101.1, p101.2),
-
         Vertex::new_simplified(p000.0, p000.1, p000.2),
         Vertex::new_simplified(p101.0, p101.1, p101.2),
         Vertex::new_simplified(p100.0, p100.1, p100.2),
@@ -152,7 +149,6 @@ pub fn generate_cube(x: f32, y: f32, z: f32) -> Vec<Vertex> {
         Vertex::new_simplified(p010.0, p010.1, p010.2),
         Vertex::new_simplified(p110.0, p110.1, p110.2),
         Vertex::new_simplified(p111.0, p111.1, p111.2),
-
         Vertex::new_simplified(p010.0, p010.1, p010.2),
         Vertex::new_simplified(p111.0, p111.1, p111.2),
         Vertex::new_simplified(p011.0, p011.1, p011.2),
@@ -163,7 +159,6 @@ pub fn generate_cube(x: f32, y: f32, z: f32) -> Vec<Vertex> {
         Vertex::new_simplified(p000.0, p000.1, p000.2),
         Vertex::new_simplified(p100.0, p100.1, p100.2),
         Vertex::new_simplified(p110.0, p110.1, p110.2),
-
         Vertex::new_simplified(p000.0, p000.1, p000.2),
         Vertex::new_simplified(p110.0, p110.1, p110.2),
         Vertex::new_simplified(p010.0, p010.1, p010.2),
@@ -174,7 +169,6 @@ pub fn generate_cube(x: f32, y: f32, z: f32) -> Vec<Vertex> {
         Vertex::new_simplified(p001.0, p001.1, p001.2),
         Vertex::new_simplified(p011.0, p011.1, p011.2),
         Vertex::new_simplified(p111.0, p111.1, p111.2),
-
         Vertex::new_simplified(p001.0, p001.1, p001.2),
         Vertex::new_simplified(p111.0, p111.1, p111.2),
         Vertex::new_simplified(p101.0, p101.1, p101.2),

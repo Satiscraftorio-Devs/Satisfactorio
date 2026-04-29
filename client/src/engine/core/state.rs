@@ -11,9 +11,9 @@ use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
 use shared::world::data::chunk::CHUNK_SIZE_F;
-use wgpu::wgt::BufferDescriptor;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
+use wgpu::wgt::BufferDescriptor;
 use winit::window::Window;
 
 pub struct State {
