@@ -7,8 +7,10 @@ edition.workspace = true
 default = ["client"]
 client = []
 
-[profile.debug]
+[profile.dev]
 opt-level = 1
+incremental = true
+codegen-units = 256
 
 [profile.release]
 debug = true

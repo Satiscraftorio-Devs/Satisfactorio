@@ -7,7 +7,7 @@ use wgpu::{
 };
 
 use crate::{
-    common::geometry::vertex::Vertex,
+    common::geometry::vertex::{Vertex, generate_cube},
     engine::render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureArrayManager},
 };
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
@@ -56,6 +56,8 @@ pub struct Renderer {
     pub depth_view: TextureView,
 
     pub frame_encoder: Option<CommandEncoder>,
+
+    pub player_mesh: Buffer,
 }
 
 pub struct GpuContext {
@@ -90,6 +92,8 @@ impl Renderer {
 
         depth_texture: wgpu::Texture,
         depth_view: TextureView,
+
+        player_mesh: Buffer,
     ) -> Self {
         let frame_encoder = gpu_context.device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Frame encoder"),
@@ -123,6 +127,8 @@ impl Renderer {
             depth_view,
 
             frame_encoder: Some(frame_encoder),
+
+            player_mesh,
         }
     }
 
@@ -189,6 +195,9 @@ impl Renderer {
 
         // FIN CODE DEBUG CHUNK
 
+        let player_mesh_cube: Vec<Vertex> = generate_cube(world_pos.x, world_pos.y, world_pos.z);
+        queue.write_buffer(&self.player_mesh, 0, bytemuck::cast_slice(&player_mesh_cube));
+
         let output = surface.get_current_texture().unwrap();
 
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -242,6 +251,7 @@ impl Renderer {
 
             let _start = Instant::now();
 
+            // World
             if _rendered_mesh_count > 0 {
                 render_pass.set_vertex_buffer(0, self.render_manager.mesh_manager.get_buffer().slice(..));
 
@@ -257,6 +267,7 @@ impl Renderer {
                 }
             }
 
+            // Debug
             if self.wireframe || self.show_chunk_borders {
                 render_pass.set_pipeline(&self.gizmo_render_pipeline);
                 if self.wireframe {
@@ -267,6 +278,10 @@ impl Renderer {
                     render_pass.set_vertex_buffer(0, self.chunk_borders_buffer.slice(..));
                     render_pass.draw(0..self.chunk_borders_vertices.len() as u32, 0..1);
                 }
+                
+                // Player mesh
+                render_pass.set_vertex_buffer(0, self.player_mesh.slice(..));
+                render_pass.draw(0..36, 0..1);
             }
         }
 

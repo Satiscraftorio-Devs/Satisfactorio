@@ -4,8 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 
-[profile.debug]
+[profile.dev]
 opt-level = 1
+incremental = true
+codegen-units = 256
 
 [[bin]]
 name = "server"

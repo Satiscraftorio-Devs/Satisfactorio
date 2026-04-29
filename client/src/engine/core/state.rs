@@ -11,6 +11,7 @@ use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
 use shared::world::data::chunk::CHUNK_SIZE_F;
+use wgpu::wgt::BufferDescriptor;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
@@ -412,6 +413,13 @@ impl State {
 
         let render_manager = RenderManager::new(&gpu_context.device);
 
+        let player_mesh = gpu_context.device.create_buffer(&BufferDescriptor {
+            label: Some("Player Mesh Buffer"),
+            mapped_at_creation: false,
+            size: size_of::<Vertex>() as u64 * 36, // 36 vertices for a cube
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+
         let renderer = Renderer::new(
             false,
             wireframe_render_pipeline,
@@ -429,6 +437,7 @@ impl State {
             render_manager,
             depth_texture,
             depth_view,
+            player_mesh,
         );
 
         let text_renderer = TextRenderer::new(
