@@ -1,8 +1,8 @@
-//! Protocole réseau avec chiffrement XOR.
+//! Protocole réseau avec chiffrement XOR ou AES.
 //!
 //! Ce module implémente le protocole de communication utilisé par le client et le serveur.
 //! Il fournit :
-//! - `Cipher` : Chiffrement XOR avec clé de 32 octets
+//! - `Cipher` : Chiffrement XOR ou AES avec clé de 32 octets
 //! - `EncryptedCodec` : Codec complet pour l'envoi/réception de paquets chiffrés
 //!
 //! ## Format d'un paquet
@@ -18,16 +18,18 @@
 //! 3. Le client envoie un paquet `Handshake` chiffré
 //! 4. Le serveur répond avec `HandshakeAck` et `ServerSeed` chiffrés
 
-use crate::network::crypto::{compute_shared_secret, generate_server_id, server_id_to_hex, xor_crypt};
+use crate::network::crypto::{aes_decrypt, aes_encrypt, compute_shared_secret, generate_server_id, server_id_to_hex};
 use crate::network::error::NetworkError;
 use crate::network::messages::{Paquet, MAX_PAQUET_SIZE};
 use crate::network::traits::PacketCodec;
+
+use aes_gcm::{aead::KeyInit, Aes256Gcm, Key};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-/// Chiffrement XOR simple avec une clé de 32 octets.
+/// Chiffrement XOR ou AES simple avec une clé de 32 octets.
 ///
-/// Ce cipher utilise un XOR simple avec la clé pour chiffrer/déchiffrer les données.
+/// Ce cipher utilise un XOR ou AES simple avec la clé pour chiffrer/déchiffrer les données.
 /// Il n'offre pas de sécurité cryptographique forte, mais suffit pour une protection
 /// basique contre l'inspection visuelle des données réseau.
 ///
@@ -38,45 +40,48 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 /// let encrypted = cipher.encrypt(&data);
 /// let decrypted = cipher.decrypt(&encrypted);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Cipher {
     /// Clé de chiffrement de 32 octets
-    key: [u8; 32],
+    cipher: Aes256Gcm,
 }
 
 impl Cipher {
     /// Crée un nouveau Cipher avec la clé fournie.
     pub fn new(key: [u8; 32]) -> Self {
-        Self { key }
+        let key: &Key<Aes256Gcm> = &key.into();
+        let key = Key::<Aes256Gcm>::from_slice(key);
+        let cipher = Aes256Gcm::new(&key);
+        Self { cipher: cipher }
     }
 
     /// Crée un Cipher à partir d'un secret partagé de 32 octets.
     pub fn from_shared_secret(shared_secret: [u8; 32]) -> Self {
-        Self { key: shared_secret }
+        Self::new(shared_secret)
     }
 
-    /// Chiffre les données fournies en utilisant XOR avec la clé.
+    /// Chiffre les données fournies en utilisant XOR ou AES avec la clé.
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
-        xor_crypt(data, &self.key)
+        aes_encrypt(data, &self.cipher).expect("Failed to encrypt data with AES")
     }
 
     /// Déchiffre les données fournies (XOR est sa propre inverse).
     pub fn decrypt(&self, data: &[u8]) -> Vec<u8> {
-        xor_crypt(data, &self.key)
+        aes_decrypt(data, &self.cipher).expect("Failed to decrypt data with AES")
     }
 }
 
 /// Codec de chiffrement pour l'envoi et la réception de paquets.
 ///
 /// Ce codec combine :
-/// - Le chiffrement XOR avec `Cipher`
+/// - Le chiffrement XOR ou AES avec `Cipher`
 /// - La sérialisation/désérialisation JSON des paquets
 /// - L'ajout d'un préfixe de longueur (4 octets) pour la réception
 ///
 /// # Format d'envoi
 ///
 /// 1. Sérialiser le paquet en JSON
-/// 2. Chiffrer avec XOR
+/// 2. Chiffrer avec XOR ou AES
 /// 3. Ajouter la longueur (4 octets big-endian)
 /// 4. Envoyer longueur + données
 ///
@@ -84,7 +89,7 @@ impl Cipher {
 ///
 /// 1. Lire 4 octets pour la longueur
 /// 2. Lire les données chiffrées
-/// 3. Déchiffrer avec XOR
+/// 3. Déchiffrer avec XOR ou AES
 /// 4. Désérialiser en paquet
 #[derive(Clone)]
 pub struct EncryptedCodec {
@@ -102,7 +107,7 @@ impl EncryptedCodec {
     ///
     /// Étapes :
     /// 1. Sérialise le paquet en JSON
-    /// 2. Chiffre avec XOR
+    /// 2. Chiffre avec XOR ou  AES
     ///
     /// # Returns
     ///
@@ -112,7 +117,7 @@ impl EncryptedCodec {
         // Étape 1: Sérialisation JSON
         let serialized = packet.serialize();
 
-        // Étape 2: Chiffrement XOR
+        // Étape 2: Chiffrement XOR ou  AES
         let encrypted = self.cipher.encrypt(&serialized);
 
         encrypted
