@@ -778,16 +778,16 @@ impl Parallelizable for GreedyMeshingProcessor {
             ChunkMesh::make_greedy_z(&padded, &solidity, &mut vertices, chunk_origin_x, chunk_origin_y, chunk_origin_z);
         });
 
-        println!(
-            "Greedy Mesh - Chunk {} {} {}\nPadding: {}ms/{}µs\nMeshing: {}ms/{}µs",
-            cx,
-            cy,
-            cz,
-            padded_time.as_millis(),
-            padded_time.as_micros(),
-            total.as_millis(),
-            total.as_micros()
-        );
+        // println!(
+        //     "Greedy Mesh - Chunk {} {} {}\nPadding: {}ms/{}µs\nMeshing: {}ms/{}µs",
+        //     cx,
+        //     cy,
+        //     cz,
+        //     padded_time.as_millis(),
+        //     padded_time.as_micros(),
+        //     total.as_millis(),
+        //     total.as_micros()
+        // );
 
         return Some(vertices);
     }

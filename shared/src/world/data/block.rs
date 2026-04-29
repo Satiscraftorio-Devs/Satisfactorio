@@ -27,6 +27,10 @@ impl BlockType {
             BlockType::Stone => 2,
         }
     }
+
+    pub const fn to_u32(&self) -> u32 {
+        *self as u32
+    }
 }
 
 #[repr(C)]

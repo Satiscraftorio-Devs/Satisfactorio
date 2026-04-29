@@ -1,4 +1,5 @@
-Commands:
+cargo run -p client --bin client
+cargo run -p client --bin client -r
 
-cargo run --bin client
-cargo run --bin client -r
+cargo run -p server --bin server
+cargo run -p server --bin server -r

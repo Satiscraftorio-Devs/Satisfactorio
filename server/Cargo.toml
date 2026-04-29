@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 
+[profile.debug]
+opt-level = 1
+
 [[bin]]
 name = "server"
 path = "src/main.rs"

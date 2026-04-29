@@ -1,3 +1,4 @@
+use crate::{log_client, time_noprint};
 use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
 use crate::world::data::block::BlockManager;
 use crate::world::data::chunk::{Chunk, ChunkData};
@@ -52,6 +53,7 @@ impl Parallelizable for ChunkGen {
     fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
         let (cx, cy, cz) = input;
         let chunk = Chunk::generate_with_context(cx, cy, cz, ctx);
+        
         let checksum = chunk.compute_checksum();
         let chunk_data = ChunkData::new(chunk);
         (cx, cy, cz, ChunkWithChecksum { chunk_data, checksum })
