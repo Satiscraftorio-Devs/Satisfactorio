@@ -29,6 +29,7 @@ impl ChunkGenContext {
         }
     }
 
+    #[inline(always)]
     pub fn is_cave_block(&self, wx: f64, wy: f64, wz: f64, depth: i32) -> bool {
         if depth < CAVE_MIN_DEPTH {
             return false;

@@ -25,12 +25,12 @@ impl PacketHandler {
             }
 
             ContenuPaquet::Ping { timestamp } => {
-                log_server!("Ping d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - timestamp);
+                log_server!("Ping d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - *timestamp);
                 Some(messages::new_pong_paquet(*timestamp))
             }
 
             ContenuPaquet::Pong { timestamp } => {
-                log_server!("Pong d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - timestamp);
+                log_server!("Pong d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - *timestamp);
                 Some(packet)
             }
 
