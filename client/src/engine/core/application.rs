@@ -11,7 +11,17 @@ use crate::engine::render::render::{RenderOptions, Renderer};
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 
-pub enum AppEvent {}
+pub enum AppEvent {
+    None,
+}
+
+impl AppEvent {
+    pub fn to_string(&self) -> String {
+        match self {
+            AppEvent::None => "None".to_string(),
+        }
+    }
+}
 
 pub trait AppState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>);
@@ -50,8 +60,8 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: AppEvent) {
-        log_client!("EVENT RECEIVED");
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: AppEvent) {
+        log_client!("Évènement système reçu: {:?}", event.to_string());
     }
 
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {

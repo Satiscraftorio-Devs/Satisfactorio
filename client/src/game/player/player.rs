@@ -72,7 +72,7 @@ impl Player {
 
     pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
         log_client!(
-            "The player {} has been teleported from {:?} to {:?}",
+            "Joueur {}: téléportation de {:?} à {:?}",
             self.uuid,
             self.get_pos(),
             Point3 { x: x, y: y, z: z }

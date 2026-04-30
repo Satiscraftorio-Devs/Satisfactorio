@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant, SystemTime};
+
 use crate::state::GAME_STATE;
 use shared::network::messages::*;
 use shared::network::messages::{self, ContenuPaquet, Paquet};
@@ -13,7 +15,7 @@ impl PacketHandler {
     pub fn handle_packet(&mut self, packet: Paquet) -> Option<Paquet> {
         match &packet.contenu {
             ContenuPaquet::DonneesConnexion { version, username } => {
-                log_server!("Joueur {} se connecte avec la version {}", username, version);
+                log_server!("Joueur {}: connexion avec la version {}.", username, version);
                 Some(packet)
             }
 
@@ -23,12 +25,12 @@ impl PacketHandler {
             }
 
             ContenuPaquet::Ping { timestamp } => {
-                log_server!("Ping recu du joueur, reponse Pong");
+                log_server!("Ping d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - timestamp);
                 Some(messages::new_pong_paquet(*timestamp))
             }
 
-            ContenuPaquet::Pong { .. } => {
-                log_server!("Pong recu!");
+            ContenuPaquet::Pong { timestamp } => {
+                log_server!("Pong d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - timestamp);
                 Some(packet)
             }
 

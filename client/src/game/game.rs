@@ -1,6 +1,6 @@
 use std::{
     thread::sleep,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
@@ -42,7 +42,6 @@ pub struct GameState {
     pub delay_ms: f32,
     pub network: Option<NetworkManager>,
     inputs: InputState,
-    last_ping: Instant,
 }
 
 impl GameState {
@@ -53,7 +52,7 @@ impl GameState {
             .perform_handshake("Player")
             .ok()
             .and_then(|_| network.get_server_seed())
-            .expect("La seed est vide");
+            .expect("La seed n'existe pas ou est vide (serveur non lancé ? connexion échouée ? mauvaise adresse IP ?)");
 
         Self {
             player: Player::new(Box::new(FreeCameraController::new(1.0)), Box::new(FreePlayerController::new(16.0))),
@@ -62,7 +61,6 @@ impl GameState {
             inputs: InputState::new(),
             delay_ms: 0.0,
             network: Some(network),
-            last_ping: Instant::now(),
         }
     }
 }
@@ -74,7 +72,7 @@ impl AppState for GameState {
 
         if let Some(ref mut audio) = audio_manager {
             if let Err(e) = audio.play_main_theme() {
-                log_err_client!("Failed to play main theme: {}", e);
+                log_err_client!("Échec de la lecture du thème principal.\nErreur : {}", e);
             }
             audio.stop_main_theme();
         }
@@ -95,28 +93,28 @@ impl AppState for GameState {
 
         // NETWORK
 
-        // Envoi ping toutes les 10 secondes
+        // Envoi un ping si aucun échange n'a eu lieu depuis PING_INTERVAL
         if let Some(ref mut net) = self.network {
-            if net.is_connected() && self.last_ping.elapsed() >= PING_INTERVAL {
+            if net.is_connected() && net.get_last_communication().elapsed() >= PING_INTERVAL {
                 let timestamp = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
                 if let Err(e) = net.send_ping(timestamp) {
-                    log_err_client!("Erreur envoi ping: {}", e);
+                    log_err_client!("Échec de l'envoi du ping.\nErreur : {}", e);
                 } else {
-                    log_client!("Ping envoye!");
-                    self.last_ping = Instant::now();
+                    log_client!("Ping envoyé !");
                 }
             }
         }
 
+        // Envoi la position et rotation du joueur au serveur si elles ont changés
         if let Some(ref mut net) = self.network {
             if net.is_connected() && self.player.has_moved() {
                 let pos = self.player.get_pos();
                 let (rx, ry) = self.player.camera.get_rotation();
                 if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
-                    log_err_client!("Erreur envoi position: {}", e);
+                    log_err_client!("Échec de l'envoi de la position.\nErreur : {}", e);
                 }
             }
         }

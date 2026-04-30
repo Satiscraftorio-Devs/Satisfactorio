@@ -33,6 +33,7 @@ use shared::network::network_protocol::{create_codec, EncryptedCodec};
 use shared::network::traits::PacketCodec;
 use shared::{log_client, log_err_client};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
@@ -67,6 +68,8 @@ pub struct ClientConnection {
     connected: bool,
     /// Channel pour l'envoi séquentialisé des paquets
     sender: Option<mpsc::UnboundedSender<Paquet>>,
+    /// Dernier instant de communication avec le serveur (pour ping)
+    last_communication: Instant,
 }
 
 impl ClientConnection {
@@ -80,6 +83,7 @@ impl ClientConnection {
             player_id: None,
             connected: false,
             sender: None,
+            last_communication: Instant::now(),
         })
     }
 
@@ -91,6 +95,11 @@ impl ClientConnection {
     /// Retourne l'ID du joueur attribué par le serveur.
     pub fn player_id(&self) -> Option<u64> {
         self.player_id
+    }
+
+    /// Retourne l'instant du dernier échange.
+    pub fn get_last_communication(&self) -> Instant {
+        self.last_communication
     }
 
     /// Connecte au serveur TCP.
@@ -159,16 +168,16 @@ impl ClientConnection {
             let confirmation_packet = new_codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
             let player_id = match confirmation_packet.contenu {
                 ContenuPaquet::Confirmation { player_id, .. } => player_id,
-                _ => return Err("Unexpected packet".to_string()),
+                _ => return Err("Échec de la réception du paquet de confirmation.".to_string()),
             };
 
             // Étape 5: Recevoir la seed du serveur
             let seed_packet = new_codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
             let server_seed = match seed_packet.contenu {
                 ContenuPaquet::ServerSeed { seed } => seed,
-                _ => return Err("Expected server seed".to_string()),
+                _ => return Err("Échec de la réception de la seed du serveur.".to_string()),
             };
-            log_client!("Server seed recue: {}", server_seed);
+            log_client!("Seed du serveur reçue : {}.", server_seed);
 
             Ok((player_id, server_seed as u32, new_codec))
         })?;
@@ -208,7 +217,7 @@ impl ClientConnection {
                         let mut stream = guard;
                         // Envoyer le paquet (séquentiel, pas de concurrence)
                         if let Err(e) = codec.send_packet(&mut *stream, &packet).await {
-                            log_err_client!("Erreur envoi packet: {}", e);
+                            log_err_client!("Échec de l'envoi du packet.\nErreur : {}", e);
                         }
                     }
                 });
@@ -236,6 +245,8 @@ impl ClientConnection {
             sender.send(packet).map_err(|e| e.to_string())?;
         }
 
+        self.last_communication = Instant::now();
+
         Ok(())
     }
 
@@ -245,7 +256,7 @@ impl ClientConnection {
     ///
     /// # Note
     ///
-    /// Currently, cette méthode n'est pas utilisée par le client car le serveur
+    /// Actuellement, cette méthode n'est pas utilisée par le client car le serveur
     /// pousse les mises à jour. Elle peut être utilisée pour une architecture
     /// où le client interroge le serveur.
     pub fn receive_packet(&mut self) -> Result<Paquet, String> {
@@ -259,7 +270,9 @@ impl ClientConnection {
 
         runtime.block_on(async {
             let mut stream = stream.lock().await;
-            codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())
+            let result = codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string());;
+            self.last_communication = Instant::now();
+            result
         })
     }
 }

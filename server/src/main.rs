@@ -20,7 +20,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
 
     let server_id = generate_server_id();
-    log_server!("Nouveau joueur avec ID: {} (Server ID: {:02x?})", player_id, server_id);
+    log_server!("Joueur {}: connexion (ID serveur: {:02x?}).", player_id, server_id);
 
     let conn = ServerConnection::new(player_id, server_id);
 
@@ -29,7 +29,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     let packet = match conn.receive_packet(&mut stream).await {
         Ok(p) => p,
         Err(e) => {
-            log_err_server!("Erreur reception: {}", e);
+            log_err_server!("Échec de la réception du paquet.\nErreur : {}", e);
             return Ok(());
         }
     };
@@ -42,7 +42,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     };
 
     GAME_STATE.add_player(player_id, username.clone());
-    log_server!("Joueur {} ajoute a l'etat du jeu", username);
+    log_server!("Joueur {} ({}): ajout à l'état global du serveur", username, player_id);
 
     // Créer le gestionnaire de paquets pour ce client
     let mut packet_handler = PacketHandler::new();
@@ -51,16 +51,16 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
     let ack = messages::create_handshake_ack(player_id, 0);
     if let Err(e) = conn.send_packet(&mut stream, &ack).await {
-        log_err_server!("Erreur envoi handshake ack: {}", e);
+        log_err_server!("Échec de l'envoi du handshake ack.\nErreur : {}", e);
         return Ok(());
     }
 
     let seed_packet = new_server_seed_paquet(GAME_STATE.get_seed());
     if let Err(e) = conn.send_packet(&mut stream, &seed_packet).await {
-        log_err_server!("Erreur envoi de la seed: {}", e);
+        log_err_server!("Échec de l'envoi de la seed.\nErreur : {}", e);
         return Ok(());
     } else {
-        log_server!("La Seed a ete envoyee au joueur {}", player_id);
+        log_server!("Seed envoyée au joueur {} !", player_id);
     }
 
     // Loop de check
@@ -70,12 +70,12 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
                 if let Some(response) = packet_handler.handle_packet(packet) {
                     conn.send_packet(&mut stream, &response).await?;
                 } else {
-                    log_server!("Le joueur {} a ete ejecte", player_id);
+                    log_server!("Joueur {}: éjection.", player_id);
                     break;
                 }
             }
             Err(e) => {
-                log_err_server!("Erreur reception paquet: {}", e);
+                log_err_server!("Échec de la réception du paquet.\nErreur : {}", e);
                 break;
             }
         }
@@ -86,19 +86,19 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
                 conn.send_packet(&mut stream, &packet).await.unwrap();
             }
             Err(e) => {
-                log_err_server!("Failed to generate packet, {}", e);
+                log_err_server!("Échec de la génération du packet.\nErreur : {}", e);
             }
         }
     }
 
     GAME_STATE.remove_player(&player_id);
-    log_server!("Joueur {} déconnecté", player_id);
+    log_server!("Joueur {}: déconnexion.", player_id);
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    log_server!("Démarrage de l'initialisation du serveur");
+    log_server!("Serveur: lancement.");
     GAME_STATE.init_random_seed();
 
     // log_server!("Début de la prégénération du monde");
@@ -108,16 +108,17 @@ async fn main() -> Result<(), anyhow::Error> {
     // });
     // log_server!("Fin de la prégénération du monde");
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:5000").await?;
-    log_server!("Serveur demarre sur 127.0.0.1:5000");
+    const IP: &'static str = "127.0.0.1:5000";
+    let listener = tokio::net::TcpListener::bind(IP).await?;
+    log_server!("Serveur: démarre à l'adresse {}.", IP);
 
     loop {
         let (stream, addr) = listener.accept().await?;
-        log_server!("Connexion de {}", addr);
+        log_server!("Serveur: connexion de l'adresse {}.", addr);
 
         tokio::spawn(async move {
             if let Err(e) = handle_client(stream).await {
-                log_err_server!("Erreur handling client: {}", e);
+                log_err_server!("Échec du traitement du client.\nErreur : {}", e);
             }
         });
     }

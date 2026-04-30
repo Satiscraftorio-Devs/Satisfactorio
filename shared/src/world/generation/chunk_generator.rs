@@ -2,7 +2,6 @@ use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
 use crate::world::data::block::BlockManager;
 use crate::world::data::chunk::{Chunk, ChunkData};
 use crate::world::generation::chunk::ChunkWithChecksum;
-use crate::{log_client, time_noprint};
 use noise::{NoiseFn, Perlin, Seedable};
 use std::sync::Arc;
 

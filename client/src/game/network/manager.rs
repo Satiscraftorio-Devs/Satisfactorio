@@ -72,6 +72,11 @@ impl NetworkManager {
         self.connection.player_id()
     }
 
+    /// Retourne l'instant du dernier échange.
+    pub fn get_last_communication(&self) -> Instant {
+        self.connection.get_last_communication()
+    }
+
     /// Se connecte au serveur.
     ///
     /// Établit la connexion TCP mais ne fait pas encore le handshake.
@@ -82,7 +87,7 @@ impl NetworkManager {
     pub fn connect(&mut self, server_addr: &str) {
         log_client!("NetworkManager: tentative de connexion...");
         if let Err(e) = self.connection.connect(server_addr) {
-            log_err_client!("NetworkManager: erreur connexion: {}", e);
+            log_err_client!("NetworkManager: échec de la tentative de connexion au serveur.\nErreur : {}", e);
         }
     }
 
@@ -108,11 +113,11 @@ impl NetworkManager {
                 // Créer le protocole de jeu avec l'ID du joueur
                 self.protocol = Some(GameProtocol::new(id));
                 self.server_seed = Some(seed as u64);
-                log_client!("NetworkManager: connecte!");
+                log_client!("NetworkManager: connexion établie !");
                 Ok(id)
             }
             Err(e) => {
-                log_err_client!("NetworkManager: erreur handshake: {}", e);
+                log_err_client!("NetworkManager: échec du handshake.\nErreur : {}", e);
                 Err(e)
             }
         }
