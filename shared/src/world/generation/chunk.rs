@@ -28,7 +28,7 @@ impl Chunk {
         let cwz = cz * CHUNK_SIZE;
 
         let blocks = vec![BlockInstance::air(); CHUNK_BLOCK_NUMBER];
-        
+
         let mut chunk = Chunk {
             blocks,
             x: cx,

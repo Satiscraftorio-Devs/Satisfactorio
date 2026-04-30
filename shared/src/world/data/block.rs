@@ -68,7 +68,6 @@ impl BlockInstance {
 pub struct BlockData {
     pub id: Option<u32>,
     pub id_str: String, // e.g.: "base:dirt"
-
     // properties: solid, hardness, resistance, ...
 }
 
