@@ -258,22 +258,26 @@ impl World {
     }
 
     pub fn are_all_neighbors_ready(&self, cx: i32, cy: i32, cz: i32) -> bool {
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                for dz in -1..=1 {
-                    if dx == 0 && dy == 0 && dz == 0 {
-                        continue;
-                    }
-                    if let Some(data) = self.chunks.get(&(cx + dx, cy + dy, cz + dz)) {
-                        if data.state != ChunkState::Ready {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
+        const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
+            (-1, 0, 0),
+            (1, 0, 0),
+            (0, -1, 0),
+            (0, 1, 0),
+            (0, 0, -1),
+            (0, 0, 1),
+        ];
+
+        for (dx, dy, dz) in DIRECT_NEIGHBORS {
+            if let Some(neighbor) = self.chunks.get(&(cx + dx, cy + dy, cz + dz)) {
+                if neighbor.state != ChunkState::Ready {
+                    return false;
                 }
             }
+            else {
+                return false;
+            }
         }
+
         true
     }
 }

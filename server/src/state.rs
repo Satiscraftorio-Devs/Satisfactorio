@@ -2,7 +2,7 @@ use cgmath::Point3;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use shared::network::messages::{Position, Rotation};
-use shared::world::data::block::BlockManager;
+use shared::world::data::block::{BlockData, BlockManager};
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use shared::world::generation::chunk::ChunkWithChecksum;
 use shared::world::generation::chunk_generator::generate_chunks_sequential;
@@ -92,10 +92,27 @@ impl Default for GameStateInner {
 
 impl GameStateInner {
     pub fn new() -> Self {
+        let block_manager = {
+            let mut block_manager = BlockManager::new();
+
+            let blocks = [
+                BlockData::new("air"),
+                BlockData::new("stone"),
+                BlockData::new("dirt"),
+                BlockData::new("grass"),
+            ];
+
+            for block in blocks {
+                block_manager.register(block);
+            }
+
+            Arc::new(block_manager)
+        };
+        
         Self {
             seed: 0,
             players: HashMap::new(),
-            block_manager: Arc::new(BlockManager::new()),
+            block_manager,
             chunks: HashMap::new(),
             player_chunks: HashMap::new(),
         }
