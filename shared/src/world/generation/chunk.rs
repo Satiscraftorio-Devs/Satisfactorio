@@ -32,7 +32,7 @@ impl Chunk {
         let stone_id = ctx.block_manager.get_block_by_string(String::from("stone")).expect("Did not find block 'stone' in block manager").get_id();
 
         let blocks = vec![BlockInstance::air(); CHUNK_BLOCK_NUMBER];
-        
+
         let mut chunk = Chunk {
             blocks,
             x: cx,

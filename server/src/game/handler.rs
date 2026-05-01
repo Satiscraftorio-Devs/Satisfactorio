@@ -1,8 +1,7 @@
-use std::time::{Duration, Instant, SystemTime};
+use std::time::Instant;
 
 use crate::state::GAME_STATE;
 use shared::network::messages::*;
-use shared::network::messages::{self, ContenuPaquet, Paquet};
 use shared::*;
 
 pub struct PacketHandler {}
@@ -26,7 +25,7 @@ impl PacketHandler {
 
             ContenuPaquet::Ping { timestamp } => {
                 log_server!("Ping d'il y a {}µs reçu.", Instant::now().elapsed().as_secs() - *timestamp);
-                Some(messages::new_pong_paquet(*timestamp))
+                Some(new_pong_paquet(*timestamp))
             }
 
             ContenuPaquet::Pong { timestamp } => {
@@ -37,6 +36,7 @@ impl PacketHandler {
             _ => None,
         }
     }
+
     pub fn get_players_position_packet(&mut self) -> Result<Paquet, std::io::Error> {
         let players = GAME_STATE.get_all_players_vec();
         match players {

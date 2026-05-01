@@ -16,10 +16,6 @@ struct PrivatePlayerData {}
 pub enum TypePaquet {
     Handshake,
     HandshakeAck,
-    ChunkValidationRequest,
-    ChunkValidationResponse,
-    ChunkValidationBatchRequest,
-    ChunkValidationBatchResponse,
     PlayerTransformation,
     MultiplePlayerTransformation,
     ServerSeed,
@@ -31,51 +27,14 @@ pub enum TypePaquet {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ContenuPaquet {
-    DonneesConnexion {
-        version: u8,
-        username: String,
-    },
-    Confirmation {
-        player_id: u64,
-        server_time: u64,
-    },
-    PlayerTransformation {
-        data: PlayerTransformation,
-    },
-    MultiplePlayerTransformation {
-        data: Vec<PlayerTransformation>,
-    },
-    DonneesMonde {
-        chunks: Vec<ChunkData>,
-    },
-    ChunkValidationRequest {
-        x: i32,
-        y: i32,
-        z: i32,
-        checksum: Vec<u8>,
-    },
-    ChunkValidationResponse {
-        x: i32,
-        y: i32,
-        z: i32,
-        valide: bool,
-        regneration: bool,
-    },
-    ChunkValidationBatchRequest {
-        chunks: Vec<BatchChunkChecksum>,
-    },
-    ChunkValidationBatchResponse {
-        results: Vec<BatchValidationResult>,
-    },
-    ServerSeed {
-        seed: u32,
-    },
-    Ping {
-        timestamp: u64,
-    },
-    Pong {
-        timestamp: u64,
-    },
+    DonneesConnexion { version: u8, username: String },
+    Confirmation { player_id: u64, server_time: u64 },
+    PlayerTransformation { data: PlayerTransformation },
+    MultiplePlayerTransformation { data: Vec<PlayerTransformation> },
+    DonneesMonde { chunks: Vec<ChunkData> },
+    ServerSeed { seed: u32 },
+    Ping { timestamp: u64 },
+    Pong { timestamp: u64 },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -104,23 +63,6 @@ pub struct ChunkData {
     pub y: i32,
     pub z: i32,
     pub data: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BatchChunkChecksum {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-    pub checksum: [u8; 2],
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BatchValidationResult {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-    pub valide: bool,
-    pub regneration: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -168,40 +110,6 @@ pub fn create_player_update(player_id: u64, x: f32, y: f32, z: f32, rx: f32, ry:
             },
         },
     )
-}
-
-pub fn new_chunk_validation_request(x: i32, y: i32, z: i32, checksum: Vec<u8>) -> Paquet {
-    Paquet {
-        type_paquet: TypePaquet::ChunkValidationRequest,
-        contenu: ContenuPaquet::ChunkValidationRequest { x, y, z, checksum },
-    }
-}
-
-pub fn new_chunk_validation_response(x: i32, y: i32, z: i32, valide: bool, regneration: bool) -> Paquet {
-    Paquet {
-        type_paquet: TypePaquet::ChunkValidationResponse,
-        contenu: ContenuPaquet::ChunkValidationResponse {
-            x,
-            y,
-            z,
-            valide,
-            regneration,
-        },
-    }
-}
-
-pub fn new_chunk_validation_batch_request(chunks: Vec<BatchChunkChecksum>) -> Paquet {
-    Paquet {
-        type_paquet: TypePaquet::ChunkValidationBatchRequest,
-        contenu: ContenuPaquet::ChunkValidationBatchRequest { chunks },
-    }
-}
-
-pub fn new_chunk_validation_batch_response(results: Vec<BatchValidationResult>) -> Paquet {
-    Paquet {
-        type_paquet: TypePaquet::ChunkValidationBatchResponse,
-        contenu: ContenuPaquet::ChunkValidationBatchResponse { results },
-    }
 }
 
 pub fn new_server_seed_paquet(seed: u32) -> Paquet {

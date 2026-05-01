@@ -1,3 +1,4 @@
+use crate::log_server;
 use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
 use crate::world::data::block::BlockManager;
 use crate::world::data::chunk::{Chunk, ChunkData};
@@ -90,40 +91,24 @@ impl ChunkGenerator {
     }
 }
 
-pub fn generate_chunks_parallel(
+/// Génère des chunks de manière séquentielle (sans parallélisme).
+/// À utiliser UNIQUEMNT lorsque le nombre de chunks est faible (ex: 27 chunks server).
+pub fn generate_chunks_sequential(
     block_manager: Arc<BlockManager>,
     seed: u32,
     coords: Vec<(i32, i32, i32)>,
 ) -> std::collections::HashMap<(i32, i32, i32), ChunkWithChecksum> {
-    use crate::parallel::WorkerPool;
     use std::collections::HashMap;
 
     let mut result_map = HashMap::new();
-
-    if coords.is_empty() {
-        return result_map;
-    }
-
-    let num_cpus = num_cpus::get();
     let ctx = ChunkGenContext::new(seed, block_manager);
-    let pool = WorkerPool::<ChunkGen>::new(num_cpus, ctx);
 
-    for coord in &coords {
-        let _ = pool.submit(*coord);
+    for (cx, cy, cz) in coords {
+        let chunk = Chunk::generate_with_context(cx, cy, cz, &ctx);
+        let checksum = chunk.compute_checksum();
+        let chunk_data = ChunkData::new(chunk);
+        result_map.insert((cx, cy, cz), ChunkWithChecksum { chunk_data, checksum });
     }
-
-    let mut received = 0;
-    let mut coord_iter = coords.iter();
-    while received < coords.len() {
-        if let Some(result) = pool.try_recv() {
-            if let Some(coord) = coord_iter.next() {
-                result_map.insert(*coord, result.output.3);
-            }
-            received += 1;
-        }
-    }
-
-    drop(pool);
 
     result_map
 }

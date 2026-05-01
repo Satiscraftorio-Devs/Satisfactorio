@@ -1,7 +1,4 @@
-use std::{
-    thread::sleep,
-    time::Duration,
-};
+use std::{thread::sleep, time::Duration};
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 
@@ -115,6 +112,8 @@ impl AppState for GameState {
                 let (rx, ry) = self.player.camera.get_rotation();
                 if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
                     log_err_client!("Échec de l'envoi de la position.\nErreur : {}", e);
+                } else {
+                    // log_client!("Position envoyée: ({}, {}, {})", pos.x, pos.y, pos.z);
                 }
             }
         }
