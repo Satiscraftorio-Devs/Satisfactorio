@@ -10,7 +10,9 @@ use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
 use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureArrayManager;
+use crate::engine::render::textures::array::Texture2DArray;
 use shared::world::data::chunk::CHUNK_SIZE_F;
+use wgpu::Limits;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use wgpu::wgt::BufferDescriptor;
@@ -57,6 +59,8 @@ impl State {
                 trace: wgpu::Trace::Off,
             })
             .await?;
+
+        let limits = device.limits();
 
         let surface_caps = surface.get_capabilities(&adapter);
 
@@ -126,6 +130,19 @@ impl State {
         }
 
         let textures: Vec<&[u8]> = textures_data.iter().map(|d| d.as_ref()).collect();
+
+        let mut block_texture_array = Texture2DArray::new(
+            "Texture2DArray: Block",
+            &device,
+            32,
+            32,
+            limits.max_texture_array_layers
+        );
+        
+        for texture in textures.iter().enumerate() {
+            block_texture_array.write_at(&queue, texture.0 as u16, texture.1);
+        }
+
         let texture_array = TextureArrayManager::make_array(&device, &queue, textures, width, height);
 
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
