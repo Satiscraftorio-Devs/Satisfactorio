@@ -51,21 +51,14 @@ impl ServerConnection {
     /// Envoie un paquet au client.
     ///
     /// Délègue à `EncryptedCodec::send_packet()`.
-    pub async fn send_packet<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
-        &self,
-        stream: &mut S,
-        packet: &Paquet,
-    ) -> Result<(), NetworkError> {
+    pub async fn send_packet<S: tokio::io::AsyncWrite + Unpin>(&self, stream: &mut S, packet: &Paquet) -> Result<(), NetworkError> {
         self.codec.send_packet(stream, packet).await
     }
 
     /// Reçoit un paquet du client.
     ///
     /// Délègue à `EncryptedCodec::receive_packet()`.
-    pub async fn receive_packet<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
-        &self,
-        stream: &mut S,
-    ) -> Result<Paquet, NetworkError> {
+    pub async fn receive_packet<S: tokio::io::AsyncRead + Unpin>(&self, stream: &mut S) -> Result<Paquet, NetworkError> {
         self.codec.receive_packet(stream).await
     }
 
@@ -83,5 +76,10 @@ impl ServerConnection {
         stream.write_all(&self.server_id).await?;
         stream.flush().await?;
         Ok(())
+    }
+
+    /// Retourne une copie du codec pour utilisation dans d'autres tâches.
+    pub fn get_codec(&self) -> EncryptedCodec {
+        self.codec.clone()
     }
 }

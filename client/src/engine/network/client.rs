@@ -220,9 +220,10 @@ impl ClientConnection {
                         Ok(packet) => {
                             match packet.contenu.clone() {
                                 ContenuPaquet::MultiplePlayerTransformation { data } => {
-                                    for i in data {
-                                        log_client!("Données du joueur {} reçues: {:?}", i.player_id, i.position);
-                                    }
+                                    todo!("Ajout/Mise à jour des informations au game state")
+                                    // for i in data {
+                                    //     log_client!("Données du joueur {} reçues: {:?}", i.player_id, i.position);
+                                    // }
                                 }
                                 _ => {}
                             }
@@ -232,8 +233,8 @@ impl ClientConnection {
                             }
                         }
                         Err(_) => {
-                                break;
-                        },
+                            break;
+                        }
                     }
                 }
             });

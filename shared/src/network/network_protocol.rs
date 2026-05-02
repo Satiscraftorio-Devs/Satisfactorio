@@ -103,10 +103,6 @@ impl EncryptedCodec {
         Self { cipher }
     }
 
-    pub fn get_codec(&self) -> EncryptedCodec {
-        self.clone()
-    }
-
     /// Encode un paquet pour l'envoi.
     ///
     /// Étapes :

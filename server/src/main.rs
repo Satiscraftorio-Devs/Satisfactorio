@@ -10,12 +10,17 @@ use crate::state::GAME_STATE;
 use anyhow::Result;
 use shared::network::crypto::generate_server_id;
 use shared::network::messages::{self, new_server_seed_paquet};
+use shared::network::traits::PacketCodec;
 use shared::*;
 use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::io::split;
 use tokio::net::*;
+use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(1);
+const SERVER_CONN_WRITE_UPDATE_RATE_PER_SECOND: f64 = 50.0;
+const MAX_PACKETS_IN_MPSC_CHANNEL: usize = 32;
 
 async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
     let player_id = NEXT_PLAYER_ID.fetch_add(1, Ordering::SeqCst);
@@ -61,45 +66,80 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         log_server!("Seed envoyée au joueur {} !", player_id);
     }
 
-    let mut interval = interval(Duration::from_millis(1000));
+    // Séparer le stream en lecture et écriture
+    let (mut read_half, write_half) = split(stream);
+    let codec = conn.get_codec();
 
-    // Loop de check
+    // Channel pour envoyer des paquets à la tâche d'écriture
+    let (write_tx, mut write_rx) = mpsc::channel::<shared::network::messages::Paquet>(MAX_PACKETS_IN_MPSC_CHANNEL);
 
-    loop {
-        tokio::select! {
-            result = conn.receive_packet(&mut stream) => {
-                match result {
-                    Ok(packet) => {
-                        if let Some(response) = packet_handler.handle_packet(packet) {
-                            conn.send_packet(&mut stream, &response).await?;
-                        } else {
-                            log_server!("Joueur {}: éjection.", player_id);
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        log_err_server!("Échec de la réception du paquet. Erreur : {}", e);
+    // Tâche d'écriture dédiée
+    let write_task = tokio::spawn(async move {
+        let mut write_half = write_half; // Ré-assigner comme mutable
+        let mut interval = interval(Duration::from_secs_f64(1.0 / SERVER_CONN_WRITE_UPDATE_RATE_PER_SECOND));
+
+        loop {
+            tokio::select! {
+                // Recevoir un paquet à envoyer depuis le channel (réponse d'un paquet par exemple)
+                Some(packet) = write_rx.recv() => {
+                    if let Err(e) = codec.send_packet(&mut write_half, &packet).await {
+                        log_err_server!("Erreur envoi paquet: {}", e);
                         break;
                     }
                 }
-            }
-            _ = interval.tick() => {
-                match packet_handler.get_players_position_packet() {
-                    Ok(packet) => {
-                        if let Err(e) = conn.send_packet(&mut stream, &packet).await {
-                            log_err_server!("Erreur lors de l'envoi du packet MultiplePlayerTransformation: {}", e);
+                // Envoi périodique des positions des joueurs
+                _ = interval.tick() => {
+                    let players = crate::state::GAME_STATE.get_all_players_vec();
+                    if let Some(players_vec) = players {
+                        let players_data: Vec<_> = players_vec
+                            .into_iter()
+                            .map(|player| shared::network::messages::PlayerTransformation {
+                                player_id: player.id,
+                                position: player.position,
+                                rotation: player.rotation,
+                            })
+                            .collect();
+
+                        let packet = shared::network::messages::Paquet::new(
+                            shared::network::messages::TypePaquet::MultiplePlayerTransformation,
+                            shared::network::messages::ContenuPaquet::MultiplePlayerTransformation { data: players_data },
+                        );
+
+                        if let Err(e) = codec.send_packet(&mut write_half, &packet).await {
+                            log_err_server!("Erreur envoi positions: {}", e);
                             break;
                         }
-                        log_server!("Envoi du paquet MultiplePlayerTransformation réussi");
-                    }
-                    Err(e) => {
-                        log_err_server!("Échec de la génération/envoi du packet. Erreur : {}", e);
+                        // log_server!("Envoi du paquet MultiplePlayerTransformation réussi");
                     }
                 }
             }
         }
+    });
+
+    // Boucle principale de lecture
+    loop {
+        match conn.receive_packet(&mut read_half).await {
+            Ok(packet) => {
+                if let Some(response) = packet_handler.handle_packet(packet) {
+                    // Envoyer la réponse via le channel
+                    if write_tx.send(response).await.is_err() {
+                        break;
+                    }
+                } else {
+                    log_server!("Joueur {}: éjection.", player_id);
+                    break;
+                }
+            }
+            Err(e) => {
+                log_err_server!("Échec de la réception du paquet. Erreur : {}", e);
+                break;
+            }
+        }
     }
 
+    // Clean
+    drop(write_tx);
+    write_task.abort();
     GAME_STATE.remove_player(&player_id);
     log_server!("Joueur {}: déconnexion.", player_id);
     Ok(())
