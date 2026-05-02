@@ -14,6 +14,7 @@ use shared::network::messages::{self, new_server_seed_paquet};
 use shared::network::traits::PacketCodec;
 use shared::*;
 use std::net::Ipv4Addr;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::split;
 use tokio::net::*;
@@ -150,9 +151,9 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t=Ipv4Addr::from_str("127.0.0.1").unwrap())]
     ip: Ipv4Addr,
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = 42677)]
     port: u16,
 }
 

@@ -2,9 +2,9 @@ mod common;
 mod engine;
 mod game;
 
-use std::net::Ipv4Addr;
-
 use clap::Parser;
+use std::net::Ipv4Addr;
+use std::str::FromStr;
 use winit::event_loop::EventLoop;
 
 use crate::{engine::core::application::App, game::game::GameState};
@@ -12,9 +12,9 @@ use crate::{engine::core::application::App, game::game::GameState};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t=Ipv4Addr::from_str("127.0.0.1").unwrap())]
     ip: Ipv4Addr,
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = 42677)]
     port: u16,
 }
 
