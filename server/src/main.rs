@@ -8,10 +8,12 @@ use crate::game::PacketHandler;
 use crate::network::ServerConnection;
 use crate::state::GAME_STATE;
 use anyhow::Result;
+use clap::Parser;
 use shared::network::crypto::generate_server_id;
 use shared::network::messages::{self, new_server_seed_paquet};
 use shared::network::traits::PacketCodec;
 use shared::*;
+use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::split;
 use tokio::net::*;
@@ -145,14 +147,25 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    ip: Ipv4Addr,
+    #[arg(short, long)]
+    port: u16,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     log_server!("Serveur: lancement.");
     GAME_STATE.init_random_seed();
 
-    const IP: &'static str = "127.0.0.1:5000";
-    let listener = tokio::net::TcpListener::bind(IP).await?;
-    log_server!("Serveur: démarre à l'adresse {}.", IP);
+    let args = Args::parse();
+
+    let address: String = format!("{}:{}", args.ip, args.port);
+    let listener = tokio::net::TcpListener::bind(&address).await?;
+    log_server!("Serveur: démarre à l'adresse {}.", address);
 
     loop {
         let (stream, addr) = listener.accept().await?;

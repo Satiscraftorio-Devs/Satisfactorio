@@ -4,14 +4,14 @@ build: fmt
 	RUSTFLAGS="-Awarnings" cargo build >/dev/null 2>&1
 
 server-bg: build
-	RUSTFLAGS="-Awarnings" cargo run -q --bin server | tee logs/server.txt &
+	RUSTFLAGS="-Awarnings" cargo run -q --bin server -- --ip 127.0.0.1 --port 5000 | tee logs/server.txt &
 
 server: build
-	RUSTFLAGS="-Awarnings" cargo run -q --bin server |tee logs/server.txt
+	RUSTFLAGS="-Awarnings" cargo run -q --bin server -- --ip 127.0.0.1 --port 5000 |tee logs/server.txt
 
 
 client: build
-	RUSTFLAGS="-Awarnings" cargo run -q --bin client | tee logs/client.txt
+	RUSTFLAGS="-Awarnings" cargo run -q --bin client -- --ip 127.0.0.1 --port 5000 | tee logs/client.txt
 
 clean-logs:
 	rm logs/* -rf

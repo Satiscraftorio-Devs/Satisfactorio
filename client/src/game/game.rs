@@ -1,4 +1,4 @@
-use std::{thread::sleep, time::Duration};
+use std::{net::Ipv4Addr, thread::sleep, time::Duration};
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 
@@ -42,9 +42,11 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new() -> Self {
+    pub fn new(ip: Ipv4Addr, port: u16) -> Self {
         let mut network = NetworkManager::new();
-        network.connect("127.0.0.1:5000");
+        let addr = format!("{}:{}", ip, port);
+
+        network.connect(&addr);
         let server_seed = network
             .perform_handshake("Player")
             .ok()
