@@ -22,7 +22,7 @@ use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
 
 static NEXT_PLAYER_ID: AtomicU64 = AtomicU64::new(1);
-const SERVER_CONN_WRITE_UPDATE_RATE_PER_SECOND: f64 = 50.0;
+const SERVER_CONN_WRITE_UPDATE_RATE_PER_SECOND: f64 = 100.0;
 const MAX_PACKETS_IN_MPSC_CHANNEL: usize = 32;
 
 async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {

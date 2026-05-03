@@ -17,6 +17,7 @@ use crate::{
         player::{
             controllers::free::{FreeCameraController, FreePlayerController},
             player::Player,
+            remote_players::RemotePlayersManager,
         },
         render::meshing::world::WorldMesh,
         systems::inputs::InputState,
@@ -34,6 +35,7 @@ pub struct GameState {
     pub world: World,
     pub world_mesh: WorldMesh,
     pub player: Player,
+    pub remote_players: RemotePlayersManager,
     // pub camera: Camera,
     // pub camera_controller: CameraController,
     pub delay_ms: f32,
@@ -57,6 +59,7 @@ impl GameState {
             player: Player::new(Box::new(FreeCameraController::new(1.0)), Box::new(FreePlayerController::new(16.0))),
             world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
+            remote_players: RemotePlayersManager::new(),
             inputs: InputState::new(),
             delay_ms: 0.0,
             network: Some(network),
@@ -119,6 +122,26 @@ impl AppState for GameState {
                 }
             }
         }
+
+        // Réception des positions des autres joueurs
+        if let Some(ref mut net) = self.network {
+            if net.is_connected() {
+                if let Ok(Some(packet)) = net.receive_packet() {
+                    use shared::network::messages::ContenuPaquet;
+                    match packet.contenu {
+                        ContenuPaquet::MultiplePlayerTransformation { data } => {
+                            if let Some(my_id) = net.player_id() {
+                                self.remote_players.update(data, my_id);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Update renderer with remote player positions
+        renderer.remote_players = self.remote_players.get_all().iter().map(|p| p.position).collect();
 
         // MESHING
         self.world_mesh.update(renderer, &self.world, &self.player);

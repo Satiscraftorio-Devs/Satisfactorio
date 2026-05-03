@@ -58,6 +58,8 @@ pub struct Renderer {
     pub frame_encoder: Option<CommandEncoder>,
 
     pub player_mesh: Buffer,
+
+    pub remote_players: Vec<(f32, f32, f32)>,
 }
 
 pub struct GpuContext {
@@ -129,6 +131,8 @@ impl Renderer {
             frame_encoder: Some(frame_encoder),
 
             player_mesh,
+
+            remote_players: Vec::new(),
         }
     }
 
@@ -282,6 +286,13 @@ impl Renderer {
                 // Player mesh
                 render_pass.set_vertex_buffer(0, self.player_mesh.slice(..));
                 render_pass.draw(0..36, 0..1);
+
+                // Remote players meshes
+                for player_pos in &self.remote_players {
+                    let remote_cube: Vec<Vertex> = generate_cube(player_pos.0, player_pos.1, player_pos.2);
+                    queue.write_buffer(&self.player_mesh, 0, bytemuck::cast_slice(&remote_cube));
+                    render_pass.draw(0..36, 0..1);
+                }
             }
         }
 
