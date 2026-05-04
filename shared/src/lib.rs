@@ -29,41 +29,62 @@ macro_rules! time_noprint {
 #[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
-        println!("> {}", format_args!($($args)*));
+        println!("i> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_warn {
+    ($($args:tt)*) => {
+        println!("W> {}", format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! log_err {
     ($($args:tt)*) => {
-        eprintln!("> {}", format_args!($($args)*));
+        eprintln!("E> {}", format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! log_server {
     ($($args:tt)*) => {
-        println!("[INFSRV]$> {}", format_args!($($args)*));
+        println!("[iSRV]$> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_warn_server {
+    ($($args:tt)*) => {
+        eprintln!("[WSRV]$> {}", format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! log_err_server {
     ($($args:tt)*) => {
-        eprintln!("[ERRSRV]$> {}", format_args!($($args)*));
+        eprintln!("[ESRV]$> {}", format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! log_client {
     ($($args:tt)*) => {
-        println!("[INFCLI]$> {}", format_args!($($args)*));
+        println!("[iCLI]$> {}", format_args!($($args)*));
+    };
+}
+
+#[macro_export]
+macro_rules! log_warn_client {
+    ($($args:tt)*) => {
+        println!("[WCLI]$> {}", format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! log_err_client {
     ($($args:tt)*) => {
-        eprintln!("[ERRCLI]$> {}", format_args!($($args)*));
+        eprintln!("[ECLI]$> {}", format_args!($($args)*));
     };
 }
