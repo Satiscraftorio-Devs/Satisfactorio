@@ -73,9 +73,8 @@ impl ChunkGenerator {
         }
     }
 
-    pub fn with_max_pending(block_manager: Arc<BlockManager>, seed: u32, max_pending: usize) -> Self {
+    pub fn with_max_pending(worker_count: usize, block_manager: Arc<BlockManager>, seed: u32, max_pending: usize) -> Self {
         let ctx = ChunkGenContext::new(seed, block_manager);
-        let worker_count = num_cpus::get();
         Self {
             inner: WorkerPool::with_max_pending(worker_count, ctx, Some(max_pending)),
         }

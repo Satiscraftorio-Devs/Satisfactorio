@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use shared::world::data::chunk::CHUNK_SIZE_F;
 use wgpu::{
     wgt::{CommandEncoderDescriptor, DrawIndirectArgs},
     BindGroup, Buffer, CommandEncoder, RenderPipeline, TextureView,
@@ -151,27 +150,24 @@ impl Renderer {
             self.render_manager.mesh_manager.process_pending_destructions();
         }
 
-        queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera.get_view_proj()));
+        if let Some(view_proj) = camera.view_proj().change() {
+            queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(view_proj));
+        }
 
-        let (x, y, z) = camera.get_pos();
-        let player_chunk_pos = [
-            (x / CHUNK_SIZE_F).floor() * CHUNK_SIZE_F,
-            (y / CHUNK_SIZE_F).floor() * CHUNK_SIZE_F,
-            (z / CHUNK_SIZE_F).floor() * CHUNK_SIZE_F,
-        ];
-
-        let chunk_borders_vertices: Vec<Vertex> = self.chunk_borders_vertices
-            .iter()
-            .map(|v|
-                v.copy_with_pos(
-                    v.position[0] + player_chunk_pos[0],
-                    v.position[1] + player_chunk_pos[1],
-                    v.position[2] + player_chunk_pos[2],
+        if let Some(cw) = camera.cw().change() {
+            let chunk_borders_vertices: Vec<Vertex> = self.chunk_borders_vertices
+                .iter()
+                .map(|v|
+                    v.copy_with_pos(
+                        v.position[0] + cw[0],
+                        v.position[1] + cw[1],
+                        v.position[2] + cw[2],
+                    )
                 )
-            )
-            .collect();
-
-        queue.write_buffer(&self.chunk_borders_buffer, 0, bytemuck::cast_slice(&chunk_borders_vertices));
+                .collect();
+    
+            queue.write_buffer(&self.chunk_borders_buffer, 0, bytemuck::cast_slice(&chunk_borders_vertices));
+        };
 
         let output = surface.get_current_texture().unwrap();
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());

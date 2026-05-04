@@ -36,8 +36,6 @@ pub struct GameState {
     pub world_mesh: WorldMesh,
     pub player: Player,
     pub remote_players: RemotePlayersManager,
-    // pub camera: Camera,
-    // pub camera_controller: CameraController,
     pub delay_ms: f32,
     pub network: Option<NetworkManager>,
     inputs: InputState,
@@ -55,7 +53,7 @@ impl GameState {
             .expect("La seed n'existe pas ou est vide (serveur non lancé ? connexion échouée ? mauvaise adresse IP ?)");
 
         Self {
-            player: Player::new(Box::new(FreeCameraController::new(0.0625)), Box::new(FreePlayerController::new(16.0))),
+            player: Player::new(Box::new(FreeCameraController::new(0.00390625)), Box::new(FreePlayerController::new(16.0))),
             world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
             remote_players: RemotePlayersManager::new(),

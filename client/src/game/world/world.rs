@@ -1,13 +1,13 @@
 use crate::engine::render::manager::RenderManager;
 use shared::world::{
-    constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE},
+    constants::{CHUNK_PRIORITY_DISTANCE_SQR, max_chunks_in_queue},
     data::{
         block::{BlockData, BlockInstance, BlockManager},
-        chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE, CHUNK_SIZE_HALFED},
+        chunk::{CHUNK_SIZE, CHUNK_SIZE_HALFED, Chunk, ChunkData, ChunkState},
     },
     generation::chunk_generator::ChunkGenerator,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{cmp::min, collections::HashMap, sync::Arc, time::Instant};
 
 use crate::{
     // engine::render::mesh::manager::RenderManager,
@@ -51,8 +51,14 @@ impl World {
             Arc::new(block_manager)
         };
 
-        let max_chunks = max_chunks_in_queue() as usize;
-        let chunk_generator = ChunkGenerator::with_max_pending(Arc::clone(&block_manager), seed, max_chunks);
+        // let max_chunks = max_chunks_in_queue() as usize;
+        let worker_count = min((num_cpus::get() as f32 / 2.0).floor() as usize, 1);
+        let chunk_generator = ChunkGenerator::with_max_pending(
+            worker_count,
+            Arc::clone(&block_manager),
+            seed,
+            max_chunks_in_queue() as usize,
+        );
 
         return World {
             chunks: HashMap::new(),
@@ -62,6 +68,7 @@ impl World {
         };
     }
 
+    /// TODO: Perf killer (7x CHUNK CLONE WTF)
     pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {
         MeshSnapshot {
             main: Arc::new(self.get_chunk(cx, cy, cz).cloned().unwrap()),
@@ -128,8 +135,6 @@ impl World {
             let player_pos = player.get_pos();
             let player_cpos = player.get_cpos();
 
-            let priority_distance_sq = CHUNK_PRIORITY_DISTANCE.powi(2);
-
             let mut priority_chunks: Vec<(i32, i32, i32)> = Vec::new();
             let mut normal_chunks: Vec<(i32, i32, i32)> = Vec::new();
 
@@ -143,7 +148,7 @@ impl World {
                 let dz = wz - player_pos.z;
                 let dist_sq = dx * dx + dy * dy + dz * dz;
 
-                if dist_sq < priority_distance_sq {
+                if dist_sq < CHUNK_PRIORITY_DISTANCE_SQR {
                     priority_chunks.push(key);
                 } else {
                     normal_chunks.push(key);

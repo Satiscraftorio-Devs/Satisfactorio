@@ -83,17 +83,16 @@ impl FreeCameraController {
 }
 
 impl CameraController for FreeCameraController {
-    fn update(&self, dt: f32, inputs: &mut InputState, camera: &mut Camera, player_pos: &Point3<f32>) {
+    fn update(&self, _dt: f32, inputs: &mut InputState, camera: &mut Camera, player_pos: &Point3<f32>) {
         const CLAMP_BOTTOM: f32 = -FRAC_PI_2 + 0.01;
         const CLAMP_TOP: f32 = FRAC_PI_2 - 0.01;
 
         camera.set_position(player_pos.clone());
 
         let (dx, dy) = inputs.take_mouse_delta_f32();
-        let coefficient = self.sensitivity * dt;
 
-        camera.yaw += dx * coefficient;
-        camera.pitch -= dy * coefficient;
+        camera.yaw += dx * self.sensitivity;
+        camera.pitch -= dy * self.sensitivity;
         camera.pitch = camera.pitch.clamp(CLAMP_BOTTOM, CLAMP_TOP);
     }
 }
