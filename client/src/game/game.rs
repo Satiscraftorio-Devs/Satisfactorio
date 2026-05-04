@@ -55,7 +55,7 @@ impl GameState {
             .expect("La seed n'existe pas ou est vide (serveur non lancé ? connexion échouée ? mauvaise adresse IP ?)");
 
         Self {
-            player: Player::new(Box::new(FreeCameraController::new(1.0)), Box::new(FreePlayerController::new(16.0))),
+            player: Player::new(Box::new(FreeCameraController::new(0.0625)), Box::new(FreePlayerController::new(16.0))),
             world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
             remote_players: RemotePlayersManager::new(),
@@ -90,6 +90,7 @@ impl AppState for GameState {
         self.delay_ms -= DT_CAP;
 
         // LOGIC
+        self.update_debug_commands();
         self.player.update(frame.dt, &mut self.inputs);
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
@@ -204,6 +205,36 @@ impl AppState for GameState {
 
     fn on_key(&mut self, code: KeyCode, is_pressed: bool) {
         self.inputs.set_key_press(code, is_pressed);
+    }
+}
+
+impl GameState {
+    fn update_debug_commands(&mut self) {
+        // CURRENT CHUNK DEBUG
+        if self.inputs.take_key_pressed(KeyCode::KeyC) {
+            let cpos = self.player.cpos.current();
+            let key = (cpos[0], cpos[1], cpos[2]);
+            println!("---------\nDEBUG: Chunk x={} y={} z={}\n---------", key.0, key.1, key.2);
+            if let Some(chunk) = self.world.get_chunk_mut(key.0, key.1, key.2) {
+                let (_, state, dirty) = chunk.get_debug_infos();
+                chunk.set_dirty();
+                println!("General:\n- State: {}\n- Is dirty?: {}", state.to_str(), dirty);
+            }
+            if let Some(mesh) = self.world_mesh.mesh_at_mut(key) {
+                let (id, dirty) = mesh.get_debug_infos();
+                mesh.set_dirty();
+                let id = {
+                    if id.is_some() {
+                        id.unwrap().to_string()
+                    }
+                    else {
+                        "None".to_string()
+                    }
+                };
+                println!("Mesh:\n- Id: {}\n- Is dirty?: {}", id, dirty);
+            };
+            println!("---------")
+        }
     }
 }
 

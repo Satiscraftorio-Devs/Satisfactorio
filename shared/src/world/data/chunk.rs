@@ -27,10 +27,20 @@ pub const CHUNK_BLOCK_NUMBER: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as 
 pub const LAST_CHUNK_AXIS_INDEX: i32 = CHUNK_SIZE - 1;
 pub const LAST_CHUNK_AXIS_INDEX_USIZE: usize = LAST_CHUNK_AXIS_INDEX as usize;
 
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Serialize)]
 pub enum ChunkState {
-    Pending,
-    Ready,
+    Pending = 0,
+    Ready = 1,
+}
+
+impl ChunkState {
+    pub fn to_str(self) -> &'static str {
+        match self {
+            Self::Pending => "Pending",
+            Self::Ready => "Ready",
+        }
+    }
 }
 
 pub struct ChunkData {
@@ -60,6 +70,10 @@ impl ChunkData {
         if self.state == ChunkState::Ready {
             self.is_dirty = true;
         }
+    }
+
+    pub fn get_debug_infos(&self) -> ((i32, i32, i32), ChunkState, bool) {
+        ((self.chunk.x, self.chunk.y, self.chunk.z), self.state, self.is_dirty)
     }
 }
 

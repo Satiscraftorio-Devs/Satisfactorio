@@ -175,24 +175,24 @@ impl World {
         while let Some(result) = self.chunk_generator.try_recv() {
             let (cx, cy, cz, chunk_with_checksum) = result.output;
 
-            // const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
-            //     (-1, 0, 0),
-            //     (1, 0, 0),
-            //     (0, -1, 0),
-            //     (0, 1, 0),
-            //     (0, 0, -1),
-            //     (0, 0, 1),
-            // ];
-
-            // for (dx, dy, dz) in DIRECT_NEIGHBORS {
-            //     if let Some(neighbor) = self.chunks.get_mut(&(cx + dx, cy + dy, cz + dz)) {
-            //         neighbor.is_dirty = true;
-            //     }
-            // }
+            const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
+                (-1, 0, 0),
+                (1, 0, 0),
+                (0, -1, 0),
+                (0, 1, 0),
+                (0, 0, -1),
+                (0, 0, 1),
+            ];
 
             let mut new_chunk_data = chunk_with_checksum.chunk_data;
             new_chunk_data.is_dirty = true;
             self.chunks.insert((cx, cy, cz), new_chunk_data);
+            
+            for (dx, dy, dz) in DIRECT_NEIGHBORS {
+                if let Some(neighbor) = self.chunks.get_mut(&(cx + dx, cy + dy, cz + dz)) {
+                    neighbor.is_dirty = true;
+                }
+            }
         }
 
         // let _world_update_end = _world_update_start.elapsed().as_millis();
@@ -258,18 +258,26 @@ impl World {
     }
 
     pub fn are_all_neighbors_ready(&self, cx: i32, cy: i32, cz: i32) -> bool {
-        const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)];
-
+        // Only require that existing neighbors are Ready. If a neighbor chunk is missing,
+        // treat it as not blocking mesh generation, to allow streaming without stalling.
+        const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
+            (-1, 0, 0),
+            (1, 0, 0),
+            (0, -1, 0),
+            (0, 1, 0),
+            (0, 0, -1),
+            (0, 0, 1),
+        ];
         for (dx, dy, dz) in DIRECT_NEIGHBORS {
             if let Some(neighbor) = self.chunks.get(&(cx + dx, cy + dy, cz + dz)) {
                 if neighbor.state != ChunkState::Ready {
                     return false;
                 }
-            } else {
+            }
+            else {
                 return false;
             }
         }
-
         true
     }
 }

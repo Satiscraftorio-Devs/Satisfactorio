@@ -23,8 +23,13 @@ impl InputState {
         return *self.pressed_keys.get(&key).unwrap_or(&false);
     }
 
+    pub fn take_key_pressed(&mut self, key: KeyCode) -> bool {
+        self.pressed_keys.remove(&key).unwrap_or(false)
+    }
+
     pub fn set_mouse_delta(&mut self, delta: (f64, f64)) {
-        self.mouse_delta = delta;
+        self.mouse_delta.0 += delta.0;
+        self.mouse_delta.1 += delta.1;
     }
 
     pub fn get_mouse_delta(&self) -> (f64, f64) {

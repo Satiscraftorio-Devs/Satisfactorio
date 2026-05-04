@@ -54,6 +54,14 @@ impl ChunkMesh {
         return self.dirty.load(Ordering::Relaxed);
     }
 
+    pub fn set_dirty(&mut self) {
+        self.dirty.store(true, Ordering::Relaxed);
+    }
+
+    pub fn get_debug_infos(&mut self) -> (Option<u32>, bool) {
+        (self.id, self.dirty.load(Ordering::Relaxed))
+    }
+
     #[inline(always)]
     pub fn get_face_ao(chunk: &PaddedChunk, pos: [i32; 3], neighbors: [(i32, i32, i32); 3]) -> u8 {
         // AO for each configuration (range 0-3 both included)

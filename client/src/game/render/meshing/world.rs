@@ -6,7 +6,7 @@ use crate::{
         world::world::World,
     },
 };
-use shared::parallel::{WorkResult, WorkerPool};
+use shared::{parallel::{WorkResult, WorkerPool}, world::data::chunk::Chunk};
 use std::collections::{HashMap, HashSet};
 
 pub struct WorldMesh {
@@ -24,6 +24,20 @@ impl WorldMesh {
             mesh_worker: WorkerPool::new(worker_count, ()),
             pending: HashMap::new(),
             pending_keys: HashSet::new(),
+        }
+    }
+
+    pub fn mesh_at(&self, cpos: (i32, i32, i32)) -> Option<&ChunkMesh> {
+        self.meshes.get(&cpos)
+    }
+
+    pub fn mesh_at_mut(&mut self, cpos: (i32, i32, i32)) -> Option<&mut ChunkMesh> {
+        self.meshes.get_mut(&cpos)
+    }
+
+    pub fn set_dirty(&mut self, cpos: (i32, i32, i32)) {
+        if let Some(chunk) = self.meshes.get_mut(&cpos) {
+            chunk.set_dirty();
         }
     }
 
