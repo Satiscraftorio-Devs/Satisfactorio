@@ -5,6 +5,7 @@ use crate::{
         world::world::MeshSnapshot,
     },
 };
+use shared::buffer_pool::BufferPool;
 use shared::parallel::Parallelizable;
 use shared::time_noprint;
 use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F, LAST_CHUNK_AXIS_INDEX_USIZE};
@@ -707,7 +708,8 @@ impl ChunkMesh {
     }
 
     /// Updates a ChunkMesh with the data processed by [GreedyMeshingProcessor]'s threads.
-    pub fn update(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) {
+    /// Returns the vertices buffer so it can be returned to the pool.
+    pub fn update(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) -> Vec<Vertex> {
         // It's no longer dirty since we're updating it.
         self.dirty.store(false, Ordering::Relaxed);
 
@@ -717,7 +719,7 @@ impl ChunkMesh {
             if vertices.is_empty() {
                 renderer.render_manager.mesh_manager.free_data(mesh_id);
                 self.id = None;
-                return;
+                return vertices;
             }
 
             // Updates new data.
@@ -727,12 +729,12 @@ impl ChunkMesh {
                 renderer.frame_encoder.as_mut().unwrap(),
                 DataEntry::new(mesh_id, bytemuck::cast_slice(&vertices)),
             );
-            return;
+            return vertices;
         }
 
         // No data, no existing mesh.
         if vertices.is_empty() {
-            return;
+            return vertices;
         }
 
         // Create mesh, update it with new data and associate it with the chunk mesh.
@@ -746,20 +748,21 @@ impl ChunkMesh {
                     renderer.frame_encoder.as_mut().unwrap(),
                     bytemuck::cast_slice(&vertices),
                 )
-                .expect(&format!("Could not add data - data len: {}", &vertices.len())),
+                .expect(&format!("Could not add data - data len: {}", vertices.len())),
         );
+        vertices
     }
 }
 
 pub struct GreedyMeshingProcessor;
 
 impl Parallelizable for GreedyMeshingProcessor {
-    type Context = ();
+    type Context = Arc<BufferPool<Vertex>>;
     type Input = (Arc<Chunk>, MeshSnapshot, i32, i32, i32);
     type Output = Option<Vec<Vertex>>;
 
     /// Make greedy
-    fn process(input: Self::Input, _ctx: &Self::Context) -> Self::Output {
+    fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
         let (main_chunk, neighbors, cx, cy, cz) = input;
 
         let (padded, padded_time) = time_noprint!({ PaddedChunk::from_snapshot(&main_chunk, &neighbors) });
@@ -776,7 +779,7 @@ impl Parallelizable for GreedyMeshingProcessor {
         let chunk_origin_y = (cy as f32) * CHUNK_SIZE_F;
         let chunk_origin_z = (cz as f32) * CHUNK_SIZE_F;
 
-        let mut vertices = Vec::with_capacity(1024 * 256); // minimum 256 KB to avoid realloc
+        let mut vertices = ctx.get_buffer();
 
         let total: Duration;
 

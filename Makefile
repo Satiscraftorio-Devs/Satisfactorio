@@ -8,7 +8,7 @@ build: fmt
 	RUSTFLAGS="-Awarnings" cargo build
 
 server-bg: build-bg
-	RUSTFLAGS="-Awarnings" cargo run -q -p server --bin server | tee logs/server.txt
+	RUSTFLAGS="-Awarnings" cargo run -q -p server --bin server | tee logs/server.txt &
 
 client-bg: build-bg
 	RUSTFLAGS="-Awarnings" cargo run -q -p client --bin client | tee logs/client.txt

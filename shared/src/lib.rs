@@ -1,3 +1,4 @@
+pub mod buffer_pool;
 pub mod network;
 pub mod parallel;
 pub mod world;

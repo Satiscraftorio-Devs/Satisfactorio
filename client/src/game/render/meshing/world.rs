@@ -6,6 +6,7 @@ use crate::{
         world::world::World,
     },
 };
+use shared::buffer_pool::BufferPool;
 use shared::parallel::{WorkResult, WorkerPool};
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
@@ -21,9 +22,10 @@ pub struct WorldMesh {
 impl WorldMesh {
     pub fn new() -> WorldMesh {
         let worker_count = max(num_cpus::get() / 2, 1);
+        let buffer_pool = Arc::new(BufferPool::new(1024 * 256));
         WorldMesh {
             meshes: HashMap::new(),
-            mesh_worker: WorkerPool::new(worker_count, ()),
+            mesh_worker: WorkerPool::new(worker_count, buffer_pool),
             pending: HashMap::new(),
             pending_keys: HashSet::new(),
         }
@@ -82,8 +84,9 @@ impl WorldMesh {
 
                 if let Some(vertices) = vertices_opt {
                     let mut mesh = ChunkMesh::new();
-                    mesh.update(vertices, renderer);
+                    let vertices = mesh.update(vertices, renderer);
                     self.meshes.insert(key, mesh);
+                    self.mesh_worker.context().release_buffer(vertices);
                 }
             }
         }
