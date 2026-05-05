@@ -7,7 +7,9 @@ use crate::{
     },
 };
 use shared::parallel::{WorkResult, WorkerPool};
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
@@ -18,7 +20,7 @@ pub struct WorldMesh {
 
 impl WorldMesh {
     pub fn new() -> WorldMesh {
-        let worker_count = num_cpus::get();
+        let worker_count = max(num_cpus::get() / 2, 1);
         WorldMesh {
             meshes: HashMap::new(),
             mesh_worker: WorkerPool::new(worker_count, ()),
@@ -65,7 +67,7 @@ impl WorldMesh {
 
                 if needs_processing && world.are_all_neighbors_ready(cx, cy, cz) {
                     let snapshot = world.get_mesh_snapshot(cx, cy, cz);
-                    if let Ok(id) = self.mesh_worker.submit((chunk_data.chunk.clone().into(), snapshot, cx, cy, cz)) {
+                    if let Ok(id) = self.mesh_worker.submit((Arc::clone(&chunk_data.chunk), snapshot, cx, cy, cz)) {
                         self.pending.insert(id, key);
                         self.pending_keys.insert(key);
                     }

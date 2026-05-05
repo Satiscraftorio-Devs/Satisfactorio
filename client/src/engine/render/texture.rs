@@ -95,18 +95,12 @@ pub struct TextureID {
 
 impl TextureID {
     pub fn new(array: usize, depth: u16) -> Self {
-        Self {
-            array,
-            depth
-        }
+        Self { array, depth }
     }
 }
 
 impl TextureManager {
-    pub fn new(
-        max_texture_size: u32,
-        max_array_depth: u32,
-    ) -> Self {
+    pub fn new(max_texture_size: u32, max_array_depth: u32) -> Self {
         Self {
             arrays: vec![],
             max_texture_size,
@@ -116,18 +110,19 @@ impl TextureManager {
 
     fn make_new_array(&mut self, label: String, device: &Device, width: u16, height: u16) -> usize {
         if (width as u32) > self.max_texture_size || (height as u32) > self.max_texture_size {
-            panic!("Texture's dimensions to make exceeds what hardware supports.\nw: {} > {} or h: {} > {}", width, self.max_texture_size, height, self.max_texture_size)
+            panic!(
+                "Texture's dimensions to make exceeds what hardware supports.\nw: {} > {} or h: {} > {}",
+                width, self.max_texture_size, height, self.max_texture_size
+            )
         }
         let id = self.arrays.len();
-        self.arrays.push(
-            Texture2DArray::new(
-                label,
-                device,
-                width as u32,
-                height as u32,
-                self.max_array_depth
-            )
-        );
+        self.arrays.push(Texture2DArray::new(
+            label,
+            device,
+            width as u32,
+            height as u32,
+            self.max_array_depth,
+        ));
         id
     }
 
@@ -144,16 +139,20 @@ impl TextureManager {
 
     pub fn register(&mut self, device: &Device, queue: &Queue, texture: &[u8], width: u16, height: u16) -> TextureID {
         if texture.len() != ((width as u32) * (height as u32) * 4) as usize {
-            panic!("Texture data length does not match expected size for given dimensions.\n{} != {}*{}*4", texture.len(), width, height);
+            panic!(
+                "Texture data length does not match expected size for given dimensions.\n{} != {}*{}*4",
+                texture.len(),
+                width,
+                height
+            );
         }
 
-        let id = self.find_place(width, height)
-            .unwrap_or_else(|_| {
-                let array = self.make_new_array("Array".to_string(), device, width, height);
-                let depth = self.arrays.get_mut(array).unwrap().next_id();
-                TextureID::new(array, depth)
-            });
-        
+        let id = self.find_place(width, height).unwrap_or_else(|_| {
+            let array = self.make_new_array("Array".to_string(), device, width, height);
+            let depth = self.arrays.get_mut(array).unwrap().next_id();
+            TextureID::new(array, depth)
+        });
+
         self.write(queue, texture, &id);
 
         id

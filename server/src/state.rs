@@ -1,12 +1,12 @@
 use cgmath::Point3;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use shared::log_server;
 use shared::network::messages::{Position, Rotation};
 use shared::world::data::block::{BlockData, BlockManager};
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use shared::world::generation::chunk::ChunkWithChecksum;
 use shared::world::generation::chunk_generator::generate_chunks_sequential;
-use shared::log_server;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 

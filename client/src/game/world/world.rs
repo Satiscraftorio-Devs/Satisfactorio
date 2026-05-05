@@ -1,9 +1,9 @@
 use crate::engine::render::manager::RenderManager;
 use shared::world::{
-    constants::{CHUNK_PRIORITY_DISTANCE_SQR, max_chunks_in_queue},
+    constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE_SQR},
     data::{
         block::{BlockData, BlockInstance, BlockManager},
-        chunk::{CHUNK_SIZE, CHUNK_SIZE_HALFED, Chunk, ChunkData, ChunkState},
+        chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE, CHUNK_SIZE_HALFED},
     },
     generation::chunk_generator::ChunkGenerator,
 };
@@ -53,12 +53,8 @@ impl World {
 
         // let max_chunks = max_chunks_in_queue() as usize;
         let worker_count = min((num_cpus::get() as f32 / 2.0).floor() as usize, 1);
-        let chunk_generator = ChunkGenerator::with_max_pending(
-            worker_count,
-            Arc::clone(&block_manager),
-            seed,
-            max_chunks_in_queue() as usize,
-        );
+        let chunk_generator =
+            ChunkGenerator::with_max_pending(worker_count, Arc::clone(&block_manager), seed, max_chunks_in_queue() as usize);
 
         return World {
             chunks: HashMap::new(),
@@ -68,16 +64,15 @@ impl World {
         };
     }
 
-    /// TODO: Perf killer (7x CHUNK CLONE WTF)
     pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {
         MeshSnapshot {
-            main: Arc::new(self.get_chunk(cx, cy, cz).cloned().unwrap()),
-            neg_x: self.get_chunk(cx - 1, cy, cz).cloned().map(Arc::new),
-            neg_y: self.get_chunk(cx, cy - 1, cz).cloned().map(Arc::new),
-            neg_z: self.get_chunk(cx, cy, cz - 1).cloned().map(Arc::new),
-            pos_x: self.get_chunk(cx + 1, cy, cz).cloned().map(Arc::new),
-            pos_y: self.get_chunk(cx, cy + 1, cz).cloned().map(Arc::new),
-            pos_z: self.get_chunk(cx, cy, cz + 1).cloned().map(Arc::new),
+            main: Arc::clone(&self.chunks.get(&(cx, cy, cz)).unwrap().chunk),
+            neg_x: self.chunks.get(&(cx - 1, cy, cz)).map(|d| Arc::clone(&d.chunk)),
+            neg_y: self.chunks.get(&(cx, cy - 1, cz)).map(|d| Arc::clone(&d.chunk)),
+            neg_z: self.chunks.get(&(cx, cy, cz - 1)).map(|d| Arc::clone(&d.chunk)),
+            pos_x: self.chunks.get(&(cx + 1, cy, cz)).map(|d| Arc::clone(&d.chunk)),
+            pos_y: self.chunks.get(&(cx, cy + 1, cz)).map(|d| Arc::clone(&d.chunk)),
+            pos_z: self.chunks.get(&(cx, cy, cz + 1)).map(|d| Arc::clone(&d.chunk)),
         }
     }
 
@@ -88,7 +83,7 @@ impl World {
 
     #[inline(always)]
     pub fn get_chunk(&self, cx: i32, cy: i32, cz: i32) -> Option<&Chunk> {
-        return self.chunks.get(&(cx, cy, cz)).map(|d| &d.chunk);
+        return self.chunks.get(&(cx, cy, cz)).map(|d| d.chunk.as_ref());
     }
 
     #[inline(always)]
@@ -110,7 +105,8 @@ impl World {
             let radii_h_squared = (player.horizontal_render_distance * player.horizontal_render_distance) as i32;
             let radii_v_squared = (player.vertical_render_distance * player.vertical_render_distance) as i32;
 
-            let keys_to_remove: Vec<_> = self.chunks
+            let keys_to_remove: Vec<_> = self
+                .chunks
                 .keys()
                 .filter(|key| !is_chunk_in_range(*key, &cpos, radii_h_squared, radii_v_squared))
                 .cloned()
@@ -188,19 +184,12 @@ impl World {
         while let Some(result) = self.chunk_generator.try_recv() {
             let (cx, cy, cz, chunk_with_checksum) = result.output;
 
-            const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
-                (-1, 0, 0),
-                (1, 0, 0),
-                (0, -1, 0),
-                (0, 1, 0),
-                (0, 0, -1),
-                (0, 0, 1),
-            ];
+            const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)];
 
             let mut new_chunk_data = chunk_with_checksum.chunk_data;
             new_chunk_data.is_dirty = true;
             self.chunks.insert((cx, cy, cz), new_chunk_data);
-            
+
             for (dx, dy, dz) in DIRECT_NEIGHBORS {
                 if let Some(neighbor) = self.chunks.get_mut(&(cx + dx, cy + dy, cz + dz)) {
                     neighbor.is_dirty = true;
@@ -273,21 +262,13 @@ impl World {
     pub fn are_all_neighbors_ready(&self, cx: i32, cy: i32, cz: i32) -> bool {
         // Only require that existing neighbors are Ready. If a neighbor chunk is missing,
         // treat it as not blocking mesh generation, to allow streaming without stalling.
-        const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [
-            (-1, 0, 0),
-            (1, 0, 0),
-            (0, -1, 0),
-            (0, 1, 0),
-            (0, 0, -1),
-            (0, 0, 1),
-        ];
+        const DIRECT_NEIGHBORS: [(i32, i32, i32); 6] = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)];
         for (dx, dy, dz) in DIRECT_NEIGHBORS {
             if let Some(neighbor) = self.chunks.get(&(cx + dx, cy + dy, cz + dz)) {
                 if neighbor.state != ChunkState::Ready {
                     return false;
                 }
-            }
-            else {
+            } else {
                 return false;
             }
         }

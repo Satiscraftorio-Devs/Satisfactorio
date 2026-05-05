@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-
 use crate::world::data::block::BlockInstance;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 pub const CHUNK_VALIDATION_BATCH_SIZE: usize = 20;
 
@@ -44,7 +44,7 @@ impl ChunkState {
 }
 
 pub struct ChunkData {
-    pub chunk: Chunk,
+    pub chunk: Arc<Chunk>,
     pub state: ChunkState,
     pub is_dirty: bool,
 }
@@ -60,7 +60,7 @@ pub struct Chunk {
 impl ChunkData {
     pub fn new(chunk: Chunk) -> Self {
         Self {
-            chunk,
+            chunk: Arc::new(chunk),
             state: ChunkState::Ready,
             is_dirty: true,
         }

@@ -155,17 +155,12 @@ impl Renderer {
         }
 
         if let Some(cw) = camera.cw().change() {
-            let chunk_borders_vertices: Vec<Vertex> = self.chunk_borders_vertices
+            let chunk_borders_vertices: Vec<Vertex> = self
+                .chunk_borders_vertices
                 .iter()
-                .map(|v|
-                    v.copy_with_pos(
-                        v.position[0] + cw[0],
-                        v.position[1] + cw[1],
-                        v.position[2] + cw[2],
-                    )
-                )
+                .map(|v| v.copy_with_pos(v.position[0] + cw[0], v.position[1] + cw[1], v.position[2] + cw[2]))
                 .collect();
-    
+
             queue.write_buffer(&self.chunk_borders_buffer, 0, bytemuck::cast_slice(&chunk_borders_vertices));
         };
 

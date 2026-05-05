@@ -49,7 +49,7 @@ impl Texture2DArray {
             width: width as u16,
             height: height as u16,
             depth: depth as u16,
-            next_depth: 0
+            next_depth: 0,
         }
     }
 

@@ -10,7 +10,10 @@ use crate::{
             application::AppState,
             frame::{EngineFrameData, GameFrameData},
         },
-        render::{mesh::manager::DataEntry, render::{RenderOptions, Renderer}},
+        render::{
+            mesh::manager::DataEntry,
+            render::{RenderOptions, Renderer},
+        },
     },
     game::{
         network::NetworkManager,
@@ -53,7 +56,10 @@ impl GameState {
             .expect("La seed n'existe pas ou est vide (serveur non lancé ? connexion échouée ? mauvaise adresse IP ?)");
 
         Self {
-            player: Player::new(Box::new(FreeCameraController::new(0.00390625)), Box::new(FreePlayerController::new(16.0))),
+            player: Player::new(
+                Box::new(FreeCameraController::new(0.00390625)),
+                Box::new(FreePlayerController::new(16.0)),
+            ),
             world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
             remote_players: RemotePlayersManager::new(),
@@ -130,7 +136,7 @@ impl AppState for GameState {
                         _ => {}
                     }
                 }
-            }            
+            }
         }
 
         // MESHING
@@ -166,7 +172,8 @@ impl AppState for GameState {
                 // If any of the above is true, we do not render the chunk.
                 // We do the frustum check after the first one because it is more expansive,
                 // and the first one would already eliminate ~50% of the chunks very quickly.
-                if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) || !is_chunk_in_camera_frustum(&min, &max, &cam_frustum) {
+                if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) || !is_chunk_in_camera_frustum(&min, &max, &cam_frustum)
+                {
                     continue;
                 }
 
@@ -182,15 +189,14 @@ impl AppState for GameState {
                         &renderer.gpu_context.device,
                         &renderer.gpu_context.queue,
                         &mut renderer.frame_encoder.as_mut().unwrap(),
-                        DataEntry::new(mesh_id, raw_data)
+                        DataEntry::new(mesh_id, raw_data),
                     );
-                }
-                else {
+                } else {
                     p.mesh_id = renderer.render_manager.mesh_manager.add_data(
                         &renderer.gpu_context.device,
                         &renderer.gpu_context.queue,
                         &mut renderer.frame_encoder.as_mut().unwrap(),
-                        raw_data
+                        raw_data,
                     );
                 }
                 data.visible_meshes.push(p.mesh_id.unwrap());
@@ -228,8 +234,7 @@ impl GameState {
                 let id = {
                     if id.is_some() {
                         id.unwrap().to_string()
-                    }
-                    else {
+                    } else {
                         "None".to_string()
                     }
                 };

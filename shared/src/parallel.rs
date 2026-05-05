@@ -68,7 +68,7 @@ impl<P: Parallelizable> WorkerPool<P> {
                         }
                     };
                     let output = P::process(item.input, &ctx);
-                    
+
                     pending.fetch_sub(1, Ordering::Relaxed);
                     let result = WorkResult { output, id: item.id };
                     let _ = tx.send(result);

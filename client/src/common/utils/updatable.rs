@@ -44,8 +44,7 @@ impl<T: Clone + PartialEq> Updatable<T> {
     pub fn change(&self) -> Option<&T> {
         if self.has_changed() {
             Some(&self.current)
-        }
-        else {
+        } else {
             None
         }
     }

@@ -129,10 +129,7 @@ impl State {
 
         let textures: Vec<&[u8]> = textures_data.iter().map(|d| d.as_ref()).collect();
 
-        let mut texture_manager = TextureManager::new(
-            limits.max_texture_dimension_2d,
-            limits.max_texture_array_layers
-        );
+        let mut texture_manager = TextureManager::new(limits.max_texture_dimension_2d, limits.max_texture_array_layers);
 
         for (_, texture) in textures.iter().enumerate() {
             texture_manager.register(&device, &queue, texture, 32, 32);
