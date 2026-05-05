@@ -333,12 +333,12 @@ impl State {
         });
 
         let gizmo = [
-            Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgba(1.0, 0.0, 0.0, 255, 0, 0, 255, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgba(0.0, 1.0, 0.0, 0, 255, 0, 255, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
-            Vertex::new_with_rgba(0.0, 0.0, 1.0, 0, 0, 255, 255, MAX, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(1.0, 0.0, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 1.0, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 0, 255, 255, 0, 3.0, 0.0, 0.0),
+            Vertex::new_with_rgba(0.0, 0.0, 1.0, 0, 0, 255, 255, 0, 3.0, 0.0, 0.0),
         ];
 
         let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
