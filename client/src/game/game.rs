@@ -182,22 +182,24 @@ impl AppState for GameState {
 
             // Update renderer with remote player positions
             for p in self.remote_players.get_all_mut().iter_mut() {
-                let player_data = generate_cube(p.position.0, p.position.1, p.position.2);
-                let raw_data = bytemuck::cast_slice(&player_data);
-                if let Some(mesh_id) = p.mesh_id {
-                    renderer.render_manager.mesh_manager.update_data(
-                        &renderer.gpu_context.device,
-                        &renderer.gpu_context.queue,
-                        &mut renderer.frame_encoder.as_mut().unwrap(),
-                        DataEntry::new(mesh_id, raw_data),
-                    );
-                } else {
-                    p.mesh_id = renderer.render_manager.mesh_manager.add_data(
-                        &renderer.gpu_context.device,
-                        &renderer.gpu_context.queue,
-                        &mut renderer.frame_encoder.as_mut().unwrap(),
-                        raw_data,
-                    );
+                if let Some(new_pos) = p.position.change() {
+                    let player_data = generate_cube(new_pos.0, new_pos.1, new_pos.2);
+                    let raw_data = bytemuck::cast_slice(&player_data);
+                    if let Some(mesh_id) = p.mesh_id {
+                        renderer.render_manager.mesh_manager.update_data(
+                            &renderer.gpu_context.device,
+                            &renderer.gpu_context.queue,
+                            &mut renderer.frame_encoder.as_mut().unwrap(),
+                            DataEntry::new(mesh_id, raw_data),
+                        );
+                    } else {
+                        p.mesh_id = renderer.render_manager.mesh_manager.add_data(
+                            &renderer.gpu_context.device,
+                            &renderer.gpu_context.queue,
+                            &mut renderer.frame_encoder.as_mut().unwrap(),
+                            raw_data,
+                        );
+                    }
                 }
                 data.visible_meshes.push(p.mesh_id.unwrap());
             }

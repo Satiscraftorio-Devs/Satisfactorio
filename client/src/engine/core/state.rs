@@ -10,6 +10,7 @@ use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
 use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureManager;
+use shared::log_client;
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
@@ -380,9 +381,7 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
-        window
-            .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-            .expect("Capture souris");
+        // window.set_cursor_grab(winit::window::CursorGrabMode::Confined).unwrap_or(());
         window.set_cursor_visible(false);
 
         let engine_frame_data = EngineFrameData::new();

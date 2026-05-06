@@ -109,7 +109,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         match event {
             WindowEvent::Focused(true) => {
                 state.window.set_cursor_visible(false);
-                state.window.set_cursor_grab(CursorGrabMode::Confined).unwrap_or(());
+                // state.window.set_cursor_grab(CursorGrabMode::Confined).unwrap_or(());
             }
             WindowEvent::Focused(false) => {
                 state.window.set_cursor_visible(true);

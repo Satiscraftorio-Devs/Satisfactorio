@@ -1,6 +1,6 @@
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue};
 
-pub const BUFFER_CAPACITY_MARGIN: f32 = 1.5;
+pub const BUFFER_CAPACITY_MARGIN: f32 = 1.25;
 pub const BUFFER_MIN_CAPACITY: u32 = 4096;
 
 pub struct SmartBuffer {
@@ -35,8 +35,8 @@ impl SmartBuffer {
     }
 
     pub fn from_capacity(capacity_bytes: u32, device: &Device, format: Option<IndexFormat>, usages: BufferUsages) -> Self {
-        let length = capacity_bytes;
-        let capacity = BUFFER_MIN_CAPACITY.max((length as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
+        let length = 0;
+        let capacity = BUFFER_MIN_CAPACITY.max((capacity_bytes as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
 
         let buffer = device.create_buffer(&BufferDescriptor {
             label: Some(format!("SmartBuffer (c: {}, l: {})", capacity, length).as_str()),
@@ -54,22 +54,27 @@ impl SmartBuffer {
         }
     }
 
+    #[inline(always)]
     pub fn buffer(&self) -> &Buffer {
         return &self.buffer;
     }
 
+    #[inline(always)]
     pub fn length(&self) -> u32 {
         return self.length;
     }
 
+    #[inline(always)]
     pub fn capacity(&self) -> u32 {
         return self.capacity;
     }
 
+    #[inline(always)]
     pub fn format(&self) -> Option<IndexFormat> {
         return self.format;
     }
 
+    #[inline(always)]
     pub fn usages(&self) -> BufferUsages {
         return self.usage;
     }
@@ -86,6 +91,7 @@ impl SmartBuffer {
         }
     }
 
+    #[inline(always)]
     pub fn destroy(&mut self) {
         self.buffer.destroy();
     }

@@ -1,5 +1,6 @@
 use std::{time::Instant, usize};
 
+use shared::log_client;
 use wgpu::{Buffer, BufferUsages, CommandEncoder, Device, Queue};
 
 use crate::engine::render::utils::smart_buffer::SmartBuffer;
@@ -47,6 +48,7 @@ pub struct MeshManager {
     gaps: Vec<Gap>,
     pending_destruction: Vec<SmartBuffer>,
     next_id: MeshId,
+    free_ids: Vec<MeshId>,
     write_operations: Vec<WriteOperation>,
     schedule_merge: bool,
     arena: Vec<u8>,
@@ -73,6 +75,7 @@ impl MeshManager {
             gaps: vec![],
             pending_destruction: vec![],
             next_id: 0,
+            free_ids: Vec::with_capacity(64),
             write_operations: vec![],
             schedule_merge: false,
             arena: arena,
@@ -85,9 +88,10 @@ impl MeshManager {
 
     fn reallocate_defragment(&mut self, device: &Device, queue: &Queue, encoder: &mut CommandEncoder, needed: usize) {
         if !self.write_operations.is_empty() {
+            log_client!("REALLOCATE DEFRAGMENT BEFORE FLUSH");
             self.flush(queue);
         }
-        // println!("Reallocate + defragment - needed: {}", needed);
+        println!("Reallocate + defragment - needed: {}", needed);
 
         // Reallocate
         let new_buffer = SmartBuffer::from_capacity(
@@ -117,23 +121,36 @@ impl MeshManager {
 
         // Update gaps
         self.gaps.clear();
+        println!(
+            "new realloc gap: {} {}",
+            current_position,
+            new_buffer.capacity() as usize - current_position
+        );
         self.gaps
             .push(Gap::new(current_position, new_buffer.capacity() as usize - current_position));
 
         // Update buffer
         self.pending_destruction.push(std::mem::replace(&mut self.buffer, new_buffer));
+
+        self.print_buffer_infos();
     }
 
     fn find_place(&self, needed: usize) -> Option<usize> {
+        println!("Finding place for {} bytes.", needed);
         self.gaps.iter().position(|x| x.length >= needed)
     }
 
     fn get_data_next_gap(&self, entry: &MeshEntry) -> Option<usize> {
+        println!(
+            "Getting data next gap for Mesh(id: {}, pos: {}, len: {}).",
+            entry.id, entry.position, entry.length
+        );
         let position = entry.position + entry.length;
         self.gaps.iter().position(|gap| gap.position == position)
     }
 
     fn write_at(&mut self, position: usize, data: &[u8], mesh_id: MeshId) {
+        println!("Writing at {} data of len {} and of Mesh(id: {})", position, data.len(), mesh_id);
         let arena_offset = self.arena.len();
         self.arena.extend_from_slice(data);
         self.write_operations.push(WriteOperation {
@@ -167,9 +184,10 @@ impl MeshManager {
         if self.write_operations.is_empty() {
             return;
         }
+        println!("Flushing!");
 
         if self.schedule_merge {
-            self.merge_commands();
+            // self.merge_commands();
             self.schedule_merge = false;
         }
 
@@ -181,12 +199,12 @@ impl MeshManager {
         while i < self.write_operations.len() {
             let op = &self.write_operations[i];
 
-            if time_took_millis >= MAX_MILLIS_PER_FRAME_CAP
-                || used_bytes >= BYTES_PER_FRAME_CAP
-                || used_ops >= MAX_WRITE_OPERATIONS_PER_FRAME
-            {
-                break;
-            }
+            // if time_took_millis >= MAX_MILLIS_PER_FRAME_CAP
+            //     || used_bytes >= BYTES_PER_FRAME_CAP
+            //     || used_ops >= MAX_WRITE_OPERATIONS_PER_FRAME
+            // {
+            //     break;
+            // }
 
             used_bytes += op.len;
             used_ops += 1;
@@ -212,18 +230,29 @@ impl MeshManager {
     }
 
     fn insert_gap_after(&mut self, gap: Gap, position: usize) {
+        println!("Inserting Gap(pos: {}, len: {}) after pos: {}.", gap.position, gap.length, position);
         let gap_index = self.gaps.iter().position(|x| x.position > position).unwrap_or(self.gaps.len());
 
         self.gaps.insert(gap_index, gap);
     }
 
     pub fn process_pending_destructions(&mut self) {
+        if self.pending_destruction.is_empty() {
+            return;
+        }
+        println!("Process pending destructions.");
         for mut buf in self.pending_destruction.drain(..) {
             buf.destroy();
         }
     }
 
     fn consume_gap_for(&mut self, gap_index: usize, entry: &DataEntry) {
+        println!(
+            "Consume Gap(index: {}) for DataEntry(id: {}, len: {}).",
+            gap_index,
+            entry.id,
+            entry.data.len()
+        );
         let position = self.gaps[gap_index].position;
         let data_length = entry.data.len();
 
@@ -239,6 +268,7 @@ impl MeshManager {
     }
 
     pub fn update_data(&mut self, device: &Device, queue: &Queue, encoder: &mut CommandEncoder, entry: DataEntry) {
+        println!("Updating data for DataEntry(id: {}, len: {}).", entry.id, entry.data.len());
         let Some(index) = self.data.iter().position(|x| x.id == entry.id) else {
             return;
         };
@@ -325,9 +355,20 @@ impl MeshManager {
             .find_place(new_len)
             .expect("Failed to update data. No free space found even after reallocation.");
         self.consume_gap_for(gap_index, &entry);
+
+        self.print_buffer_infos();
+    }
+
+    pub fn get_new_id(&mut self) -> MeshId {
+        self.free_ids.pop().unwrap_or_else(|| {
+            let id = self.next_id;
+            self.next_id += 1;
+            id
+        })
     }
 
     pub fn add_data(&mut self, device: &Device, queue: &Queue, encoder: &mut CommandEncoder, data: &[u8]) -> Option<MeshId> {
+        println!("Adding data for data of len: {}.", data.len());
         let mut index = self.find_place(data.len());
 
         if index.is_none() {
@@ -337,7 +378,15 @@ impl MeshManager {
             index = self.find_place(data.len());
         }
 
-        let index = index.expect("No space found, even after re-allocation.");
+        let index = index.expect(
+            format!(
+                "No space found, even after re-allocation.\nData needed {} bytes but buffer is {} bytes long and has {} bytes of capacity.",
+                data.len(),
+                self.buffer.length(),
+                self.buffer.capacity(),
+            )
+            .as_str(),
+        );
 
         let (position, gap_length) = {
             let gap = &mut self.gaps[index];
@@ -355,8 +404,7 @@ impl MeshManager {
             self.gaps.remove(index);
         }
 
-        let id = self.next_id;
-        self.next_id += 1;
+        let id = self.get_new_id();
 
         self.write_at(position, data, id);
 
@@ -372,23 +420,55 @@ impl MeshManager {
             .unwrap_or(self.data.len());
         self.data.insert(entry_index, entry);
 
+        self.print_buffer_infos();
+
         Some(id)
     }
 
     fn try_merge_gap(&mut self, position: usize) {
-        if let Some(current_index) = self.gaps.iter().position(|x| x.position == position) {
-            let current_length = self.gaps[current_index].length;
-            if let Some(next_index) = self.gaps.iter().position(|x| x.position == position + current_length) {
-                if next_index <= current_index {
-                    return;
-                }
-                let next = self.gaps.remove(next_index);
-                self.gaps[current_index].length += next.length;
-            };
+        println!("Trying to merge gap of pos: {}.", position);
+        let Some(mut current_index) = self.gaps.iter().position(|x| x.position == position) else {
+            return;
         };
+
+        if current_index > 0 {
+            let prev = &self.gaps[current_index - 1];
+            let curr = &self.gaps[current_index];
+            if prev.position + prev.length == curr.position {
+                self.gaps[current_index - 1].length += curr.length;
+                self.gaps.remove(current_index);
+                current_index -= 1;
+            }
+        }
+
+        let current = &self.gaps[current_index];
+        let curr_end = current.position + current.length;
+
+        if current_index + 1 < self.gaps.len() {
+            let next = &self.gaps[current_index + 1];
+            if next.position == curr_end {
+                self.gaps[current_index].length += next.length;
+                self.gaps.remove(current_index + 1);
+            }
+        }
+    }
+
+    pub fn bytes_representation(bytes: u32) -> (u32, u32, u32, u32) {
+        return (bytes, bytes / 1024, bytes / 1024 / 1024, bytes / 1024 / 1024 / 1024);
+    }
+
+    pub fn print_buffer_infos(&self) {
+        let data_length = self.data.iter().fold(0, |acc, v| acc + v.length) as u32;
+        let (len_b, len_kb, len_mb, _) = MeshManager::bytes_representation(data_length);
+        let (cap_b, cap_kb, cap_mb, _) = MeshManager::bytes_representation(self.buffer.capacity());
+        println!(
+            "Mesh buffer\nLen: {:3}Mb/{:6}Kb/{:9}b\nCap: {:3}Mb/{:6}Kb/{:9}b",
+            len_mb, len_kb, len_b, cap_mb, cap_kb, cap_b,
+        );
     }
 
     pub fn free_data(&mut self, id: MeshId) {
+        println!("Freeing data of mesh id: {}.", id);
         let Some(data_index) = self.data.iter().position(|x| x.id == id) else {
             return;
         };
@@ -403,5 +483,9 @@ impl MeshManager {
 
         self.data.remove(data_index);
         self.write_operations.retain(|element| element.mesh_id != id);
+
+        self.free_ids.push(id);
+
+        self.print_buffer_infos();
     }
 }
