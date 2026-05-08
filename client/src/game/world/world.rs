@@ -82,6 +82,11 @@ impl World {
     }
 
     #[inline(always)]
+    pub fn get_chunk_data_mut(&mut self, cx: i32, cy: i32, cz: i32) -> Option<&mut ChunkData> {
+        return self.chunks.get_mut(&(cx, cy, cz));
+    }
+
+    #[inline(always)]
     pub fn get_chunk(&self, cx: i32, cy: i32, cz: i32) -> Option<&Chunk> {
         return self.chunks.get(&(cx, cy, cz)).map(|d| d.chunk.as_ref());
     }

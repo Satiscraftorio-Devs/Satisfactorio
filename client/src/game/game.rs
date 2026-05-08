@@ -73,7 +73,7 @@ impl GameState {
 impl AppState for GameState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>) {
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
-        self.world_mesh.update(renderer, &self.world, &self.player);
+        self.world_mesh.update(renderer, &mut self.world, &self.player);
 
         if let Some(ref mut audio) = audio_manager {
             if let Err(e) = audio.play_main_theme() {
@@ -140,7 +140,7 @@ impl AppState for GameState {
         }
 
         // MESHING
-        self.world_mesh.update(renderer, &self.world, &self.player);
+        self.world_mesh.update(renderer, &mut self.world, &self.player);
 
         // RENDER
         {
@@ -193,12 +193,16 @@ impl AppState for GameState {
                             DataEntry::new(mesh_id, raw_data),
                         );
                     } else {
-                        p.mesh_id = renderer.render_manager.mesh_manager.add_data(
-                            &renderer.gpu_context.device,
-                            &renderer.gpu_context.queue,
-                            &mut renderer.frame_encoder.as_mut().unwrap(),
-                            raw_data,
-                        );
+                        p.mesh_id = renderer
+                            .render_manager
+                            .mesh_manager
+                            .add_data(
+                                &renderer.gpu_context.device,
+                                &renderer.gpu_context.queue,
+                                &mut renderer.frame_encoder.as_mut().unwrap(),
+                                raw_data,
+                            )
+                            .ok();
                     }
                 }
                 data.visible_meshes.push(p.mesh_id.unwrap());
@@ -230,7 +234,7 @@ impl GameState {
                 chunk.set_dirty();
                 println!("General:\n- State: {}\n- Is dirty?: {}", state.to_str(), dirty);
             }
-            if let Some(mesh) = self.world_mesh.mesh_at_mut(key) {
+            if let Some(mesh) = self.world_mesh.mesh_at_mut(&key) {
                 let (id, dirty) = mesh.get_debug_infos();
                 mesh.set_dirty();
                 let id = {

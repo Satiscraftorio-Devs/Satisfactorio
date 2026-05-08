@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::u32::MAX;
 
 use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
@@ -10,11 +9,10 @@ use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
 use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
 use crate::engine::render::texture::TextureManager;
-use shared::log_client;
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
-use wgpu::wgt::BufferDescriptor;
+use wgpu::Features;
 use winit::window::Window;
 
 pub struct State {
@@ -46,12 +44,22 @@ impl State {
             })
             .await?;
 
+        let features = {
+            let mut requested = vec![
+                Features::CONSERVATIVE_RASTERIZATION,
+                Features::POLYGON_MODE_LINE,
+                Features::MULTI_DRAW_INDIRECT_COUNT,
+            ];
+
+            requested.retain(|value| adapter.features().contains(*value));
+            let result = requested.iter().fold(Features::empty(), |acc, value| acc.union(*value));
+            result
+        };
+
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: None,
-                required_features: wgpu::Features::POLYGON_MODE_LINE
-                    | wgpu::Features::CONSERVATIVE_RASTERIZATION
-                    | wgpu::Features::MULTI_DRAW_INDIRECT_COUNT,
+                required_features: features,
                 experimental_features: wgpu::ExperimentalFeatures::disabled(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: Default::default(),
@@ -267,7 +275,7 @@ impl State {
                 cull_mode: Some(wgpu::Face::Back),
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
-                conservative: true, // warning: conservative may NOT be supported. TODO: handle unsupported conservative rasterization
+                conservative: features.contains(Features::CONSERVATIVE_RASTERIZATION),
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
@@ -419,12 +427,12 @@ impl State {
 
         let render_manager = RenderManager::new(&gpu_context.device);
 
-        let player_mesh = gpu_context.device.create_buffer(&BufferDescriptor {
-            label: Some("Player Mesh Buffer"),
-            mapped_at_creation: false,
-            size: size_of::<Vertex>() as u64 * 36, // 36 vertices for a cube
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        });
+        // let player_mesh = gpu_context.device.create_buffer(&BufferDescriptor {
+        //     label: Some("Player Mesh Buffer"),
+        //     mapped_at_creation: false,
+        //     size: size_of::<Vertex>() as u64 * 36, // 36 vertices for a cube
+        //     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        // });
 
         let renderer = Renderer::new(
             false,
@@ -443,7 +451,6 @@ impl State {
             render_manager,
             depth_texture,
             depth_view,
-            player_mesh,
         );
 
         let text_renderer = TextRenderer::new(

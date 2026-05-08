@@ -6,8 +6,8 @@ use crate::{
         world::world::World,
     },
 };
-use shared::buffer_pool::BufferPool;
 use shared::parallel::{WorkResult, WorkerPool};
+use shared::{buffer_pool::BufferPool, world::data::chunk::ChunkState};
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -31,21 +31,21 @@ impl WorldMesh {
         }
     }
 
-    pub fn mesh_at(&self, cpos: (i32, i32, i32)) -> Option<&ChunkMesh> {
+    pub fn mesh_at(&self, cpos: &(i32, i32, i32)) -> Option<&ChunkMesh> {
         self.meshes.get(&cpos)
     }
 
-    pub fn mesh_at_mut(&mut self, cpos: (i32, i32, i32)) -> Option<&mut ChunkMesh> {
+    pub fn mesh_at_mut(&mut self, cpos: &(i32, i32, i32)) -> Option<&mut ChunkMesh> {
         self.meshes.get_mut(&cpos)
     }
 
-    pub fn set_dirty(&mut self, cpos: (i32, i32, i32)) {
+    pub fn set_dirty(&mut self, cpos: &(i32, i32, i32)) {
         if let Some(chunk) = self.meshes.get_mut(&cpos) {
             chunk.set_dirty();
         }
     }
 
-    pub fn update(&mut self, renderer: &mut Renderer, world: &World, player: &Player) {
+    pub fn update(&mut self, renderer: &mut Renderer, world: &mut World, player: &Player) {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
         let mut needed_rendered_keys: Vec<(i32, i32, i32)> = Vec::new();
 
@@ -76,18 +76,43 @@ impl WorldMesh {
                 }
             }
         }
+        println!("Mesh infos: {} {}", self.meshes.len(), self.meshes.capacity(),);
 
         while let Some(WorkResult { output: vertices_opt, id }) = self.mesh_worker.try_recv() {
             if let Some(key) = self.pending.remove(&id) {
                 self.pending_keys.remove(&key);
-                self.meshes.remove(&key);
 
-                if let Some(vertices) = vertices_opt {
-                    let mut mesh = ChunkMesh::new();
-                    let vertices = mesh.update(vertices, renderer);
-                    self.meshes.insert(key, mesh);
-                    self.mesh_worker.context().release_buffer(vertices);
+                let Some(vertices) = vertices_opt else {
+                    continue;
+                };
+
+                if let Some(chunk) = world.get_chunk_data_mut(key.0, key.1, key.2) {
+                    match self.mesh_at_mut(&key) {
+                        Some(mesh) => match mesh.update(&vertices, renderer) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                println!("Could not update mesh: {:?}", e as u8);
+                            }
+                        },
+                        None => {
+                            let mut mesh = ChunkMesh::new();
+                            match mesh.update(&vertices, renderer) {
+                                Ok(_) => {
+                                    self.meshes.insert(key, mesh);
+                                }
+                                Err(e) => {
+                                    println!("Could not insert mesh: {:?}", e as u8);
+                                }
+                            }
+                        }
+                    };
+                    chunk.is_dirty = false;
+                    chunk.state = ChunkState::Ready;
+                } else {
+                    self.meshes.remove(&key);
                 }
+
+                self.mesh_worker.context().release_buffer(vertices);
             }
         }
     }

@@ -132,7 +132,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
                 }
             }
             Err(e) => {
-                log_err_server!("Échec de la réception du paquet. Erreur : {}", e);
+                log_err_server!("Échec de la réception du paquet.\nErreur : {}", e);
                 break;
             }
         }

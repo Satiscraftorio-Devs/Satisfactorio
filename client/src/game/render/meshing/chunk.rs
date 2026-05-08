@@ -1,5 +1,5 @@
 use crate::{
-    engine::render::mesh::manager::{DataEntry, MeshId},
+    engine::render::mesh::manager::{AllocError, DataEntry, MeshId},
     game::{
         render::utils::{face_mask::FaceMask, padded_chunk::*},
         world::world::MeshSnapshot,
@@ -709,7 +709,7 @@ impl ChunkMesh {
 
     /// Updates a ChunkMesh with the data processed by [GreedyMeshingProcessor]'s threads.
     /// Returns the vertices buffer so it can be returned to the pool.
-    pub fn update(&mut self, vertices: Vec<Vertex>, renderer: &mut Renderer) -> Vec<Vertex> {
+    pub fn update(&mut self, vertices: &Vec<Vertex>, renderer: &mut Renderer) -> Result<(), AllocError> {
         // It's no longer dirty since we're updating it.
         self.dirty.store(false, Ordering::Relaxed);
 
@@ -719,7 +719,7 @@ impl ChunkMesh {
             if vertices.is_empty() {
                 renderer.render_manager.mesh_manager.free_data(mesh_id);
                 self.id = None;
-                return vertices;
+                return Ok(());
             }
 
             // Updates new data.
@@ -727,30 +727,25 @@ impl ChunkMesh {
                 &renderer.gpu_context.device,
                 &renderer.gpu_context.queue,
                 renderer.frame_encoder.as_mut().unwrap(),
-                DataEntry::new(mesh_id, bytemuck::cast_slice(&vertices)),
+                DataEntry::new(mesh_id, bytemuck::cast_slice(vertices)),
             );
-            return vertices;
+            return Ok(());
         }
 
         // No data, no existing mesh.
         if vertices.is_empty() {
-            return vertices;
+            return Ok(());
         }
 
         // Create mesh, update it with new data and associate it with the chunk mesh.
-        self.id = Some(
-            renderer
-                .render_manager
-                .mesh_manager
-                .add_data(
-                    &renderer.gpu_context.device,
-                    &renderer.gpu_context.queue,
-                    renderer.frame_encoder.as_mut().unwrap(),
-                    bytemuck::cast_slice(&vertices),
-                )
-                .expect(&format!("Could not add data - data len: {}", vertices.len())),
-        );
-        vertices
+        self.id = Some(renderer.render_manager.mesh_manager.add_data(
+            &renderer.gpu_context.device,
+            &renderer.gpu_context.queue,
+            renderer.frame_encoder.as_mut().unwrap(),
+            bytemuck::cast_slice(&vertices),
+        )?);
+
+        Ok(())
     }
 }
 

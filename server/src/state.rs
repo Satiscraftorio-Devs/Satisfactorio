@@ -171,10 +171,10 @@ impl GameStateInner {
             log_server!("Génération de {} chunks...", missing_chunks.len());
 
             let generated = generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, missing_chunks.clone());
-            log_server!("{} chunks générés", generated.len());
-            for (key, _) in generated.iter() {
-                log_server!("Chunk généré à {:?}", key);
-            }
+            log_server!("{} chunks générés.", generated.len());
+            // for (key, _) in generated.iter() {
+            //     log_server!("Chunk généré à {:?}", key);
+            // }
             self.chunks.extend(generated);
         }
 

@@ -54,10 +54,6 @@ pub struct Renderer {
     pub depth_view: TextureView,
 
     pub frame_encoder: Option<CommandEncoder>,
-
-    pub player_mesh: Buffer,
-
-    pub remote_players: Vec<(f32, f32, f32)>,
 }
 
 pub struct GpuContext {
@@ -92,8 +88,6 @@ impl Renderer {
 
         depth_texture: wgpu::Texture,
         depth_view: TextureView,
-
-        player_mesh: Buffer,
     ) -> Self {
         let frame_encoder = gpu_context.device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Frame encoder"),
@@ -127,10 +121,6 @@ impl Renderer {
             depth_view,
 
             frame_encoder: Some(frame_encoder),
-
-            player_mesh,
-
-            remote_players: Vec::new(),
         }
     }
 
