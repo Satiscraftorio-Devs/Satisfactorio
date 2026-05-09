@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{collections::HashSet, time::Instant};
 
 use crate::engine::render::{camera::RenderCamera, mesh::manager::MeshId};
 
@@ -12,14 +12,14 @@ pub struct EngineFrameData {
 
 pub struct GameFrameData {
     pub camera: RenderCamera,
-    pub visible_meshes: Vec<MeshId>,
+    pub visible_meshes: HashSet<MeshId>,
 }
 
 impl GameFrameData {
     pub fn blank() -> Self {
         Self {
             camera: RenderCamera::new(),
-            visible_meshes: vec![],
+            visible_meshes: HashSet::new(),
         }
     }
 

@@ -1,3 +1,5 @@
+use std::{collections::HashSet, mem};
+
 use wgpu::{wgt::DrawIndirectArgs, BufferUsages, Device, Queue};
 
 use crate::{
@@ -13,7 +15,7 @@ pub struct RenderManager {
     pub indirect_buffer: SmartBuffer,
     pub indirect_commands: Vec<DrawIndirectArgs>,
     pub count_buffer: SmartBuffer,
-    pub ids_to_render: Vec<MeshId>,
+    pub ids_to_render: HashSet<MeshId>,
 }
 
 impl RenderManager {
@@ -33,7 +35,7 @@ impl RenderManager {
                 None,
                 BufferUsages::INDIRECT | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             ),
-            ids_to_render: vec![],
+            ids_to_render: HashSet::new(),
         }
     }
 
@@ -46,7 +48,15 @@ impl RenderManager {
     }
 
     pub fn mark_mesh_for_rendering(&mut self, id: MeshId) {
-        self.ids_to_render.push(id);
+        self.ids_to_render.insert(id);
+    }
+
+    pub fn mark_meshes_for_rendering(&mut self, ids: &HashSet<MeshId>) {
+        self.ids_to_render.extend(ids);
+    }
+
+    pub fn replace_rendering_queue(&mut self, ids: HashSet<MeshId>) {
+        self.ids_to_render = ids;
     }
 
     pub fn clear_render_queue(&mut self) {

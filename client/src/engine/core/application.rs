@@ -1,4 +1,5 @@
 use shared::*;
+use std::mem;
 use std::process::exit;
 use std::sync::Arc;
 
@@ -10,13 +11,14 @@ use crate::engine::core::frame::{EngineFrameData, GameFrameData};
 use crate::engine::core::state::State;
 use crate::engine::render::render::{RenderOptions, Renderer};
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
-use winit::window::{self, CursorGrabMode, Window};
+use winit::window::{CursorGrabMode, Window};
 
 pub enum AppEvent {
     None,
 }
 
 impl AppEvent {
+    #[inline(always)]
     pub fn to_string(&self) -> String {
         match self {
             AppEvent::None => "None".to_string(),
@@ -26,7 +28,7 @@ impl AppEvent {
 
 pub trait AppState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>);
-    fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer);
+    fn update(&mut self, frame: &EngineFrameData, data: &mut GameFrameData, renderer: &mut Renderer);
     fn fixed_update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData);
     fn on_mouse_move(&mut self, dx: f64, dy: f64);
     fn on_key(&mut self, code: KeyCode, is_pressed: bool);
@@ -36,7 +38,6 @@ pub trait AppState {
 pub struct App<S: AppState> {
     engine_state: Option<State>,
     app_state: S,
-    app_state_init: bool,
 }
 
 impl<S: AppState> App<S> {
@@ -44,34 +45,40 @@ impl<S: AppState> App<S> {
         Self {
             engine_state: None,
             app_state,
-            app_state_init: false,
         }
     }
 }
 
 impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
+    #[inline(always)]
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-        self.engine_state = Some(pollster::block_on(State::new(window, &self.app_state)).unwrap());
+        let mut engine = pollster::block_on(State::new(window, &self.app_state)).unwrap();
+        self.app_state.init(&mut engine.renderer, &mut engine.audio_manager);
+        self.engine_state = Some(engine);
+    }
 
-        if !self.app_state_init {
-            let state = self.engine_state.as_mut().unwrap();
-            self.app_state.init(&mut state.renderer, &mut state.audio_manager);
-            self.app_state_init = true;
+    #[inline(always)]
+    fn suspended(&mut self, _: &ActiveEventLoop) {
+        if let Some(engine) = self.engine_state.as_mut() {
+            engine.dispose();
         }
     }
 
+    #[inline(always)]
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: AppEvent) {
         log_client!("Évènement système reçu: {:?}", event.to_string());
     }
 
+    #[inline(always)]
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta } = event {
             self.app_state.on_mouse_move(delta.0, delta.1);
         }
     }
 
+    #[inline(always)]
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
         let Some(state) = self.engine_state.as_mut() else {
             return;
@@ -80,25 +87,20 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         state.update();
         state.game_frame_data.reset();
 
-        let aspect = state.renderer.render_options.aspect;
-        let znear = state.renderer.render_options.znear;
-        let zfar = state.renderer.render_options.zfar;
-        let render_options = RenderOptions { aspect, znear, zfar };
+        self.app_state
+            .update(&state.engine_frame_data, &mut state.game_frame_data, &mut state.renderer);
 
-        self.app_state.update(
-            &state.engine_frame_data,
-            &render_options,
-            &mut state.game_frame_data,
-            &mut state.renderer,
+        mem::swap(
+            &mut state.game_frame_data.visible_meshes,
+            &mut state.renderer.render_manager.ids_to_render,
         );
 
-        for id in state.game_frame_data.visible_meshes.iter() {
-            state.renderer.render_manager.mark_mesh_for_rendering(*id);
-        }
+        state.game_frame_data.visible_meshes.clear();
 
         state.window.request_redraw();
     }
 
+    #[inline(always)]
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: winit::window::WindowId, event: WindowEvent) {
         let Some(state) = self.engine_state.as_mut() else {
             return;
@@ -107,7 +109,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         match event {
             WindowEvent::Focused(true) => {
                 state.window.set_cursor_visible(false);
-                // state.window.set_cursor_grab(CursorGrabMode::Confined).unwrap_or(());
+                state.window.set_cursor_grab(CursorGrabMode::Confined).unwrap_or(());
             }
             WindowEvent::Focused(false) => {
                 state.window.set_cursor_visible(true);
@@ -122,7 +124,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
                     state.resize(size.width, size.height);
                 }
                 Err(e) => {
-                    log::error!("Unable to render {}", e);
+                    log_err_client!("Unable to render.\nError: {}", e);
                 }
             },
             WindowEvent::KeyboardInput {
@@ -151,6 +153,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         }
     }
 
+    #[inline(always)]
     fn exiting(&mut self, _: &ActiveEventLoop) {
         self.app_state.dispose();
         if let Some(engine) = self.engine_state.as_mut() {

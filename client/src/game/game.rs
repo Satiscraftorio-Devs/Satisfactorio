@@ -30,7 +30,7 @@ use crate::{
 use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 1_000_000;
+const FPS_CAP: u32 = 60;
 const DT_CAP: f32 = 1.0 / (FPS_CAP as f32);
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -83,7 +83,7 @@ impl AppState for GameState {
         }
     }
 
-    fn update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData, renderer: &mut Renderer) {
+    fn update(&mut self, frame: &EngineFrameData, data: &mut GameFrameData, renderer: &mut Renderer) {
         // UPDATE DELAY
         self.delay_ms += frame.dt;
 
@@ -154,7 +154,7 @@ impl AppState for GameState {
             };
             data.camera.update(cam_x, cam_y, cam_z, view_proj.into());
 
-            self.player.camera.aspect = render_options.aspect;
+            self.player.camera.aspect = renderer.render_options.aspect;
             let cam_position = self.player.camera.eye.to_vec();
             let cam_forward = self.player.camera.forward();
             let cam_frustum = extract_camera_frustum_planes(view_proj);
@@ -180,7 +180,7 @@ impl AppState for GameState {
                     continue;
                 }
 
-                data.visible_meshes.push(mesh.id.unwrap());
+                data.visible_meshes.insert(mesh.id.unwrap());
             }
 
             // Update renderer with remote player positions
@@ -208,7 +208,7 @@ impl AppState for GameState {
                             .ok();
                     }
                 }
-                data.visible_meshes.push(p.mesh_id.unwrap());
+                data.visible_meshes.insert(p.mesh_id.unwrap());
             }
         }
     }

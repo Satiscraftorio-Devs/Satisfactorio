@@ -26,7 +26,7 @@ pub struct State {
 
 impl State {
     pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
-        let audio_manager = GameAudioManager::new(&window);
+        let audio_manager = GameAudioManager::new(&window).ok();
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -465,7 +465,7 @@ impl State {
             game_frame_data,
             renderer,
             text_renderer,
-            audio_manager: Some(audio_manager.expect("Failed to load audio manager in state")),
+            audio_manager,
         })
     }
 
@@ -533,7 +533,7 @@ impl State {
             );
             self.text_renderer.timer -= FPS_UPDATE_DELAY;
         }
-        if let Some(ref mut audio) = self.audio_manager {
+        if let Some(audio) = self.audio_manager.as_mut() {
             audio.update();
         }
     }
