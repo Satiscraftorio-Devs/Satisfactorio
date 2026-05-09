@@ -1,17 +1,24 @@
 use std::time::SystemTime;
 
-use crate::state::GAME_STATE;
+use crate::state::AppState;
+use shared::log_server;
 use shared::network::messages::*;
-use shared::*;
+use tokio::sync::broadcast;
 
-pub struct PacketHandler {}
+pub struct HandlerContext<'a> {
+    pub player_id: u64,
+    pub state: &'a AppState,
+    pub broadcaster: &'a broadcast::Sender<Paquet>,
+}
 
-impl PacketHandler {
-    pub fn new() -> Self {
-        Self {}
-    }
+pub trait PacketHandler: Send + Sync {
+    fn handle(&self, packet: Paquet, ctx: &HandlerContext) -> Option<Paquet>;
+}
 
-    pub fn handle_packet(&mut self, packet: Paquet) -> Option<Paquet> {
+pub struct ProductionHandler;
+
+impl PacketHandler for ProductionHandler {
+    fn handle(&self, packet: Paquet, ctx: &HandlerContext) -> Option<Paquet> {
         match &packet.contenu {
             ContenuPaquet::DonneesConnexion { version, username } => {
                 log_server!("Joueur {}: connexion avec la version {}.", username, version);
@@ -19,7 +26,38 @@ impl PacketHandler {
             }
 
             ContenuPaquet::PlayerTransformation { data } => {
-                GAME_STATE.update_player_position(data.player_id, data.position.clone(), data.rotation.clone());
+                ctx.state
+                    .update_player_position(data.player_id, data.position.clone(), data.rotation.clone());
+
+                let broadcast_packet = Paquet::new(
+                    TypePaquet::MultiplePlayerTransformation,
+                    ContenuPaquet::MultiplePlayerTransformation {
+                        data: vec![PlayerTransformation {
+                            player_id: data.player_id,
+                            position: data.position.clone(),
+                            rotation: data.rotation.clone(),
+                        }],
+                    },
+                );
+                let _ = ctx.broadcaster.send(broadcast_packet);
+
+                Some(packet)
+            }
+
+            ContenuPaquet::SetBlock { x, y, z, block_id } => {
+                ctx.state.set_block(*x, *y, *z, *block_id);
+
+                let broadcast_packet = Paquet::new(
+                    TypePaquet::SetBlock,
+                    ContenuPaquet::SetBlock {
+                        x: *x,
+                        y: *y,
+                        z: *z,
+                        block_id: *block_id,
+                    },
+                );
+                let _ = ctx.broadcaster.send(broadcast_packet);
+
                 Some(packet)
             }
 
@@ -39,40 +77,10 @@ impl PacketHandler {
                 Some(packet)
             }
 
-            _ => None,
-        }
-    }
-
-    pub fn get_players_position_packet(&mut self) -> Result<Paquet, std::io::Error> {
-        let players = GAME_STATE.get_all_players_vec();
-        match players {
-            Some(players_vec) => {
-                let players_vec = players_vec
-                    .into_iter()
-                    .map(|player| PlayerTransformation {
-                        player_id: player.id,
-                        position: player.position,
-                        rotation: player.rotation,
-                    })
-                    .collect();
-
-                return Ok(Paquet::new(
-                    TypePaquet::MultiplePlayerTransformation,
-                    ContenuPaquet::MultiplePlayerTransformation { data: players_vec },
-                ));
-            }
-            None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "La génération du packet a échouée",
-                ));
+            _ => {
+                log_server!("Joueur {}: paquet non géré, éjection.", ctx.player_id);
+                None
             }
         }
-    }
-}
-
-impl Default for PacketHandler {
-    fn default() -> Self {
-        Self::new()
     }
 }

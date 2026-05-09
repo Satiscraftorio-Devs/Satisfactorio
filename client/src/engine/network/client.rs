@@ -12,7 +12,8 @@
 //! ```text
 //! ClientConnection
 //! ├── runtime: Tokio runtime (pour les tâches async)
-//! ├── stream: Arc<Mutex<TcpStream>> (connexion TCP)
+//! ├── read_half: OwnedReadHalf (lecture TCP)
+//! ├── write_half: OwnedWriteHalf (écriture TCP)
 //! ├── codec: EncryptedCodec (chiffrement)
 //! ├── sender: mpsc::UnboundedSender<Paquet> (file d'attente d'envoi)
 //! ├── receiver: mpsc::UnboundedReceiver<Paquet> (file d'attente de réception)
@@ -35,6 +36,11 @@
 //! - Une tâche d'arrière-plan reçoit continuellement les paquets
 //! - Les paquets reçus sont placés dans un channel
 //! - `receive_packet()` récupère les paquets depuis ce channel (non-bloquant)
+//!
+//! ## Indépendance lecture/écriture
+//!
+//! Le TcpStream est splitté en deux moitiés (`into_split()`) après le handshake,
+//! permettant à la lecture et l'écriture de se faire simultanément sans mutex.
 
 use shared::network::crypto::compute_shared_secret;
 use shared::network::messages::{ContenuPaquet, Paquet, CURRENT_VERSION};
@@ -44,9 +50,10 @@ use shared::{log_client, log_err_client};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
 /// Connexion au serveur.
 ///
@@ -70,8 +77,10 @@ use tokio::sync::{mpsc, Mutex};
 pub struct ClientConnection {
     /// Runtime Tokio pour exécuter les opérations async
     runtime: Option<Runtime>,
-    /// Stream TCP protégé par un Mutex pour l'accès thread-safe
-    stream: Option<Arc<Mutex<TcpStream>>>,
+    /// Moitié lecture du TcpStream (utilisée par le receiver task)
+    read_half: Option<OwnedReadHalf>,
+    /// Moitié écriture du TcpStream (utilisée par le sender task)
+    write_half: Option<OwnedWriteHalf>,
     /// Codec chiffré pour la communication
     codec: Arc<EncryptedCodec>,
     /// ID du joueur attribué par le serveur
@@ -91,7 +100,8 @@ impl ClientConnection {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             runtime: None,
-            stream: None,
+            read_half: None,
+            write_half: None,
             codec: Arc::new(create_codec([0u8; 32])),
             player_id: None,
             connected: false,
@@ -132,20 +142,28 @@ impl ClientConnection {
         let stream = runtime.block_on(TcpStream::connect(server_addr)).map_err(|e| e.to_string())?;
 
         self.runtime = Some(runtime);
-        self.stream = Some(Arc::new(Mutex::new(stream)));
+        self.codec = Arc::new(create_codec([0u8; 32]));
+
+        // Le stream sera splitté après le handshake
+        let (read_half, write_half) = stream.into_split();
+        self.read_half = Some(read_half);
+        self.write_half = Some(write_half);
         Ok(())
     }
 
     /// Effectue le handshake avec le serveur.
+    ///
+    /// Note : le TcpStream est splitté dans `connect()`, donc le handshake
+    /// utilise read_half et write_half séparément.
     pub fn perform_handshake(&mut self, username: &str) -> Result<(u64, u32), String> {
         let runtime = self.runtime.as_ref().ok_or("No runtime")?;
 
-        // Effectuer le handshake de manière bloquante
         let (player_id, server_seed, codec) = runtime.block_on(async {
-            let mut stream = self.stream.as_mut().ok_or("Not connected")?.lock().await;
+            let read_half = self.read_half.as_mut().ok_or("No read half")?;
+            let write_half = self.write_half.as_mut().ok_or("No write half")?;
 
             let mut server_id_buf = [0u8; 16];
-            stream.read_exact(&mut server_id_buf).await.map_err(|e| e.to_string())?;
+            read_half.read_exact(&mut server_id_buf).await.map_err(|e| e.to_string())?;
 
             let codec = Arc::new(create_codec(compute_shared_secret(&server_id_buf, b"server")));
 
@@ -157,15 +175,15 @@ impl ClientConnection {
                 },
             );
 
-            codec.send_packet(&mut *stream, &packet).await.map_err(|e| e.to_string())?;
+            codec.send_packet(write_half, &packet).await.map_err(|e| e.to_string())?;
 
-            let confirmation_packet = codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
+            let confirmation_packet = codec.receive_packet(read_half).await.map_err(|e| e.to_string())?;
             let player_id = match confirmation_packet.contenu {
                 ContenuPaquet::Confirmation { player_id, .. } => player_id,
                 _ => return Err("Échec de la réception du paquet de confirmation.".to_string()),
             };
 
-            let seed_packet = codec.receive_packet(&mut *stream).await.map_err(|e| e.to_string())?;
+            let seed_packet = codec.receive_packet(read_half).await.map_err(|e| e.to_string())?;
             let server_seed = match seed_packet.contenu {
                 ContenuPaquet::ServerSeed { seed } => seed,
                 _ => return Err("Échec de la réception de la seed du serveur.".to_string()),
@@ -186,7 +204,7 @@ impl ClientConnection {
     }
 
     fn start_sender_task(&mut self) {
-        let stream = self.stream.clone();
+        let write_half = self.write_half.take();
         let codec = self.codec.clone();
 
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -194,9 +212,9 @@ impl ClientConnection {
 
         if let Some(runtime) = self.runtime.as_ref() {
             runtime.spawn(async move {
+                let mut write_half = write_half.expect("Write half already taken");
                 while let Some(packet) = rx.recv().await {
-                    let mut guard = stream.as_ref().unwrap().lock().await;
-                    if let Err(e) = codec.send_packet(&mut *guard, &packet).await {
+                    if let Err(e) = codec.send_packet(&mut write_half, &packet).await {
                         log_err_client!("Échec de l'envoi du packet.\nErreur : {}", e);
                     }
                 }
@@ -205,7 +223,7 @@ impl ClientConnection {
     }
 
     fn start_receiver_task(&mut self) {
-        let stream = self.stream.clone();
+        let read_half = self.read_half.take();
         let codec = self.codec.clone();
 
         let (tx, rx) = mpsc::unbounded_channel();
@@ -213,20 +231,14 @@ impl ClientConnection {
 
         if let Some(runtime) = self.runtime.as_ref() {
             runtime.spawn(async move {
+                let mut read_half = read_half.expect("Read half already taken");
                 loop {
-                    let mut guard = stream.as_ref().unwrap().lock().await;
-                    match codec.receive_packet(&mut *guard).await {
+                    match codec.receive_packet(&mut read_half).await {
                         Ok(packet) => {
                             match packet.contenu.clone() {
-                                ContenuPaquet::MultiplePlayerTransformation { data } => {
-                                    // todo!("Ajout/Mise à jour des informations au game state")
-                                    // for i in data {
-                                    //     log_client!("Données du joueur {} reçues: {:?}", i.player_id, i.position);
-                                    // }
-                                }
+                                ContenuPaquet::MultiplePlayerTransformation { data: _ } => {}
                                 _ => {}
                             }
-                            drop(guard);
                             if tx.send(packet).is_err() {
                                 break;
                             }

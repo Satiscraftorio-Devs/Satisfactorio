@@ -136,6 +136,9 @@ impl AppState for GameState {
                         _ => {}
                     }
                 }
+
+                // Nettoyer les joueurs distants qui n'ont pas envoyé de mise à jour depuis 30s
+                self.remote_players.cleanup_stale(std::time::Duration::from_secs(30));
             }
         }
 

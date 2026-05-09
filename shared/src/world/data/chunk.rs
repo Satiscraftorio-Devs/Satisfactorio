@@ -57,6 +57,13 @@ pub struct Chunk {
     pub z: i32,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct IntraChunkCoords {
+    x: u8,
+    y: u8,
+    z: u8,
+}
+
 impl ChunkData {
     pub fn new(chunk: Chunk) -> Self {
         Self {
@@ -100,4 +107,16 @@ impl Chunk {
         let bytes = bincode::serialize(&self).unwrap();
         fletcher16(&bytes)
     }
+}
+
+pub fn global_position_to_chunk_pos(gx: i32, gy: i32, gz: i32) -> ((i32, i32, i32), IntraChunkCoords) {
+    let cx = gx / CHUNK_SIZE;
+    let cy = gy / CHUNK_SIZE;
+    let cz = gz / CHUNK_SIZE;
+
+    let ix = (gx.rem_euclid(CHUNK_SIZE)) as u8;
+    let iy = (gy.rem_euclid(CHUNK_SIZE)) as u8;
+    let iz = (gz.rem_euclid(CHUNK_SIZE)) as u8;
+
+    ((cx, cy, cz), IntraChunkCoords { x: ix, y: iy, z: iz })
 }

@@ -760,7 +760,7 @@ impl Parallelizable for GreedyMeshingProcessor {
     fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
         let (main_chunk, neighbors, cx, cy, cz) = input;
 
-        let (padded, padded_time) = time_noprint!({ PaddedChunk::from_snapshot(&main_chunk, &neighbors) });
+        let (padded, _padded_time) = time_noprint!({ PaddedChunk::from_snapshot(&main_chunk, &neighbors) });
 
         // Pre-calc entire chunk blocks solidity to save CPU (by avoiding repetition)
         let mut solidity = [false; PADDED_CHUNK_BLOCK_NUMBER];

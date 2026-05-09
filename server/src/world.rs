@@ -1,0 +1,137 @@
+use cgmath::Point3;
+use shared::log_warn_server;
+use shared::world::data::block::{BlockData, BlockInstance, BlockManager};
+use shared::world::generation::chunk::ChunkWithChecksum;
+use shared::world::generation::chunk_generator::generate_chunks_sequential;
+use shared::world::modified_chunk::ModifiedWorld;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+pub struct WorldState {
+    pub seed: u32,
+    pub block_manager: Arc<BlockManager>,
+    pub world_generated_chunks: HashMap<(i32, i32, i32), ChunkWithChecksum>,
+    pub modifications: ModifiedWorld,
+}
+
+impl WorldState {
+    pub fn new() -> Self {
+        let block_manager = {
+            let mut bm = BlockManager::new();
+            for block in [
+                BlockData::new("air"),
+                BlockData::new("stone"),
+                BlockData::new("dirt"),
+                BlockData::new("grass"),
+            ] {
+                bm.register(block);
+            }
+            Arc::new(bm)
+        };
+
+        Self {
+            seed: 0,
+            block_manager,
+            world_generated_chunks: HashMap::new(),
+            modifications: ModifiedWorld::new(),
+        }
+    }
+
+    pub fn set_seed(&mut self, seed: u32) {
+        self.seed = seed;
+    }
+
+    pub fn get_seed(&self) -> u32 {
+        self.seed
+    }
+
+    pub fn generate_missing(&mut self, coords: &[(i32, i32, i32)]) {
+        let missing: Vec<_> = coords
+            .iter()
+            .filter(|c| !self.world_generated_chunks.contains_key(*c))
+            .cloned()
+            .collect();
+        if missing.is_empty() {
+            return;
+        }
+        let generated = generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, missing);
+        self.world_generated_chunks.extend(generated);
+    }
+
+    pub fn retain_chunks(&mut self, keep: &std::collections::HashSet<(i32, i32, i32)>) {
+        self.world_generated_chunks.retain(|key, _| keep.contains(key));
+        self.modifications.retain_chunks(keep);
+    }
+
+    pub fn get_required_chunks(cx: i32, cy: i32, cz: i32) -> std::collections::HashSet<(i32, i32, i32)> {
+        let mut chunks = std::collections::HashSet::new();
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                for dz in -1..=1 {
+                    chunks.insert((cx + dx, cy + dy, cz + dz));
+                }
+            }
+        }
+        chunks
+    }
+
+    pub fn generate_chunks_between_2_pos(&mut self, p1: Point3<i32>, p2: Point3<i32>) -> HashMap<(i32, i32, i32), ChunkWithChecksum> {
+        let min_x = p1.x.min(p2.x);
+        let max_x = p1.x.max(p2.x);
+        let min_y = p1.y.min(p2.y);
+        let max_y = p1.y.max(p2.y);
+        let min_z = p1.z.min(p2.z);
+        let max_z = p1.z.max(p2.z);
+
+        let mut coords = Vec::new();
+        for cx in min_x..=max_x {
+            for cy in min_y..=max_y {
+                for cz in min_z..=max_z {
+                    coords.push((cx, cy, cz));
+                }
+            }
+        }
+
+        generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, coords)
+    }
+
+    pub fn generate_chunks_in_radius(&mut self, center: Point3<i32>, radius: i32) -> HashMap<(i32, i32, i32), ChunkWithChecksum> {
+        let radius_sq = (radius as i64) * (radius as i64);
+        let mut coords = Vec::new();
+        for cx in (center.x - radius)..=(center.x + radius) {
+            for cy in (center.y - radius)..=(center.y + radius) {
+                for cz in (center.z - radius)..=(center.z + radius) {
+                    let dx = (cx as i64 - center.x as i64).pow(2);
+                    let dy = (cy as i64 - center.y as i64).pow(2);
+                    let dz = (cz as i64 - center.z as i64).pow(2);
+                    if dx + dy + dz <= radius_sq {
+                        coords.push((cx, cy, cz));
+                    }
+                }
+            }
+        }
+
+        generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, coords)
+    }
+}
+
+impl WorldState {
+    pub fn set_block(&mut self, x: i32, y: i32, z: i32, block_id: u32) {
+        const CS: i32 = 32;
+        let cx = x.div_euclid(CS);
+        let cy = y.div_euclid(CS);
+        let cz = z.div_euclid(CS);
+
+        if self.world_generated_chunks.contains_key(&(cx, cy, cz)) {
+            self.modifications.set_block_at(x, y, z, BlockInstance::new(block_id));
+        } else {
+            log_warn_server!("Tentative de modification d'un chunk non chargé : ({}, {}, {})", cx, cy, cz);
+        }
+    }
+}
+
+impl Default for WorldState {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -23,6 +23,7 @@ pub enum TypePaquet {
     MovePlayer,
     Ping,
     Pong,
+    SetBlock,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -35,6 +36,7 @@ pub enum ContenuPaquet {
     ServerSeed { seed: u32 },
     Ping { timestamp: u64 },
     Pong { timestamp: u64 },
+    SetBlock { x: i32, y: i32, z: i32, block_id: u32 },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -122,4 +124,8 @@ pub fn new_ping_paquet(timestamp: u64) -> Paquet {
 
 pub fn new_pong_paquet(timestamp: u64) -> Paquet {
     Paquet::new(TypePaquet::Pong, ContenuPaquet::Pong { timestamp })
+}
+
+pub fn new_set_block_paquet(x: i32, y: i32, z: i32, block_id: u32) -> Paquet {
+    Paquet::new(TypePaquet::SetBlock, ContenuPaquet::SetBlock { x, y, z, block_id })
 }

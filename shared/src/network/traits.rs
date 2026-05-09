@@ -3,6 +3,8 @@
 //! Ce module définit le trait `PacketCodec` qui abstraction l'envoi et la réception
 //! de paquets sur n'importe quel flux asyncrhone compatible avec Tokio.
 
+use std::future::Future;
+
 use crate::network::error::NetworkError;
 use crate::network::messages::Paquet;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -40,7 +42,7 @@ pub trait PacketCodec: Clone + Send + Sync {
     ///
     /// * `Ok(())` si l'envoi a réussi
     /// * `Err(NetworkError)` en cas d'erreur
-    async fn send_packet<S: AsyncWrite + Unpin>(&self, stream: &mut S, packet: &Paquet) -> Result<(), NetworkError>;
+    fn send_packet<S: AsyncWrite + Unpin>(&self, stream: &mut S, packet: &Paquet) -> impl Future<Output = Result<(), NetworkError>>;
 
     /// Reçoit un paquet du flux fourni.
     ///
@@ -52,5 +54,5 @@ pub trait PacketCodec: Clone + Send + Sync {
     ///
     /// * `Ok(Paquet)` si la réception a réussi
     /// * `Err(NetworkError)` en cas d'erreur (connexion fermée, données invalides, etc.)
-    async fn receive_packet<S: AsyncRead + Unpin>(&self, stream: &mut S) -> Result<Paquet, NetworkError>;
+    fn receive_packet<S: AsyncRead + Unpin>(&self, stream: &mut S) -> impl Future<Output = Result<Paquet, NetworkError>>;
 }

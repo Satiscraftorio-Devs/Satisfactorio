@@ -43,5 +43,5 @@ kill: killall
 
 
 clean-code:
-	cargo fix -p server --bin "server"
-	cargo fix -p client --bin "client"
+	cargo fix -p server --bin "server" --allow-dirty
+	cargo fix -p client --bin "client" --allow-dirty
