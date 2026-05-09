@@ -76,7 +76,7 @@ impl WorldMesh {
                 }
             }
         }
-        println!("Mesh infos: {} {}", self.meshes.len(), self.meshes.capacity(),);
+        // println!("Mesh infos: {} {}", self.meshes.len(), self.meshes.capacity(),);
 
         while let Some(WorkResult { output: vertices_opt, id }) = self.mesh_worker.try_recv() {
             if let Some(key) = self.pending.remove(&id) {
@@ -115,5 +115,12 @@ impl WorldMesh {
                 self.mesh_worker.context().release_buffer(vertices);
             }
         }
+    }
+
+    pub fn dispose(&mut self) {
+        self.meshes.clear();
+        self.pending.clear();
+        self.pending_keys.clear();
+        // TODO: faire fonctionner -> self.mesh_worker.dispose();
     }
 }

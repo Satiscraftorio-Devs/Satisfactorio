@@ -129,4 +129,9 @@ impl BlockManager {
         self.mapped_blocks.insert(block.id_str.clone(), id);
         self.blocks.push(block);
     }
+
+    pub fn dispose(&mut self) {
+        self.blocks.clear();
+        self.mapped_blocks.clear();
+    }
 }

@@ -544,4 +544,12 @@ impl State {
 
         Ok(())
     }
+
+    pub fn dispose(&mut self) {
+        if let Some(audio) = self.audio_manager.as_mut() {
+            // TODO: faire fonctionner -> audio.dispose();
+        }
+        self.text_renderer.dispose();
+        self.renderer.dispose();
+    }
 }

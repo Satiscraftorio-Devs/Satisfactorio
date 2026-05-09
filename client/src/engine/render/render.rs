@@ -170,9 +170,9 @@ impl Renderer {
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 1.0,
-                            g: 1.0,
-                            b: 1.0,
+                            r: 0.125,
+                            g: 0.5,
+                            b: 0.75,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -264,5 +264,17 @@ impl Renderer {
         }));
 
         self.render_manager.clear_render_queue();
+    }
+
+    pub fn dispose(&mut self) {
+        self.is_surface_configured = false;
+
+        self.camera_buffer.destroy();
+        self.chunk_borders_buffer.destroy();
+        self.depth_texture.destroy();
+        // TODO: faire fonctionner -> self.diffuse_texture_array.dispose();
+        self.gizmo_buffer.destroy();
+        // TODO: faire fonctionner -> self.gpu_context.dispose();
+        // TODO: faire fonctionner -> self.render_manager.dispose();
     }
 }

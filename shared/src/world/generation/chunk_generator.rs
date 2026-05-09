@@ -87,6 +87,10 @@ impl ChunkGenerator {
     pub fn try_recv(&self) -> Option<WorkResult<(i32, i32, i32, ChunkWithChecksum)>> {
         self.inner.try_recv()
     }
+
+    pub fn dispose(&mut self) {
+        // TODO: dispose
+    }
 }
 
 /// Génère des chunks de manière séquentielle (sans parallélisme).

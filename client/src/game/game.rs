@@ -220,6 +220,16 @@ impl AppState for GameState {
     fn on_key(&mut self, code: KeyCode, is_pressed: bool) {
         self.inputs.set_key_press(code, is_pressed);
     }
+
+    fn dispose(&mut self) {
+        // TODO: faire fonctionner -> // Network dispose (disconnection, memory release...), if any.
+        // if let Some(net) = self.network.as_mut() {
+
+        // }
+
+        self.world.dispose();
+        self.world_mesh.dispose();
+    }
 }
 
 impl GameState {

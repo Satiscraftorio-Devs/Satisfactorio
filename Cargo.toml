@@ -32,4 +32,4 @@ strip = true
 
 [profile.flamegraph]
 inherits = "dev"
-opt-level = 3
+# opt-level = 3

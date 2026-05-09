@@ -20,7 +20,7 @@ client: build
 	RUSTFLAGS="-Awarnings" cargo run -p client --bin client
 
 profile:
-	cargo flamegraph --profile flamegraph -p client --bin client
+	RUSTFLAGS="-C force-frame-pointers=yes" cargo flamegraph --freq 49 --profile flamegraph -p client --bin client
 
 clean-logs:
 	rm logs/* -rf

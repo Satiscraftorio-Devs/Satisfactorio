@@ -1,4 +1,5 @@
 use shared::*;
+use std::process::exit;
 use std::sync::Arc;
 
 use winit::event_loop::ActiveEventLoop;
@@ -9,7 +10,7 @@ use crate::engine::core::frame::{EngineFrameData, GameFrameData};
 use crate::engine::core::state::State;
 use crate::engine::render::render::{RenderOptions, Renderer};
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
-use winit::window::{CursorGrabMode, Window};
+use winit::window::{self, CursorGrabMode, Window};
 
 pub enum AppEvent {
     None,
@@ -29,6 +30,7 @@ pub trait AppState {
     fn fixed_update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData);
     fn on_mouse_move(&mut self, dx: f64, dy: f64);
     fn on_key(&mut self, code: KeyCode, is_pressed: bool);
+    fn dispose(&mut self);
 }
 
 pub struct App<S: AppState> {
@@ -65,10 +67,6 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
     }
 
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
-        let Some(_state) = self.engine_state.as_mut() else {
-            return;
-        };
-
         if let DeviceEvent::MouseMotion { delta } = event {
             self.app_state.on_mouse_move(delta.0, delta.1);
         }
@@ -138,7 +136,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
             } => {
                 if code == KeyCode::Escape && key_state.is_pressed() {
                     event_loop.exit();
-                    std::process::exit(0); // Brutal, à changer quand on aura fait l'asynchrone sur le greedy meshing
+                    return;
                 } else if code == KeyCode::Digit1 && key_state.is_pressed() {
                     state.renderer.wireframe = !state.renderer.wireframe;
                     state.window.request_redraw();
@@ -151,5 +149,14 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
             }
             _ => {}
         }
+    }
+
+    fn exiting(&mut self, _: &ActiveEventLoop) {
+        self.app_state.dispose();
+        if let Some(engine) = self.engine_state.as_mut() {
+            engine.dispose();
+        }
+        log_client!("Exiting...");
+        exit(0);
     }
 }
