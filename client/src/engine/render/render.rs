@@ -1,9 +1,12 @@
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use wgpu::{
-    wgt::{CommandEncoderDescriptor, DrawIndirectArgs},
-    BindGroup, Buffer, CommandEncoder, RenderPipeline, TextureView,
+    wgt::{CommandEncoderDescriptor, DeviceDescriptor, DrawIndirectArgs},
+    Adapter, Backends, BindGroup, Buffer, CommandEncoder, Device, ExperimentalFeatures, Features, Instance, InstanceDescriptor, Limits,
+    PowerPreference, PresentMode, Queue, RenderPipeline, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture, TextureUsages,
+    TextureView, Trace,
 };
+use winit::window::Window;
 
 use crate::{
     common::geometry::vertex::Vertex,
@@ -50,17 +53,137 @@ pub struct Renderer {
 
     pub render_options: RenderOptions,
 
-    pub depth_texture: wgpu::Texture,
+    pub depth_texture: Texture,
     pub depth_view: TextureView,
 
     pub frame_encoder: Option<CommandEncoder>,
 }
 
+pub struct GpuResources {
+    device: Device,
+    queue: Queue,
+}
+
+impl GpuResources {
+    pub fn new(device: Device, queue: Queue) -> Self {
+        Self { device, queue }
+    }
+
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
+    pub fn device_mut(&mut self) -> &mut Device {
+        &mut self.device
+    }
+
+    pub fn queue(&self) -> &Queue {
+        &self.queue
+    }
+
+    pub fn queue_mut(&mut self) -> &mut Queue {
+        &mut self.queue
+    }
+
+    pub fn device_queue(&self) -> (&Device, &Queue) {
+        (&self.device, &self.queue)
+    }
+
+    pub fn device_queue_mut(&mut self) -> (&mut Device, &mut Queue) {
+        (&mut self.device, &mut self.queue)
+    }
+}
+
 pub struct GpuContext {
-    pub surface: wgpu::Surface<'static>,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    pub config: wgpu::SurfaceConfiguration,
+    pub surface: Surface<'static>,
+    pub resources: GpuResources,
+    pub config: SurfaceConfiguration,
+    pub limits: Limits,
+    pub features: Features,
+}
+
+impl From<&GpuContext> for GpuResources {
+    fn from(ctx: &GpuContext) -> Self {
+        Self {
+            device: ctx.resources.device().clone(),
+            queue: ctx.resources.queue().clone(),
+        }
+    }
+}
+
+impl GpuContext {
+    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+        let size = window.inner_size();
+        let instance = Instance::new(&InstanceDescriptor {
+            backends: Backends::PRIMARY,
+            ..Default::default()
+        });
+
+        let surface = instance.create_surface(window).unwrap();
+
+        let adapter = instance
+            .request_adapter(&RequestAdapterOptions {
+                power_preference: PowerPreference::default(),
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await?;
+
+        let features = {
+            let mut requested = vec![
+                Features::CONSERVATIVE_RASTERIZATION,
+                Features::POLYGON_MODE_LINE,
+                Features::MULTI_DRAW_INDIRECT_COUNT,
+            ];
+
+            requested.retain(|value| adapter.features().contains(*value));
+            let result = requested.iter().fold(Features::empty(), |acc, value| acc.union(*value));
+            result
+        };
+
+        let (device, queue) = adapter
+            .request_device(&DeviceDescriptor {
+                label: None,
+                required_features: features,
+                experimental_features: ExperimentalFeatures::disabled(),
+                required_limits: Limits::default(),
+                memory_hints: Default::default(),
+                trace: Trace::Off,
+            })
+            .await?;
+
+        let resources = GpuResources::new(device, queue);
+
+        let limits = resources.device().limits();
+        let features = resources.device().features().intersection(adapter.features());
+
+        let surface_caps = surface.get_capabilities(&adapter);
+
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .find(|f| f.is_srgb())
+            .copied()
+            .unwrap_or(surface_caps.formats[0]);
+        let config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: size.width,
+            height: size.height,
+            present_mode: PresentMode::AutoNoVsync,
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+
+        Ok(Self {
+            surface,
+            resources,
+            config,
+            limits,
+            features,
+        })
+    }
 }
 
 impl Renderer {
@@ -86,7 +209,7 @@ impl Renderer {
         gpu_context: GpuContext,
         render_manager: RenderManager,
 
-        depth_texture: wgpu::Texture,
+        depth_texture: Texture,
         depth_view: TextureView,
     ) -> Self {
         let frame_encoder = gpu_context.device.create_command_encoder(&CommandEncoderDescriptor {

@@ -95,8 +95,6 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
             &mut state.renderer.render_manager.ids_to_render,
         );
 
-        state.game_frame_data.visible_meshes.clear();
-
         state.window.request_redraw();
     }
 

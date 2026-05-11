@@ -2,7 +2,7 @@ use anyhow::*;
 use image::GenericImageView;
 use wgpu::{Device, Queue};
 
-use crate::engine::render::textures::array::Texture2DArray;
+use crate::engine::render::{render::GpuResources, textures::array::Texture2DArray};
 
 pub struct Texture {
     #[allow(unused)]
@@ -12,7 +12,7 @@ pub struct Texture {
     pub dimensions: (u32, u32),
 }
 
-#[repr(u8)]
+#[repr(usize)]
 pub enum PipelineType {
     Opaque = 0,
     AlphaCutout = 1,
@@ -90,9 +90,23 @@ impl Texture {
 }
 
 pub struct TextureManager {
-    pub arrays: Vec<Texture2DArray>,
+    gpu_resources: GpuResources,
+    arrays: Vec<Texture2DArray>,
     max_texture_size: u32,
     max_array_depth: u32,
+}
+
+#[repr(C)]
+pub enum TextureArrayIndex {
+    BLOCKS = 0,
+    ITEMS = 1,
+    BILLBOARDS = 2,
+}
+
+impl TextureArrayIndex {
+    pub fn to_usize(self) -> usize {
+        self as usize
+    }
 }
 
 pub struct TextureID {
@@ -107,44 +121,59 @@ impl TextureID {
 }
 
 impl TextureManager {
-    pub fn new(max_texture_size: u32, max_array_depth: u32) -> Self {
-        Self {
+    pub fn new(gpu_resources: GpuResources, max_texture_size: u32, max_array_depth: u32) -> Self {
+        let size = max_texture_size.min(32) as u16;
+
+        let mut instance = Self {
+            gpu_resources,
             arrays: vec![],
             max_texture_size,
             max_array_depth,
-        }
+        };
+
+        let blocks = instance.make_new_array("Blocks".to_string(), size, size);
+        let items = instance.make_new_array("Items".to_string(), size, size);
+        let billboards = instance.make_new_array("Billboards".to_string(), size, size);
+
+        assert!(blocks == TextureArrayIndex::BLOCKS.to_usize());
+        assert!(items == TextureArrayIndex::ITEMS.to_usize());
+        assert!(billboards == TextureArrayIndex::BILLBOARDS.to_usize());
+
+        instance
     }
 
-    fn make_new_array(&mut self, label: String, device: &Device, width: u16, height: u16) -> usize {
-        if (width as u32) > self.max_texture_size || (height as u32) > self.max_texture_size {
+    fn make_new_array(&mut self, label: String, width: u16, height: u16) -> usize {
+        let width = width as u32;
+        let height = height as u32;
+        if width > self.max_texture_size || height > self.max_texture_size {
             panic!(
-                "Texture's dimensions to make exceeds what hardware supports.\nw: {} > {} or h: {} > {}",
+                "TextureManager - make_new_array: texture's dimensions exceeds what hardware supports.\nw: {} > {} or h: {} > {}",
                 width, self.max_texture_size, height, self.max_texture_size
             )
         }
+
         let id = self.arrays.len();
-        self.arrays.push(Texture2DArray::new(
-            label,
-            device,
-            width as u32,
-            height as u32,
-            self.max_array_depth,
-        ));
+        let depth = self.max_array_depth;
+        let array = Texture2DArray::new(label, self.gpu_resources.device_mut(), width, height, depth);
+
+        self.arrays.push(array);
+
         id
     }
 
-    pub fn find_place(&mut self, width: u16, height: u16) -> Result<TextureID, Error> {
-        let mut i = 0;
-        for array in self.arrays.iter_mut() {
-            if array.width() == width && array.height() == height {
-                return Ok(TextureID::new(i, array.next_id()));
+    pub fn find_place(&mut self, array_index: TextureArrayIndex) -> Result<TextureID, Error> {
+        if let Some(array) = self.arrays.get_mut(array_index.to_usize()) {
+            let depth = array.next_id();
+            if depth > self.max_array_depth as u16 {
+                return Err(Error::msg(""));
+            } else {
+                return Ok(TextureID::new(array_index.to_usize(), depth));
             }
-            i += 1;
         }
         Err(Error::msg("No spot found for new texture"))
     }
 
-    pub fn register(&mut self, device: &Device, queue: &Queue, texture: &[u8], width: u16, height: u16) -> TextureID {
+    pub fn register(&mut self, array: TextureArrayIndex, texture: &[u8], width: u16, height: u16) -> TextureID {
         if texture.len() != ((width as u32) * (height as u32) * 4) as usize {
             panic!(
                 "Texture data length does not match expected size for given dimensions.\n{} != {}*{}*4",
@@ -154,22 +183,26 @@ impl TextureManager {
             );
         }
 
-        let id = self.find_place(width, height).unwrap_or_else(|_| {
-            let array = self.make_new_array("Array".to_string(), device, width, height);
-            let depth = self.arrays.get_mut(array).unwrap().next_id();
-            TextureID::new(array, depth)
-        });
+        let id = self.find_place(array).expect("No more space available on the array");
 
-        self.write(queue, texture, &id);
+        self.write(texture, &id);
 
         id
     }
 
-    pub fn write(&mut self, queue: &Queue, texture: &[u8], id: &TextureID) {
+    pub fn write(&mut self, texture: &[u8], id: &TextureID) {
         let Some(array) = self.arrays.get_mut(id.array) else {
             return;
         };
 
-        array.write_at(queue, id.depth, texture);
+        array.write_at(self.gpu_resources.queue_mut(), id.depth, texture);
+    }
+
+    pub fn get_array(&self, index: TextureArrayIndex) -> &Texture2DArray {
+        self.arrays.get(index.to_usize()).unwrap()
+    }
+
+    pub fn get_array_mut(&mut self, index: TextureArrayIndex) -> &mut Texture2DArray {
+        self.arrays.get_mut(index.to_usize()).unwrap()
     }
 }

@@ -2,13 +2,15 @@ use std::sync::Arc;
 
 use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
+use crate::engine::core::application::AppState;
 use crate::engine::core::frame::{EngineFrameData, GameFrameData};
+use crate::engine::core::gpu::bind_group::{BindGroupFactory, BindGroupLayoutFactory};
 use crate::engine::render::camera::RenderCamera;
 use crate::engine::render::manager::RenderManager;
-use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
+use crate::engine::render::render::{GpuContext, GpuResources, RenderOptions, Renderer};
 use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
-use crate::engine::render::texture::TextureManager;
+use crate::engine::render::texture::{TextureArrayIndex, TextureManager};
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
@@ -25,90 +27,37 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
+    pub async fn new<S: AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
         let audio_manager = GameAudioManager::new(&window).ok();
+
+        let gpu_context = GpuContext::new(window).await.unwrap();
+
+        let mut texture_manager = {
+            let gpu_resources = GpuResources::from(&gpu_context);
+            TextureManager::new(
+                gpu_resources,
+                gpu_context.limits.max_texture_dimension_2d,
+                gpu_context.limits.max_texture_array_layers,
+            )
+        };
+
+        let bind_group_layout_factory = {
+            let gpu_resources = GpuResources::from(&gpu_context);
+            BindGroupLayoutFactory::new(gpu_resources)
+        };
+
+        let bind_group_factory = {
+            let gpu_resources = GpuResources::from(&gpu_context);
+            BindGroupFactory::new(gpu_resources)
+        };
+
+        let texture_bind_group_layout = bind_group_layout_factory.make_texture_array(Some("Texture array layout"));
+
+        let blocks_array = texture_manager.get_array(TextureArrayIndex::BLOCKS);
+        let blocks_array_bind_group =
+            bind_group_factory.make_texture_array(&texture_bind_group_layout, &blocks_array, Some("Texture array"));
+
         let size = window.inner_size();
-
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
-
-        let surface = instance.create_surface(window.clone()).unwrap();
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await?;
-
-        let features = {
-            let mut requested = vec![
-                Features::CONSERVATIVE_RASTERIZATION,
-                Features::POLYGON_MODE_LINE,
-                Features::MULTI_DRAW_INDIRECT_COUNT,
-            ];
-
-            requested.retain(|value| adapter.features().contains(*value));
-            let result = requested.iter().fold(Features::empty(), |acc, value| acc.union(*value));
-            result
-        };
-
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: features,
-                experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: Default::default(),
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-
-        let limits = device.limits();
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(surface_caps.formats[0]);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::AutoNoVsync,
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-
-        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("texture_bind_group_layout"),
-        });
 
         macro_rules! load_textures {
             ($($name:ident: $path:literal),*) => {
@@ -138,26 +87,9 @@ impl State {
 
         let textures: Vec<&[u8]> = textures_data.iter().map(|d| d.as_ref()).collect();
 
-        let mut texture_manager = TextureManager::new(limits.max_texture_dimension_2d, limits.max_texture_array_layers);
-
         for (_, texture) in textures.iter().enumerate() {
-            texture_manager.register(&device, &queue, texture, 32, 32);
+            texture_manager.register(TextureArrayIndex::BLOCKS, texture, 32, 32);
         }
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_manager.arrays.first().unwrap().view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture_manager.arrays.first().unwrap().sampler()),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
 
         let render_camera = RenderCamera::new();
 
