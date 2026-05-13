@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Instant};
 
+use shared::world::data::chunk::CHUNK_SIZE_F;
 use wgpu::{
     wgt::{CommandEncoderDescriptor, DeviceDescriptor, DrawIndirectArgs},
     Adapter, Backends, BindGroup, Buffer, CommandEncoder, Device, ExperimentalFeatures, Features, Instance, InstanceDescriptor, Limits,
@@ -45,7 +46,6 @@ pub struct Renderer {
     pub wireframe: bool,
     pub show_chunk_borders: bool,
 
-    pub chunk_borders_vertices: Vec<Vertex>,
     pub chunk_borders_buffer: Buffer,
 
     pub gpu_context: GpuContext,
@@ -112,7 +112,7 @@ impl From<&GpuContext> for GpuResources {
 }
 
 impl GpuContext {
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let size = window.inner_size();
         let instance = Instance::new(&InstanceDescriptor {
             backends: Backends::PRIMARY,
@@ -121,13 +121,11 @@ impl GpuContext {
 
         let surface = instance.create_surface(window).unwrap();
 
-        let adapter = instance
-            .request_adapter(&RequestAdapterOptions {
-                power_preference: PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await?;
+        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
+            power_preference: PowerPreference::default(),
+            compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
+        }))?;
 
         let features = {
             let mut requested = vec![
@@ -141,16 +139,14 @@ impl GpuContext {
             result
         };
 
-        let (device, queue) = adapter
-            .request_device(&DeviceDescriptor {
-                label: None,
-                required_features: features,
-                experimental_features: ExperimentalFeatures::disabled(),
-                required_limits: Limits::default(),
-                memory_hints: Default::default(),
-                trace: Trace::Off,
-            })
-            .await?;
+        let (device, queue) = pollster::block_on(adapter.request_device(&DeviceDescriptor {
+            label: None,
+            required_features: features,
+            experimental_features: ExperimentalFeatures::disabled(),
+            required_limits: Limits::default(),
+            memory_hints: Default::default(),
+            trace: Trace::Off,
+        }))?;
 
         let resources = GpuResources::new(device, queue);
 
@@ -203,7 +199,6 @@ impl Renderer {
 
         dimensions: (u32, u32),
 
-        chunk_borders_vertices: Vec<Vertex>,
         chunk_borders_buffer: Buffer,
 
         gpu_context: GpuContext,
@@ -212,7 +207,7 @@ impl Renderer {
         depth_texture: Texture,
         depth_view: TextureView,
     ) -> Self {
-        let frame_encoder = gpu_context.device.create_command_encoder(&CommandEncoderDescriptor {
+        let frame_encoder = gpu_context.resources.device().create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Frame encoder"),
         });
         Self {
@@ -232,7 +227,6 @@ impl Renderer {
             wireframe: WIREFRAME,
             show_chunk_borders: SHOW_CHUNK_BORDERS,
 
-            chunk_borders_vertices,
             chunk_borders_buffer,
 
             gpu_context,
@@ -248,13 +242,40 @@ impl Renderer {
     }
 
     pub fn render<'a>(&'a mut self, camera: &RenderCamera, text_renderer: Option<&'a mut TextRenderer>) {
+        let chunk_borders = vec![
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 255, 0, 0, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, 0.0, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, 0.0, CHUNK_SIZE_F, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, 0.0, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+            Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
+        ];
+
         if !self.is_surface_configured {
             return;
         }
 
         let surface = &self.gpu_context.surface;
-        let device = &self.gpu_context.device;
-        let queue = &self.gpu_context.queue;
+        let device = &self.gpu_context.resources.device();
+        let queue = &self.gpu_context.resources.queue();
 
         self.render_manager.update_indirect_buffer(device, queue);
 
@@ -268,8 +289,7 @@ impl Renderer {
         }
 
         if let Some(cw) = camera.cw().change() {
-            let chunk_borders_vertices: Vec<Vertex> = self
-                .chunk_borders_vertices
+            let chunk_borders_vertices: Vec<Vertex> = chunk_borders
                 .iter()
                 .map(|v| v.copy_with_pos(v.position[0] + cw[0], v.position[1] + cw[1], v.position[2] + cw[2]))
                 .collect();
@@ -354,7 +374,7 @@ impl Renderer {
                 }
                 if self.show_chunk_borders {
                     render_pass.set_vertex_buffer(0, self.chunk_borders_buffer.slice(..));
-                    render_pass.draw(0..self.chunk_borders_vertices.len() as u32, 0..1);
+                    render_pass.draw(0..chunk_borders.len() as u32, 0..1);
                 }
             }
         }

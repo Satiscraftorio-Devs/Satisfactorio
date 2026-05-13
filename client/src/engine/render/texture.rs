@@ -162,12 +162,13 @@ impl TextureManager {
     }
 
     pub fn find_place(&mut self, array_index: TextureArrayIndex) -> Result<TextureID, Error> {
-        if let Some(array) = self.arrays.get_mut(array_index.to_usize()) {
+        let idx = array_index.to_usize();
+        if let Some(array) = self.arrays.get_mut(idx) {
             let depth = array.next_id();
             if depth > self.max_array_depth as u16 {
                 return Err(Error::msg(""));
             } else {
-                return Ok(TextureID::new(array_index.to_usize(), depth));
+                return Ok(TextureID::new(idx, depth));
             }
         }
         Err(Error::msg("No spot found for new texture"))

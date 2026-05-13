@@ -190,8 +190,8 @@ impl AppState for GameState {
                     let raw_data = bytemuck::cast_slice(&player_data);
                     if let Some(mesh_id) = p.mesh_id {
                         renderer.render_manager.mesh_manager.update_data(
-                            &renderer.gpu_context.device,
-                            &renderer.gpu_context.queue,
+                            &renderer.gpu_context.resources.device(),
+                            &renderer.gpu_context.resources.queue(),
                             &mut renderer.frame_encoder.as_mut().unwrap(),
                             DataEntry::new(mesh_id, raw_data),
                         );
@@ -200,8 +200,8 @@ impl AppState for GameState {
                             .render_manager
                             .mesh_manager
                             .add_data(
-                                &renderer.gpu_context.device,
-                                &renderer.gpu_context.queue,
+                                &renderer.gpu_context.resources.device(),
+                                &renderer.gpu_context.resources.queue(),
                                 &mut renderer.frame_encoder.as_mut().unwrap(),
                                 raw_data,
                             )

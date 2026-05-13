@@ -1,6 +1,6 @@
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource,
-    BindingType, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
+    BindingType, Buffer, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
 };
 
 use crate::engine::render::{render::GpuResources, textures::array::Texture2DArray};
@@ -14,13 +14,13 @@ impl BindGroupLayoutFactory {
         Self { gpu_resources }
     }
 
-    pub fn make(&mut self, label: Option<&str>, entries: &[BindGroupLayoutEntry]) -> BindGroupLayout {
+    pub fn make(&self, label: Option<&str>, entries: &[BindGroupLayoutEntry]) -> BindGroupLayout {
         self.gpu_resources
-            .device_mut()
+            .device()
             .create_bind_group_layout(&BindGroupLayoutDescriptor { label, entries })
     }
 
-    pub fn make_texture_array(&mut self, label: Option<&str>) -> BindGroupLayout {
+    pub fn make_texture_array(&self, label: Option<&str>) -> BindGroupLayout {
         let entries = [
             BindGroupLayoutEntry {
                 binding: 0,
@@ -41,6 +41,20 @@ impl BindGroupLayoutFactory {
         ];
         self.make(label, &entries)
     }
+
+    pub fn make_camera(&self) -> BindGroupLayout {
+        let entries = [BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }];
+        self.make(Some("Camera"), &entries)
+    }
 }
 
 pub struct BindGroupFactory {
@@ -52,13 +66,13 @@ impl BindGroupFactory {
         Self { gpu_resources }
     }
 
-    pub fn make(&mut self, label: Option<&str>, layout: &BindGroupLayout, entries: &[BindGroupEntry]) -> BindGroup {
+    pub fn make(&self, label: Option<&str>, layout: &BindGroupLayout, entries: &[BindGroupEntry]) -> BindGroup {
         self.gpu_resources
-            .device_mut()
+            .device()
             .create_bind_group(&BindGroupDescriptor { label, layout, entries })
     }
 
-    pub fn make_texture_array(&mut self, layout: &BindGroupLayout, array: &Texture2DArray, label: Option<&str>) -> BindGroup {
+    pub fn make_texture_array(&self, layout: &BindGroupLayout, array: &Texture2DArray, label: Option<&str>) -> BindGroup {
         let entries = [
             BindGroupEntry {
                 binding: 0,
@@ -70,5 +84,13 @@ impl BindGroupFactory {
             },
         ];
         self.make(label, layout, &entries)
+    }
+
+    pub fn make_camera(&self, layout: &BindGroupLayout, camera_buffer: &Buffer) -> BindGroup {
+        let entries = [BindGroupEntry {
+            binding: 0,
+            resource: camera_buffer.as_entire_binding(),
+        }];
+        self.make(Some("Camera"), layout, &entries)
     }
 }
