@@ -4,6 +4,7 @@ use cgmath::{InnerSpace, Point3, Vector3};
 use winit::keyboard::KeyCode;
 
 use crate::game::{
+    physics::body::PhysicsBody,
     player::{
         camera::Camera,
         controllers::{CameraController, PlayerController},
@@ -28,7 +29,7 @@ impl FreePlayerController {
 }
 
 impl PlayerController for FreePlayerController {
-    fn update(&self, dt: f32, inputs: &mut InputState, player_pos: &mut Point3<f32>, camera: &Camera) {
+    fn update(&self, dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
         const UP: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
         let forward = camera.forward();
         let right = camera.right();
@@ -48,21 +49,20 @@ impl PlayerController for FreePlayerController {
             direction -= right;
         }
         if inputs.is_key_pressed(KeyCode::Space) {
-            direction += UP;
+            body.velocity.y = body.jump_speed;
         }
         if inputs.is_key_pressed(KeyCode::ShiftLeft) {
             direction -= UP;
         }
 
-        let velocity: Vector3<f32>;
-
         if direction.magnitude2() > 0.0 {
-            velocity = direction.normalize() * (self.speed * dt);
+            let dir = direction.normalize();
+            body.velocity.x = dir.x * (self.speed * dt);
+            body.velocity.z = dir.z * (self.speed * dt);
         } else {
-            velocity = Vector3::new(0.0, 0.0, 0.0);
+            body.velocity.x = 0.0;
+            body.velocity.z = 0.0;
         }
-
-        *player_pos = *player_pos + velocity;
     }
 }
 
@@ -87,7 +87,8 @@ impl CameraController for FreeCameraController {
         const CLAMP_BOTTOM: f32 = -FRAC_PI_2 + 0.01;
         const CLAMP_TOP: f32 = FRAC_PI_2 - 0.01;
 
-        camera.set_position(player_pos.clone());
+        // La caméra est placée à la hauteur des yeux (y + 0.8) au-dessus des pieds
+        camera.set_position(*player_pos + Vector3::new(0.0, 0.8, 0.0));
 
         let (dx, dy) = inputs.take_mouse_delta_f32();
 

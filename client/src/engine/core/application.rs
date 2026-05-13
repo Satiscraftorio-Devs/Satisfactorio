@@ -29,7 +29,6 @@ impl AppEvent {
 pub trait AppState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>);
     fn update(&mut self, frame: &EngineFrameData, data: &mut GameFrameData, renderer: &mut Renderer);
-    fn fixed_update(&mut self, frame: &EngineFrameData, render_options: &RenderOptions, data: &mut GameFrameData);
     fn on_mouse_move(&mut self, dx: f64, dy: f64);
     fn on_key(&mut self, code: KeyCode, is_pressed: bool);
     fn dispose(&mut self);

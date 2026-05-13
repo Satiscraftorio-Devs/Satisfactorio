@@ -10,16 +10,12 @@ use crate::{
             application::AppState,
             frame::{EngineFrameData, GameFrameData},
         },
-        render::{
-            mesh::manager::DataEntry,
-            render::{RenderOptions, Renderer},
-        },
+        render::{mesh::manager::DataEntry, render::Renderer},
     },
     game::{
         network::NetworkManager,
         player::{
-            controllers::free::{FreeCameraController, FreePlayerController},
-            player::Player,
+            controllers::free::FreeCameraController, controllers::walk::WalkPlayerController, player::Player,
             remote_players::RemotePlayersManager,
         },
         render::meshing::world::WorldMesh,
@@ -56,10 +52,7 @@ impl GameState {
             .expect("La seed n'existe pas ou est vide (serveur non lancé ? connexion échouée ? mauvaise adresse IP ?)");
 
         Self {
-            player: Player::new(
-                Box::new(FreeCameraController::new(0.00390625)),
-                Box::new(FreePlayerController::new(16.0)),
-            ),
+            player: Player::new(Box::new(FreeCameraController::new(0.00390625)), Box::new(WalkPlayerController)),
             world: World::new(server_seed),
             world_mesh: WorldMesh::new(),
             remote_players: RemotePlayersManager::new(),
@@ -88,10 +81,13 @@ impl AppState for GameState {
         self.delay_ms += frame.dt;
 
         if self.delay_ms < DT_CAP {
-            sleep(Duration::from_micros(((DT_CAP - self.delay_ms) * 1_000_000.0) as u64));
+            // sleep(Duration::from_micros(((DT_CAP - self.delay_ms) * 1_000_000.0) as u64));
         }
 
         self.delay_ms -= DT_CAP;
+
+        // PHYSICS
+        self.player.physics_update(frame.dt, &mut self.inputs, &self.world);
 
         // LOGIC
         self.update_debug_commands();
@@ -117,12 +113,13 @@ impl AppState for GameState {
                 // Envoi la position et rotation du joueur au serveur si elles ont changés
                 if self.player.has_moved() {
                     let pos = self.player.get_pos();
-                    let (rx, ry) = self.player.camera.get_rotation();
+                    let (rx, ry) = self.player.state.camera.get_rotation();
                     if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
                         log_err_client!("Échec de l'envoi de la position.\nErreur : {}", e);
                     } else {
                         // log_client!("Position envoyée: ({}, {}, {})", pos.x, pos.y, pos.z);
                     }
+                    self.player.state.reset_moved();
                 }
                 // Réception des positions des autres joueurs
                 if let Ok(Some(packet)) = net.receive_packet() {
@@ -147,16 +144,16 @@ impl AppState for GameState {
 
         // RENDER
         {
-            let view_proj = self.player.camera.get_view_proj();
+            let view_proj = self.player.state.camera.get_view_proj();
             let (cam_x, cam_y, cam_z) = {
-                let pos = self.player.camera.eye;
+                let pos = self.player.state.camera.eye;
                 (pos.x, pos.y, pos.z)
             };
             data.camera.update(cam_x, cam_y, cam_z, view_proj.into());
 
-            self.player.camera.aspect = renderer.render_options.aspect;
-            let cam_position = self.player.camera.eye.to_vec();
-            let cam_forward = self.player.camera.forward();
+            self.player.state.camera.aspect = renderer.render_options.aspect;
+            let cam_position = self.player.state.camera.eye.to_vec();
+            let cam_forward = self.player.state.camera.forward();
             let cam_frustum = extract_camera_frustum_planes(view_proj);
 
             let chunks_to_render = self.player.get_rendered_chunk_keys();
@@ -213,9 +210,6 @@ impl AppState for GameState {
         }
     }
 
-    // Will be used later on for physics and game's systems' logic
-    fn fixed_update(&mut self, _frame: &EngineFrameData, _render_options: &RenderOptions, _data: &mut GameFrameData) {}
-
     fn on_mouse_move(&mut self, dx: f64, dy: f64) {
         self.inputs.set_mouse_delta((dx, dy));
     }
@@ -239,7 +233,7 @@ impl GameState {
     fn update_debug_commands(&mut self) {
         // CURRENT CHUNK DEBUG
         if self.inputs.take_key_pressed(KeyCode::KeyC) {
-            let cpos = self.player.cpos.current();
+            let cpos = self.player.state.cpos.current();
             let key = (cpos[0], cpos[1], cpos[2]);
             println!("---------\nDEBUG: Chunk x={} y={} z={}\n---------", key.0, key.1, key.2);
             if let Some(chunk) = self.world.get_chunk_mut(key.0, key.1, key.2) {

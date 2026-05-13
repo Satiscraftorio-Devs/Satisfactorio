@@ -1,11 +1,12 @@
 use cgmath::Point3;
 
-use crate::game::{player::camera::Camera, systems::inputs::InputState};
+use crate::game::{physics::body::PhysicsBody, player::camera::Camera, systems::inputs::InputState};
 
 pub mod free;
+pub mod walk;
 
 pub trait PlayerController {
-    fn update(&self, dt: f32, inputs: &mut InputState, player_pos: &mut Point3<f32>, camera: &Camera);
+    fn update(&self, dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera);
 }
 
 pub trait CameraController {

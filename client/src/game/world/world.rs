@@ -102,13 +102,13 @@ impl World {
 
     pub fn update(&mut self, render_manager: &mut RenderManager, world_mesh: &mut WorldMesh, player: &Player) {
         let _world_update_start = Instant::now();
-        if player.cpos.has_changed() {
+        if player.state.cpos.has_changed() || self.chunks.is_empty() {
             let needed_simulation_keys: Vec<(i32, i32, i32)> = player.get_simulation_chunk_keys();
 
             let cpos = player.get_cpos().into();
 
-            let radii_h_squared = (player.horizontal_render_distance * player.horizontal_render_distance) as i32;
-            let radii_v_squared = (player.vertical_render_distance * player.vertical_render_distance) as i32;
+            let radii_h_squared = (player.state.horizontal_render_distance * player.state.horizontal_render_distance) as i32;
+            let radii_v_squared = (player.state.vertical_render_distance * player.state.vertical_render_distance) as i32;
 
             let keys_to_remove: Vec<_> = self
                 .chunks
@@ -278,6 +278,11 @@ impl World {
             }
         }
         true
+    }
+
+    /// Retourne vrai si aucun chunk n'est chargé
+    pub fn is_empty(&self) -> bool {
+        self.chunks.is_empty()
     }
 
     pub fn dispose(&mut self) {

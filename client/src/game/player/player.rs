@@ -1,7 +1,11 @@
 use crate::common::utils::updatable::Updatable;
-use crate::game::player::camera::Camera;
-use crate::game::player::controllers::{CameraController, PlayerController};
-use crate::game::systems::inputs::InputState;
+use crate::game::{
+    physics::{body::PhysicsBody, collision::resolve_collision},
+    player::camera::Camera,
+    player::controllers::{CameraController, PlayerController},
+    systems::inputs::InputState,
+    world::world::World,
+};
 use cgmath::{num_traits::ToPrimitive, Point3};
 use shared::world::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
@@ -9,7 +13,9 @@ use shared::world::constants::{
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::*;
 
-pub struct Player {
+/// État pur du joueur : position, caméra, contrôleurs, distances de rendu.
+/// Séparé de `Player` pour permettre l'ajout d'un corps physique sans tout casser.
+pub struct PlayerState {
     uuid: i32,
     pub pos: Updatable<cgmath::Point3<f32>>,
     pub cpos: Updatable<cgmath::Point3<i32>>,
@@ -22,29 +28,31 @@ pub struct Player {
     pub camera: Camera,
 }
 
-impl Player {
-    pub fn new(camera_controller: Box<dyn CameraController>, player_controller: Box<dyn PlayerController>) -> Player {
-        return Player {
+impl PlayerState {
+    pub fn new(
+        camera_controller: Box<dyn CameraController>,
+        player_controller: Box<dyn PlayerController>,
+        spawn_pos: Point3<f32>,
+    ) -> PlayerState {
+        PlayerState {
             uuid: -1,
-            pos: Updatable::new(Point3::new(0.0, 0.0, 0.0)),
-            cpos: Updatable::new(Point3::new(0, 0, 0)),
+            pos: Updatable::new(spawn_pos),
+            cpos: Updatable::new(spawn_pos.map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32)),
             horizontal_render_distance: HORIZONTAL_RENDER_DISTANCE,
             vertical_render_distance: VERTICAL_RENDER_DISTANCE,
             horizontal_simulation_distance: HORIZONTAL_SIMULATION_DISTANCE,
             vertical_simulation_distance: VERTICAL_SIMULATION_DISTANCE,
-            camera_controller: camera_controller,
-            player_controller: player_controller,
-            camera: Camera::new(Point3::new(16.0, 32.0, 16.0), 1.0),
-        };
+            camera_controller,
+            player_controller,
+            camera: Camera::new(spawn_pos, 1.0),
+        }
     }
 
+    /// Met à jour la caméra (yaw/pitch).
+    /// La position et `cpos` sont mis à jour dans `physics_update()` (timestep fixe).
     pub fn update(&mut self, dt: f32, inputs: &mut InputState) {
-        let pos: &Point3<f32> = &self.get_pos();
-        self.set_pos(self.get_pos());
-        self.camera_controller.update(dt, inputs, &mut self.camera, pos);
-        self.player_controller.update(dt, inputs, self.pos.current_mut(), &self.camera);
-        self.cpos
-            .update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE_F).floor() as i32));
+        let pos = self.get_pos();
+        self.camera_controller.update(dt, inputs, &mut self.camera, &pos);
     }
 
     pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {
@@ -62,6 +70,11 @@ impl Player {
 
     pub fn has_moved(&self) -> bool {
         self.pos.has_changed()
+    }
+
+    /// Réinitialise le flag `has_moved` (appelé après envoi réseau).
+    pub fn reset_moved(&mut self) {
+        self.pos.update(self.pos.current().clone());
     }
 
     pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
@@ -82,6 +95,8 @@ impl Player {
 
     pub fn break_block_at(_block_pos: Point3<f32>) {}
 
+    /// Retourne [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
+    /// pour les chunks à simuler autour du joueur.
     pub fn get_simulation_chunk_range(&self) -> [i32; 6] {
         let halfed_hrd = self.horizontal_simulation_distance.to_f32().unwrap().div_euclid(2.0);
         let halfed_vrd = self.vertical_simulation_distance.to_f32().unwrap().div_euclid(2.0);
@@ -100,6 +115,7 @@ impl Player {
         return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
     }
 
+    /// Génère toutes les clés (cx, cy, cz) des chunks à afficher autour du joueur.
     pub fn get_rendered_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_rendered_chunk_range();
 
@@ -116,6 +132,7 @@ impl Player {
         return keys;
     }
 
+    /// Génère toutes les clés (cx, cy, cz) des chunks à simuler autour du joueur.
     pub fn get_simulation_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_simulation_chunk_range();
 
@@ -132,6 +149,8 @@ impl Player {
         return keys;
     }
 
+    /// Retourne [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
+    /// pour les chunks à rendre autour du joueur.
     pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
         let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);
         let halfed_vrd = self.vertical_render_distance.to_f32().unwrap().div_euclid(2.0);
@@ -150,6 +169,7 @@ impl Player {
         return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
     }
 
+    /// Retourne les infos de rendu : plage de chunks + nombre total de chunks.
     pub fn get_rendered_chunk_data(&self) -> ([i32; 6], u32) {
         let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);
         let halfed_vrd = self.vertical_render_distance.to_f32().unwrap().div_euclid(2.0);
@@ -168,5 +188,89 @@ impl Player {
         let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)).to_u32().unwrap_or(1);
 
         return ([min_cx, max_cx, min_cy, max_cy, min_cz, max_cz], chunk_number);
+    }
+}
+
+/// Structure principale du joueur local.
+/// Contient l'état pur (`PlayerState`) + le corps physique (`PhysicsBody`).
+pub struct Player {
+    pub state: PlayerState,
+    pub physics_body: PhysicsBody,
+}
+
+impl Player {
+    pub fn new(camera_controller: Box<dyn CameraController>, player_controller: Box<dyn PlayerController>) -> Player {
+        let spawn_pos = Point3::new(16.0, 32.0, 16.0);
+        Player {
+            state: PlayerState::new(camera_controller, player_controller, spawn_pos),
+            physics_body: PhysicsBody::new(spawn_pos, 0.49),
+        }
+    }
+
+    /// Délègue la mise à jour de la caméra à `PlayerState` (yaw/pitch).
+    pub fn update(&mut self, dt: f32, inputs: &mut InputState) {
+        self.state.update(dt, inputs);
+    }
+
+    /// Met à jour la physique à timestep fixe :
+    /// 1. Le contrôleur joueur modifie la vélocité du `PhysicsBody`
+    /// 2. `resolve_collision` traduit la vélocité en déplacement et corrige les collisions
+    pub fn physics_update(&mut self, dt: f32, inputs: &mut InputState, world: &World) {
+        self.state
+            .player_controller
+            .update(dt, inputs, &mut self.physics_body, &self.state.camera);
+        resolve_collision(world, &mut self.physics_body, dt, self.state.pos.current_mut());
+        self.state
+            .cpos
+            .update(self.state.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE_F).floor() as i32));
+    }
+
+    /// Délègue à `self.state`.
+    pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {
+        self.state.set_render_distance(horizontal, vertical);
+    }
+
+    pub fn get_pos(&self) -> cgmath::Point3<f32> {
+        self.state.get_pos()
+    }
+
+    pub fn get_cpos(&self) -> cgmath::Point3<i32> {
+        self.state.get_cpos()
+    }
+
+    pub fn has_moved(&self) -> bool {
+        self.state.has_moved()
+    }
+
+    pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
+        self.state.set_pos(pos);
+    }
+
+    pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
+        self.state.teleport(x, y, z);
+    }
+
+    pub fn break_block_at(block_pos: Point3<f32>) {
+        PlayerState::break_block_at(block_pos);
+    }
+
+    pub fn get_simulation_chunk_range(&self) -> [i32; 6] {
+        self.state.get_simulation_chunk_range()
+    }
+
+    pub fn get_rendered_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
+        self.state.get_rendered_chunk_keys()
+    }
+
+    pub fn get_simulation_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
+        self.state.get_simulation_chunk_keys()
+    }
+
+    pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
+        self.state.get_rendered_chunk_range()
+    }
+
+    pub fn get_rendered_chunk_data(&self) -> ([i32; 6], u32) {
+        self.state.get_rendered_chunk_data()
     }
 }
