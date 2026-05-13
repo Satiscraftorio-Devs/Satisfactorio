@@ -11,7 +11,10 @@ use winit::window::Window;
 
 use crate::{
     common::geometry::vertex::Vertex,
-    engine::render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureManager},
+    engine::{
+        core::gpu::pipeline::Pipelines,
+        render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureManager},
+    },
 };
 
 const WIREFRAME: bool = false;
@@ -32,8 +35,8 @@ impl RenderOptions {
 pub struct Renderer {
     pub is_surface_configured: bool,
 
-    pub world_wireframe_render_pipeline: RenderPipeline,
-    pub world_render_pipeline: RenderPipeline,
+    pub pipelines: Pipelines,
+
     pub diffuse_bind_group: BindGroup,
     pub diffuse_texture_array: TextureManager,
 
@@ -186,8 +189,8 @@ impl Renderer {
     pub fn new(
         is_surface_configured: bool,
 
-        world_wireframe_render_pipeline: RenderPipeline,
-        world_render_pipeline: RenderPipeline,
+        pipelines: Pipelines,
+
         diffuse_bind_group: BindGroup,
         texture_manager: TextureManager,
 
@@ -197,12 +200,12 @@ impl Renderer {
         gizmo_render_pipeline: RenderPipeline,
         gizmo_buffer: Buffer,
 
-        dimensions: (u32, u32),
-
         chunk_borders_buffer: Buffer,
 
         gpu_context: GpuContext,
         render_manager: RenderManager,
+
+        render_options: RenderOptions,
 
         depth_texture: Texture,
         depth_view: TextureView,
@@ -213,8 +216,8 @@ impl Renderer {
         Self {
             is_surface_configured,
 
-            world_wireframe_render_pipeline,
-            world_render_pipeline,
+            pipelines,
+
             diffuse_bind_group,
             diffuse_texture_array: texture_manager,
 
@@ -232,7 +235,7 @@ impl Renderer {
             gpu_context,
             render_manager,
 
-            render_options: RenderOptions::new((dimensions.0 as f32) / (dimensions.1 as f32), 0.1, 1000.0),
+            render_options,
 
             depth_texture,
             depth_view,
@@ -279,10 +282,12 @@ impl Renderer {
 
         self.render_manager.update_indirect_buffer(device, queue);
 
-        if let Some(encoder) = self.frame_encoder.take() {
-            queue.submit(std::iter::once(encoder.finish()));
-            self.render_manager.mesh_manager.process_pending_destructions();
-        }
+        let mut encoder = self
+            .frame_encoder
+            .take()
+            .unwrap_or(device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            }));
 
         if let Some(view_proj) = camera.view_proj().change() {
             queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(view_proj));
@@ -299,10 +304,6 @@ impl Renderer {
 
         let output = surface.get_current_texture().unwrap();
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -335,9 +336,9 @@ impl Renderer {
             });
 
             if self.wireframe {
-                render_pass.set_pipeline(&self.world_wireframe_render_pipeline);
+                render_pass.set_pipeline(self.pipelines.opaque());
             } else {
-                render_pass.set_pipeline(&self.world_render_pipeline);
+                render_pass.set_pipeline(self.pipelines.opaque());
             }
 
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
@@ -401,6 +402,8 @@ impl Renderer {
 
         queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        self.render_manager.mesh_manager.process_pending_destructions();
 
         self.frame_encoder = Some(device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Frame encoder"),

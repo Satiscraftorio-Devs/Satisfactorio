@@ -4,6 +4,7 @@ use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
 use crate::engine::core::application::AppState;
 use crate::engine::core::frame::{EngineFrameData, GameFrameData};
+use crate::engine::core::gpu::pipeline::Pipelines;
 use crate::engine::core::gpu::GpuFactory;
 use crate::engine::render::camera::RenderCamera;
 use crate::engine::render::manager::RenderManager;
@@ -290,20 +291,39 @@ impl State {
 
         let text_renderer = TextRenderer::new(&device, &queue, config.format);
 
+        // TODO: faire les autres pipelines
+        let pipelines = Pipelines::new(
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+        );
+
+        // TODO (wireframe)
+        // let debug_pipelines = Pipelines::new(
+        //     render_pipeline.clone(),
+        //     render_pipeline.clone(),
+        //     render_pipeline.clone(),
+        //     render_pipeline.clone(),
+        //     render_pipeline.clone(),
+        // );
+
+        let render_options = RenderOptions::new((size.width as f32) / (size.height as f32), 0.1, 1000.0);
+
         let renderer = Renderer::new(
             false,
-            wireframe_render_pipeline,
-            render_pipeline,
+            pipelines,
             blocks_array_bind_group,
             texture_manager,
             camera_buffer,
             camera_bind_group,
             gizmo_render_pipeline,
             gizmo_buffer,
-            (size.width, size.height),
             chunk_borders_buffer,
             gpu_context,
             render_manager,
+            render_options,
             depth_texture,
             depth_view,
         );
