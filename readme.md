@@ -2,8 +2,6 @@
 
 Jeu voxel multijoueur en Rust avec rendu wgpu.
 
-## * 0.30 — fenêtrage et entréesArchitecture
-
 ```
 Satisfactorio/
 ├── shared/    -- Bibliothèque partagée (réseau, monde, blocs, chiffrement)
