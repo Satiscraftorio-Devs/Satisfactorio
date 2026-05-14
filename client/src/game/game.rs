@@ -1,4 +1,4 @@
-use std::{thread::sleep, time::Duration};
+use std::time::Duration;
 
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 
@@ -15,7 +15,11 @@ use crate::{
     game::{
         network::NetworkManager,
         player::{
-            controllers::free::FreeCameraController, controllers::walk::WalkPlayerController, player::Player,
+            controllers::{
+                spectator::{FreeCameraController, SpectatorPlayerController},
+                walk::WalkPlayerController,
+            },
+            player::Player,
             remote_players::RemotePlayersManager,
         },
         render::meshing::world::WorldMesh,
@@ -85,12 +89,13 @@ impl AppState for GameState {
         }
 
         self.delay_ms -= DT_CAP;
-
+        // Commande debug (touches)
+        self.update_debug_commands();
         // PHYSICS
-        self.player.physics_update(frame.dt, &mut self.inputs, &self.world);
+        self.player
+            .physics_update(frame.dt, &mut self.inputs, &self.world, self.player.state.game_mode.clone());
 
         // LOGIC
-        self.update_debug_commands();
         self.player.update(frame.dt, &mut self.inputs);
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
@@ -116,8 +121,6 @@ impl AppState for GameState {
                     let (rx, ry) = self.player.state.camera.get_rotation();
                     if let Err(e) = net.send_position(pos.x, pos.y, pos.z, rx, ry) {
                         log_err_client!("Échec de l'envoi de la position.\nErreur : {}", e);
-                    } else {
-                        // log_client!("Position envoyée: ({}, {}, {})", pos.x, pos.y, pos.z);
                     }
                     self.player.state.reset_moved();
                 }
@@ -186,12 +189,16 @@ impl AppState for GameState {
                     let player_data = generate_cube(new_pos.0, new_pos.1, new_pos.2);
                     let raw_data = bytemuck::cast_slice(&player_data);
                     if let Some(mesh_id) = p.mesh_id {
-                        renderer.render_manager.mesh_manager.update_data(
-                            &renderer.gpu_context.device,
-                            &renderer.gpu_context.queue,
-                            &mut renderer.frame_encoder.as_mut().unwrap(),
-                            DataEntry::new(mesh_id, raw_data),
-                        );
+                        renderer
+                            .render_manager
+                            .mesh_manager
+                            .update_data(
+                                &renderer.gpu_context.device,
+                                &renderer.gpu_context.queue,
+                                &mut renderer.frame_encoder.as_mut().unwrap(),
+                                DataEntry::new(mesh_id, raw_data),
+                            )
+                            .ok();
                     } else {
                         p.mesh_id = renderer
                             .render_manager
@@ -254,6 +261,11 @@ impl GameState {
                 println!("Mesh:\n- Id: {}\n- Is dirty?: {}", id, dirty);
             };
             println!("---------")
+        }
+
+        if self.inputs.take_key_pressed(KeyCode::KeyP) {
+            println!("Command \"P\" Pressed");
+            self.player.state.switch_player_game_mode();
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use cgmath::{InnerSpace, Point3, Vector3};
+use cgmath::{InnerSpace, Point3, Vector3, Zero};
 use winit::keyboard::KeyCode;
 
 use crate::game::{
@@ -12,23 +12,18 @@ use crate::game::{
     systems::inputs::InputState,
 };
 
-//
-//
-//  PLAYER
-//
-//
-
-pub struct FreePlayerController {
+///  PLAYER EN MODE SPECTATEUR
+pub struct SpectatorPlayerController {
     speed: f32,
 }
 
-impl FreePlayerController {
+impl SpectatorPlayerController {
     pub fn new(speed: f32) -> Self {
         Self { speed }
     }
 }
 
-impl PlayerController for FreePlayerController {
+impl PlayerController for SpectatorPlayerController {
     fn update(&self, dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
         const UP: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
         let forward = camera.forward();
@@ -49,7 +44,7 @@ impl PlayerController for FreePlayerController {
             direction -= right;
         }
         if inputs.is_key_pressed(KeyCode::Space) {
-            body.velocity.y = body.jump_speed;
+            direction += UP;
         }
         if inputs.is_key_pressed(KeyCode::ShiftLeft) {
             direction -= UP;
@@ -57,11 +52,9 @@ impl PlayerController for FreePlayerController {
 
         if direction.magnitude2() > 0.0 {
             let dir = direction.normalize();
-            body.velocity.x = dir.x * (self.speed * dt);
-            body.velocity.z = dir.z * (self.speed * dt);
+            body.velocity = dir * (self.speed);
         } else {
-            body.velocity.x = 0.0;
-            body.velocity.z = 0.0;
+            body.velocity.set_zero();
         }
     }
 }

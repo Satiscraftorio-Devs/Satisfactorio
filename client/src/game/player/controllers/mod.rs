@@ -2,7 +2,7 @@ use cgmath::Point3;
 
 use crate::game::{physics::body::PhysicsBody, player::camera::Camera, systems::inputs::InputState};
 
-pub mod free;
+pub mod spectator;
 pub mod walk;
 
 pub trait PlayerController {

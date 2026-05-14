@@ -1,4 +1,6 @@
 use crate::common::utils::updatable::Updatable;
+use crate::game::player::controllers::spectator::SpectatorPlayerController;
+use crate::game::player::controllers::walk::WalkPlayerController;
 use crate::game::{
     physics::{body::PhysicsBody, collision::resolve_collision},
     player::camera::Camera,
@@ -12,6 +14,14 @@ use shared::world::constants::{
 };
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::*;
+use winit::dpi::Position;
+
+#[derive(Clone)]
+pub enum PlayerGameMode {
+    // God,
+    Spectator,
+    Survival,
+}
 
 /// État pur du joueur : position, caméra, contrôleurs, distances de rendu.
 /// Séparé de `Player` pour permettre l'ajout d'un corps physique sans tout casser.
@@ -19,6 +29,7 @@ pub struct PlayerState {
     uuid: i32,
     pub pos: Updatable<cgmath::Point3<f32>>,
     pub cpos: Updatable<cgmath::Point3<i32>>,
+    pub game_mode: PlayerGameMode,
     pub horizontal_render_distance: u16,
     pub vertical_render_distance: u16,
     pub horizontal_simulation_distance: u16,
@@ -35,6 +46,7 @@ impl PlayerState {
         spawn_pos: Point3<f32>,
     ) -> PlayerState {
         PlayerState {
+            game_mode: PlayerGameMode::Survival,
             uuid: -1,
             pos: Updatable::new(spawn_pos),
             cpos: Updatable::new(spawn_pos.map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32)),
@@ -58,6 +70,23 @@ impl PlayerState {
     pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {
         self.horizontal_render_distance = horizontal;
         self.vertical_render_distance = vertical;
+    }
+
+    pub fn set_player_controller(&mut self, player_controller: Box<dyn PlayerController>) {
+        self.player_controller = player_controller;
+    }
+
+    pub fn switch_player_game_mode(&mut self) {
+        match self.game_mode {
+            PlayerGameMode::Spectator => {
+                self.set_player_controller(Box::new(WalkPlayerController));
+                self.game_mode = PlayerGameMode::Survival;
+            }
+            PlayerGameMode::Survival => {
+                self.set_player_controller(Box::new(SpectatorPlayerController::new(15.0)));
+                self.game_mode = PlayerGameMode::Spectator;
+            }
+        }
     }
 
     pub fn get_pos(&self) -> cgmath::Point3<f32> {
@@ -215,11 +244,20 @@ impl Player {
     /// Met à jour la physique à timestep fixe :
     /// 1. Le contrôleur joueur modifie la vélocité du `PhysicsBody`
     /// 2. `resolve_collision` traduit la vélocité en déplacement et corrige les collisions
-    pub fn physics_update(&mut self, dt: f32, inputs: &mut InputState, world: &World) {
+    pub fn physics_update(&mut self, dt: f32, inputs: &mut InputState, world: &World, player_game_mode: PlayerGameMode) {
         self.state
             .player_controller
             .update(dt, inputs, &mut self.physics_body, &self.state.camera);
-        resolve_collision(world, &mut self.physics_body, dt, self.state.pos.current_mut());
+        match player_game_mode {
+            PlayerGameMode::Spectator => {
+                let pos = self.state.pos.current_mut();
+                *pos += self.physics_body.velocity * dt;
+            }
+            PlayerGameMode::Survival => {
+                resolve_collision(world, &mut self.physics_body, dt, self.state.pos.current_mut());
+            }
+        }
+
         self.state
             .cpos
             .update(self.state.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE_F).floor() as i32));
