@@ -10,6 +10,7 @@ use shared::log_err_server;
 use shared::log_server;
 use shared::network::crypto::generate_server_id;
 use shared::network::messages::Paquet;
+use shared::world::constants::GUARD_CYCLE_INTERVAL_MS;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 
@@ -43,7 +44,7 @@ impl Server {
         let state = Arc::clone(&self.state);
         let bc = self.broadcaster.clone();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(200));
+            let mut interval = tokio::time::interval(Duration::from_millis(GUARD_CYCLE_INTERVAL_MS));
             loop {
                 interval.tick().await;
                 state.run_guard_cycle(&bc);

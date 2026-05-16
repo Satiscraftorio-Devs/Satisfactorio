@@ -2,7 +2,7 @@ use crate::engine::render::manager::RenderManager;
 use shared::world::{
     constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE_SQR},
     data::{
-        block::{BlockData, BlockInstance, BlockManager},
+        block::{BlockInstance, BlockManager},
         chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE, CHUNK_SIZE_HALFED},
     },
     generation::chunk_generator::ChunkGenerator,
@@ -34,22 +34,7 @@ pub struct World {
 
 impl World {
     pub fn new(seed: u32) -> World {
-        let block_manager = {
-            let mut block_manager = BlockManager::new();
-
-            let blocks = [
-                BlockData::new("air"),
-                BlockData::new("stone"),
-                BlockData::new("dirt"),
-                BlockData::new("grass"),
-            ];
-
-            for block in blocks {
-                block_manager.register(block);
-            }
-
-            Arc::new(block_manager)
-        };
+        let block_manager = Arc::new(BlockManager::default());
 
         // let max_chunks = max_chunks_in_queue() as usize;
         let worker_count = min((num_cpus::get() as f32 / 2.0).floor() as usize, 1);

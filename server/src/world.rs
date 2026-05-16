@@ -1,8 +1,9 @@
 use cgmath::Point3;
 use shared::log_warn_server;
 use shared::network::messages::Position;
-use shared::world::data::block::{BlockData, BlockInstance, BlockManager};
-use shared::world::data::chunk::global_position_to_chunk_pos;
+use shared::world::constants::MAX_SPAWN_SEARCH_HEIGHT;
+use shared::world::data::block::{BlockInstance, BlockManager};
+use shared::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE};
 use shared::world::generation::chunk::ChunkWithChecksum;
 use shared::world::generation::chunk_generator::generate_chunks_sequential;
 use shared::world::modified_chunk::ModifiedWorld;
@@ -18,18 +19,7 @@ pub struct WorldState {
 
 impl WorldState {
     pub fn new() -> Self {
-        let block_manager = {
-            let mut bm = BlockManager::new();
-            for block in [
-                BlockData::new("air"),
-                BlockData::new("stone"),
-                BlockData::new("dirt"),
-                BlockData::new("grass"),
-            ] {
-                bm.register(block);
-            }
-            Arc::new(bm)
-        };
+        let block_manager = Arc::new(BlockManager::default());
 
         Self {
             seed: 0,
@@ -48,10 +38,9 @@ impl WorldState {
     }
 
     pub fn set_block(&mut self, x: i32, y: i32, z: i32, block_id: u32) {
-        const CS: i32 = 32;
-        let cx = x.div_euclid(CS);
-        let cy = y.div_euclid(CS);
-        let cz = z.div_euclid(CS);
+        let cx = x.div_euclid(CHUNK_SIZE);
+        let cy = y.div_euclid(CHUNK_SIZE);
+        let cz = z.div_euclid(CHUNK_SIZE);
 
         if self.world_generated_chunks.contains_key(&(cx, cy, cz)) {
             self.modifications.set_block_at(x, y, z, BlockInstance::new(block_id));
@@ -76,7 +65,7 @@ impl WorldState {
 
     pub fn find_safe_spawn_point(&self, x: f32, start_y: f32, z: f32) -> Position {
         let mut y = start_y;
-        while y < 200.0 {
+        while y < MAX_SPAWN_SEARCH_HEIGHT {
             if self.is_position_free(x, y, z) {
                 return Position { x, y, z };
             }

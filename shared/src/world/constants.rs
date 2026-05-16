@@ -37,3 +37,15 @@ pub const SPAWN_POSITION_Y: f32 = 64.0;
 
 /// Position de spawn initiale du joueur (axe Z)
 pub const SPAWN_POSITION_Z: f32 = 0.5;
+
+/// Hauteur des yeux du joueur par rapport à ses pieds
+pub const PLAYER_EYE_HEIGHT: f32 = 0.6;
+
+/// Limite maximale de hauteur pour la recherche de point de spawn sûr
+pub const MAX_SPAWN_SEARCH_HEIGHT: f32 = 200.0;
+
+/// Intervalle en millisecondes entre deux cycles de validation (guard cycle)
+pub const GUARD_CYCLE_INTERVAL_MS: u64 = 200;
+
+/// Multiplicateur de tolérance pour la plausibilité des déplacements (anti-cheat)
+pub const MOVEMENT_PLAUSIBILITY_MULTIPLIER: f32 = 3.5;

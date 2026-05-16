@@ -5,6 +5,15 @@ use crate::world::data::chunk::{Chunk, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
 use crate::world::generation::chunk_generator::ChunkGenContext;
 use noise::NoiseFn;
 
+/// Échelle du bruit Perlin pour la génération du terrain
+pub const TERRAIN_SCALE: f64 = 0.02;
+
+/// Hauteur de base du terrain (décalage vertical)
+pub const TERRAIN_BASE_HEIGHT: f64 = 0.0;
+
+/// Amplitude du relief (hauteur max du bruit)
+pub const TERRAIN_AMPLITUDE: f64 = 10.0;
+
 pub struct ChunkWithChecksum {
     pub chunk_data: crate::world::data::chunk::ChunkData,
     pub checksum: [u8; 2],
@@ -19,10 +28,6 @@ impl Chunk {
 
     #[inline]
     pub fn generate_with_context(cx: i32, cy: i32, cz: i32, ctx: &ChunkGenContext) -> Chunk {
-        const SCALE: f64 = 0.02;
-        const BASE_HEIGHT: f64 = 0.0;
-        const AMPLITUDE: f64 = 10.0;
-
         let cwx = cx * CHUNK_SIZE;
         let cwy = cy * CHUNK_SIZE;
         let cwz = cz * CHUNK_SIZE;
@@ -54,14 +59,14 @@ impl Chunk {
 
         for x in 0..CHUNK_SIZE {
             let wx = (x + cwx) as f64;
-            let nx = wx * SCALE;
+            let nx = wx * TERRAIN_SCALE;
 
             for z in 0..CHUNK_SIZE {
                 let wz = (z + cwz) as f64;
-                let nz = wz * SCALE;
+                let nz = wz * TERRAIN_SCALE;
 
                 let valeur = ctx.perlin.get([nx, nz]);
-                let terrain_y = (BASE_HEIGHT + valeur * AMPLITUDE) as i32;
+                let terrain_y = (TERRAIN_BASE_HEIGHT + valeur * TERRAIN_AMPLITUDE) as i32;
 
                 for y in 0..CHUNK_SIZE {
                     let wy = y + cwy;

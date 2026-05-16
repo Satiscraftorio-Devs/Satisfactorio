@@ -135,3 +135,18 @@ impl BlockManager {
         self.mapped_blocks.clear();
     }
 }
+
+impl Default for BlockManager {
+    fn default() -> Self {
+        let mut bm = BlockManager::new();
+        for block in [
+            BlockData::new("air"),
+            BlockData::new("stone"),
+            BlockData::new("dirt"),
+            BlockData::new("grass"),
+        ] {
+            bm.register(block);
+        }
+        bm
+    }
+}

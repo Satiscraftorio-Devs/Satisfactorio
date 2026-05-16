@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use shared::network::messages::{PlayerGameMode, Position, Rotation};
 use shared::world::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
+use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -67,9 +68,9 @@ impl PlayerRegistry {
             player.position = position.clone();
             player.rotation = rotation;
         }
-        let cx = (position.x / 32.0).floor() as i32;
-        let cy = (position.y / 32.0).floor() as i32;
-        let cz = (position.z / 32.0).floor() as i32;
+        let cx = (position.x / CHUNK_SIZE_F).floor() as i32;
+        let cy = (position.y / CHUNK_SIZE_F).floor() as i32;
+        let cz = (position.z / CHUNK_SIZE_F).floor() as i32;
         (cx, cy, cz)
     }
 

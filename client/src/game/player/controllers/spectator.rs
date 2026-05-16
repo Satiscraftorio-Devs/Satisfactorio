@@ -1,6 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3, Zero};
+use shared::world::constants::PLAYER_EYE_HEIGHT;
 use winit::keyboard::KeyCode;
 
 use crate::game::{
@@ -80,8 +81,8 @@ impl CameraController for FreeCameraController {
         const CLAMP_BOTTOM: f32 = -FRAC_PI_2 + 0.01;
         const CLAMP_TOP: f32 = FRAC_PI_2 - 0.01;
 
-        // La caméra est placée à la hauteur des yeux (y + 0.8) au-dessus des pieds
-        camera.set_position(*player_pos + Vector3::new(0.0, 0.6, 0.0));
+        // La caméra est placée à la hauteur des yeux au-dessus des pieds
+        camera.set_position(*player_pos + Vector3::new(0.0, PLAYER_EYE_HEIGHT, 0.0));
 
         let (dx, dy) = inputs.take_mouse_delta_f32();
 
