@@ -1,8 +1,8 @@
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use shared::network::messages::{ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
-use tokio::sync::broadcast;
 use std::sync::RwLock;
+use tokio::sync::broadcast;
 
 pub struct AppState {
     inner: RwLock<ServerState>,
@@ -56,8 +56,6 @@ impl AppState {
         self.inner.read().unwrap().players.get_all()
     }
 
-
-
     pub fn set_block(&self, x: i32, y: i32, z: i32, block_id: u32) {
         self.inner.write().unwrap().world.set_block(x, y, z, block_id);
     }
@@ -87,7 +85,11 @@ impl AppState {
         let mut state = self.inner.write().unwrap();
         state.players.update_gamemode(id, gamemode.clone());
         if gamemode != PlayerGameMode::Spectator {
-            let (x, y, z) = state.players.get(&id).map(|p| (p.position.x, p.position.y, p.position.z)).unwrap_or((0.0, 0.0, 0.0));
+            let (x, y, z) = state
+                .players
+                .get(&id)
+                .map(|p| (p.position.x, p.position.y, p.position.z))
+                .unwrap_or((0.0, 0.0, 0.0));
             if !state.world.is_position_free(x, y, z) {
                 state.players.reset_to_last_valid_transformation(id);
             }
@@ -106,17 +108,11 @@ impl AppState {
                     continue;
                 }
 
-                let valid = state.world.is_position_free(
-                    player.position.x,
-                    player.position.y,
-                    player.position.z,
-                );
+                let valid = state
+                    .world
+                    .is_position_free(player.position.x, player.position.y, player.position.z);
 
-                let plausible = crate::game::validator::is_movement_plausible(
-                    &player.last_valid_position,
-                    &player.position,
-                    0.2,
-                );
+                let plausible = crate::game::validator::is_movement_plausible(&player.last_valid_position, &player.position, 0.2);
 
                 evals.push((
                     player.id,

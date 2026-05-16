@@ -8,8 +8,8 @@ use crate::game::{
     systems::inputs::InputState,
     world::world::World,
 };
-use shared::network::messages::{PlayerGameMode, Position, Rotation};
 use cgmath::{num_traits::ToPrimitive, Point3};
+use shared::network::messages::{PlayerGameMode, Position, Rotation};
 use shared::world::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };

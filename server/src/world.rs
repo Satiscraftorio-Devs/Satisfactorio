@@ -66,7 +66,10 @@ impl WorldState {
         }
         let ((cx, cy, cz), intra) = global_position_to_chunk_pos(gx, gy, gz);
         if let Some(wrapped) = self.world_generated_chunks.get(&(cx, cy, cz)) {
-            return wrapped.chunk_data.chunk.get_block_from_xyz(intra.x as i32, intra.y as i32, intra.z as i32)
+            return wrapped
+                .chunk_data
+                .chunk
+                .get_block_from_xyz(intra.x as i32, intra.y as i32, intra.z as i32);
         }
         BlockInstance::air()
     }
@@ -173,7 +176,6 @@ impl WorldState {
         generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, coords)
     }
 }
-
 
 impl Default for WorldState {
     fn default() -> Self {

@@ -7,6 +7,6 @@ pub fn is_movement_plausible(old: &Position, new: &Position, dt_sec: f32) -> boo
     let dy = new.y - old.y;
     let dz = new.z - old.z;
     let distance_sq = dx * dx + dy * dy + dz * dz;
-    let expected_distance = WALK_SPEED * dt_sec * 2.0;  // <=> Coeficient de tolérance
+    let expected_distance = WALK_SPEED * dt_sec * 2.0; // <=> Coeficient de tolérance
     distance_sq <= expected_distance * expected_distance
 }

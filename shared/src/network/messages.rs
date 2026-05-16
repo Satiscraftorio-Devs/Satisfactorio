@@ -139,7 +139,6 @@ pub fn new_set_block_paquet(x: i32, y: i32, z: i32, block_id: u32) -> Paquet {
     Paquet::new(TypePaquet::SetBlock, ContenuPaquet::SetBlock { x, y, z, block_id })
 }
 
-
 pub fn new_gamemode_change_paquet(player_id: u64, gamemode: PlayerGameMode) -> Paquet {
     Paquet::new(TypePaquet::GamemodeChange, ContenuPaquet::GamemodeChange { player_id, gamemode })
 }
