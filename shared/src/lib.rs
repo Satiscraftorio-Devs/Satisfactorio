@@ -3,6 +3,9 @@ pub mod network;
 pub mod parallel;
 pub mod world;
 
+#[cfg(test)]
+mod tests;
+
 #[macro_export]
 macro_rules! time {
     ($label:expr, $block:block) => {{

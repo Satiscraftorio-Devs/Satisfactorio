@@ -7,6 +7,9 @@ mod server;
 mod state;
 mod world;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use clap::Parser;
 use server::Server;
