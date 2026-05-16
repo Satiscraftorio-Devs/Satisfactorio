@@ -39,6 +39,7 @@ impl PlayerRegistry {
             last_valid_rotation: rotation,
         };
         self.players.insert(id, player);
+
     }
 
     pub fn remove(&mut self, id: &u64) -> Option<Player> {
@@ -48,6 +49,9 @@ impl PlayerRegistry {
 
     pub fn get(&self, id: &u64) -> Option<&Player> {
         self.players.get(id)
+    }
+    pub fn get_mut(&mut self, id: &u64) -> Option<&mut Player> {
+        self.players.get_mut(id)
     }
 
     pub fn get_all(&self) -> Option<Vec<Player>> {
@@ -93,6 +97,9 @@ impl PlayerRegistry {
     }
     pub fn get_older_tranformations(&self, id: u64) -> Option<(Position, Rotation)> {
         self.players.get(&id).map(|player| (player.last_valid_position.clone(), player.last_valid_rotation.clone()))
+    }
+    pub fn iter(&self) -> impl Iterator<Item = (&u64, &Player)> {
+        self.players.iter()
     }
 }
 

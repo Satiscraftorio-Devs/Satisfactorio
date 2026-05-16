@@ -74,12 +74,34 @@ impl WorldState {
     pub fn find_safe_spawn_point(&self, x: f32, start_y: f32, z: f32) -> Position {
         let mut y = start_y;
         while y < 200.0 {
-            if () {
+            if self.is_position_free(x, y, z) {
                 return Position { x, y, z };
             }
             y += 1.0;
         }
         Position { x, y: start_y, z }
+    }
+
+    pub fn is_position_free(&self, x: f32, y: f32, z: f32) -> bool {
+        use shared::world::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
+
+        let min_x = (x - PLAYER_HALF_SIZE).floor() as i32;
+        let max_x = (x + PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;
+        let min_y = y.floor() as i32;
+        let max_y = (y + 2.0 * PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;
+        let min_z = (z - PLAYER_HALF_SIZE).floor() as i32;
+        let max_z = (z + PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;
+
+        for bx in min_x..=max_x {
+            for by in min_y..=max_y {
+                for bz in min_z..=max_z {
+                    if self.get_block(bx, by, bz).is_solid() {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
     }
 
     pub fn generate_missing(&mut self, coords: &[(i32, i32, i32)]) {

@@ -1,4 +1,5 @@
 use cgmath::{Point3, Vector3};
+use shared::world::constants::{GRAVITY, JUMP_SPEED, WALK_SPEED};
 
 use crate::game::physics::aabb::AABB;
 
@@ -16,9 +17,9 @@ impl PhysicsBody {
             aabb: AABB::new(center, half_size),
             velocity: Vector3::new(0.0, 0.0, 0.0),
             on_ground: false,
-            gravity: -25.0,
-            jump_speed: 8.0,
-            walk_speed: 4.3,
+            gravity: GRAVITY,
+            jump_speed: JUMP_SPEED,
+            walk_speed: WALK_SPEED,
         }
     }
 }

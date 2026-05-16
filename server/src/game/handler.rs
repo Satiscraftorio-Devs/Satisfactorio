@@ -77,6 +77,11 @@ impl PacketHandler for ProductionHandler {
                 Some(packet)
             }
 
+            ContenuPaquet::GamemodeChange { player_id, gamemode } => {
+                ctx.state.set_player_gamemode(*player_id, gamemode.clone());
+                Some(packet)
+            }
+
             _ => {
                 log_server!("Joueur {}: paquet non géré, éjection.", ctx.player_id);
                 None

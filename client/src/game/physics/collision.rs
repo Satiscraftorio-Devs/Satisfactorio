@@ -4,13 +4,8 @@ use crate::game::{
     physics::{aabb::AABB, body::PhysicsBody},
     world::world::World,
 };
+use shared::world::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
 use shared::world::data::chunk::CHUNK_SIZE;
-
-// Petit epsilon pour éviter les micro-interpénétrations flottantes
-const EPSILON: f32 = 1e-3;
-
-// Hitbox légèrement plus petite que 1.0 pour pouvoir passer dans des trous 1×1
-const PLAYER_HALF_SIZE: f32 = 0.4;
 
 /// Construit l'AABB du joueur à partir de sa position aux pieds.
 /// Le centre de la hitbox est à (x, y + half_size, z) pour que le pied soit en y.
@@ -31,11 +26,11 @@ pub fn get_colliding_blocks(world: &World, aabb: &AABB) -> Vec<(i32, i32, i32)> 
     }
 
     let min_x = aabb.min.x.floor() as i32;
-    let max_x = (aabb.max.x - EPSILON).floor() as i32;
+    let max_x = (aabb.max.x - COLLISION_EPSILON).floor() as i32;
     let min_y = aabb.min.y.floor() as i32;
-    let max_y = (aabb.max.y - EPSILON).floor() as i32;
+    let max_y = (aabb.max.y - COLLISION_EPSILON).floor() as i32;
     let min_z = aabb.min.z.floor() as i32;
-    let max_z = (aabb.max.z - EPSILON).floor() as i32;
+    let max_z = (aabb.max.z - COLLISION_EPSILON).floor() as i32;
 
     // Aucun bloc possible si l'AABB est dégénéré ou contenu dans un seul bloc
     if min_x > max_x || min_y > max_y || min_z > max_z {
@@ -82,7 +77,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
             .map(|&(_, by, _)| by)
             .min();
         if let Some(by) = nearest {
-            position.y = by as f32 - 2.0 * PLAYER_HALF_SIZE - EPSILON;
+            position.y = by as f32 - 2.0 * PLAYER_HALF_SIZE - COLLISION_EPSILON;
             body.velocity.y = 0.0;
         }
     } else if body.velocity.y < 0.0 {
@@ -93,7 +88,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
             .map(|&(_, by, _)| by)
             .max();
         if let Some(by) = nearest {
-            position.y = by as f32 + 1.0 + EPSILON;
+            position.y = by as f32 + 1.0 + COLLISION_EPSILON;
             body.on_ground = true;
             body.velocity.y = 0.0;
         }
@@ -111,7 +106,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(bx, _, _)| bx)
                 .max()
             {
-                position.x = bx as f32 - PLAYER_HALF_SIZE - EPSILON;
+                position.x = bx as f32 - PLAYER_HALF_SIZE - COLLISION_EPSILON;
                 body.velocity.x = 0.0;
             }
         } else if body.velocity.x < 0.0 {
@@ -121,7 +116,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(bx, _, _)| bx)
                 .min()
             {
-                position.x = bx as f32 + 1.0 + PLAYER_HALF_SIZE + EPSILON;
+                position.x = bx as f32 + 1.0 + PLAYER_HALF_SIZE + COLLISION_EPSILON;
                 body.velocity.x = 0.0;
             }
         }
@@ -139,7 +134,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(_, _, bz)| bz)
                 .max()
             {
-                position.z = bz as f32 - PLAYER_HALF_SIZE - EPSILON;
+                position.z = bz as f32 - PLAYER_HALF_SIZE - COLLISION_EPSILON;
                 body.velocity.z = 0.0;
             }
         } else if body.velocity.z < 0.0 {
@@ -149,7 +144,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(_, _, bz)| bz)
                 .min()
             {
-                position.z = bz as f32 + 1.0 + PLAYER_HALF_SIZE + EPSILON;
+                position.z = bz as f32 + 1.0 + PLAYER_HALF_SIZE + COLLISION_EPSILON;
                 body.velocity.z = 0.0;
             }
         }

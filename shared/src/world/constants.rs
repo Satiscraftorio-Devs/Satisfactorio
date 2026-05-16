@@ -11,3 +11,20 @@ pub const fn max_chunks_in_queue() -> u32 {
     let v_chunks = VERTICAL_SIMULATION_DISTANCE as u32;
     h_chunks * h_chunks * v_chunks
 }
+
+// Player physics
+
+/// Demi-taille de la hitbox du joueur
+pub const PLAYER_HALF_SIZE: f32 = 0.4;
+
+/// Petit epsilon anti-interpénétration flottante
+pub const COLLISION_EPSILON: f32 = 1e-3;
+
+/// Gravité appliquée au joueur en survival (m/s²)
+pub const GRAVITY: f32 = -25.0;
+
+/// Vitesse de saut initiale (m/s)
+pub const JUMP_SPEED: f32 = 8.0;
+
+/// Vitesse de marche maximale (m/s)
+pub const WALK_SPEED: f32 = 4.3;
