@@ -8,14 +8,13 @@ use crate::game::{
     systems::inputs::InputState,
     world::world::World,
 };
-use shared::network::messages::PlayerGameMode;
+use shared::network::messages::{PlayerGameMode, Position, Rotation};
 use cgmath::{num_traits::ToPrimitive, Point3};
 use shared::world::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::*;
-use winit::dpi::Position;
 
 /// État pur du joueur : position, caméra, contrôleurs, distances de rendu.
 /// Séparé de `Player` pour permettre l'ajout d'un corps physique sans tout casser.
@@ -114,6 +113,12 @@ impl PlayerState {
             Point3 { x: x, y: y, z: z }
         );
         self.set_pos(Point3 { x: x, y: y, z: z });
+    }
+
+    pub fn set_position_and_rotation(&mut self, pos: Position, rot: Rotation) {
+        self.set_pos(Point3::new(pos.x, pos.y, pos.z));
+        self.camera.yaw = rot.x;
+        self.camera.pitch = rot.y;
     }
 
     pub fn break_block_at(_block_pos: Point3<f32>) {}

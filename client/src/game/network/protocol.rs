@@ -6,7 +6,7 @@
 //! Il fait la ponte entre la logique de jeu (positions, chunks) et le système
 //! de paquets réseau.
 
-use shared::network::messages::{ContenuPaquet, Paquet, PlayerTransformation, Position, Rotation};
+use shared::network::messages::{ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
 
 /// Protocol de jeu pour le client.
 ///
@@ -64,5 +64,15 @@ impl GameProtocol {
 
     pub fn create_pong(&self, timestamp: u64) -> Paquet {
         shared::network::messages::new_pong_paquet(timestamp)
+    }
+
+    pub fn create_gamemode_change(&self, gamemode: PlayerGameMode) -> Paquet {
+        Paquet::new(
+            TypePaquet::GamemodeChange,
+            ContenuPaquet::GamemodeChange {
+                player_id: self.player_id,
+                gamemode,
+            },
+        )
     }
 }

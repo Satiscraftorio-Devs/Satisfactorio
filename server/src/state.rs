@@ -94,7 +94,7 @@ impl AppState {
         }
     }
 
-
+    // Le guard cycle permet de vérifier si les positions des joueurs sont valides et de les déplacer si nécessaire.
     pub fn run_guard_cycle(&self, broadcaster: &broadcast::Sender<Paquet>) {
         // Phase 1 : évaluation sous read lock
         let evaluations = {

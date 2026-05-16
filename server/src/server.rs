@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::client::ClientSession;
 use crate::game::{PacketHandler, ProductionHandler};
@@ -38,6 +39,16 @@ impl Server {
 
     pub async fn run(&self) -> Result<()> {
         log_server!("Serveur: démarre à l'adresse {}.", self.listener.local_addr()?);
+
+        let state = Arc::clone(&self.state);
+        let bc = self.broadcaster.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(200));
+            loop {
+                interval.tick().await;
+                state.run_guard_cycle(&bc);
+            }
+        });
 
         loop {
             let (stream, addr) = self.listener.accept().await?;

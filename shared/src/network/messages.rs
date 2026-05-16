@@ -41,14 +41,14 @@ pub enum ContenuPaquet {
     GamemodeChange { player_id: u64, gamemode: PlayerGameMode },
 }
 
-#[derive(Clone, Serialize, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Serialize, Debug, Deserialize, PartialEq)]
 pub enum PlayerGameMode {
     // God,
     Spectator,
     Survival,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Position {
     pub x: f32,
     pub y: f32,

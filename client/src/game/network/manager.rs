@@ -23,7 +23,7 @@
 
 use crate::engine::network::ClientConnection;
 use crate::game::network::protocol::GameProtocol;
-use shared::{log_client, log_err_client, network::messages::Paquet};
+use shared::{log_client, log_err_client, network::messages::{Paquet, PlayerGameMode}};
 use std::time::{Duration, Instant};
 
 /// Intervalle entre deux envois de position (50ms = 20 updates/sec)
@@ -170,6 +170,15 @@ impl NetworkManager {
     pub fn send_pong(&mut self, timestamp: u64) -> Result<(), String> {
         if let Some(protocol) = &self.protocol {
             let packet = protocol.create_pong(timestamp);
+            self.connection.send_packet(packet)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn send_gamemode_change(&mut self, gamemode: PlayerGameMode) -> Result<(), String> {
+        if let Some(protocol) = &self.protocol {
+            let packet = protocol.create_gamemode_change(gamemode);
             self.connection.send_packet(packet)
         } else {
             Ok(())
