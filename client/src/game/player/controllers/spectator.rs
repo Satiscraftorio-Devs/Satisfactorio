@@ -24,7 +24,7 @@ impl SpectatorPlayerController {
 }
 
 impl PlayerController for SpectatorPlayerController {
-    fn update(&self, dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
+    fn update(&self, _dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
         const UP: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
         let forward = camera.forward();
         let right = camera.right();

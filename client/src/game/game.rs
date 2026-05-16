@@ -15,10 +15,7 @@ use crate::{
     game::{
         network::NetworkManager,
         player::{
-            controllers::{
-                spectator::{FreeCameraController, SpectatorPlayerController},
-                walk::WalkPlayerController,
-            },
+            controllers::{spectator::FreeCameraController, walk::WalkPlayerController},
             player::Player,
             remote_players::RemotePlayersManager,
         },
