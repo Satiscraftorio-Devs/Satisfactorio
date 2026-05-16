@@ -1,5 +1,6 @@
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
+use shared::log_err_server;
 use shared::network::messages::{ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
 use shared::world::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
 use std::sync::RwLock;
@@ -59,6 +60,20 @@ impl AppState {
         self.inner.read().unwrap().players.get_all()
     }
 
+    pub fn get_player(&self, id: u64) -> Option<crate::player::Player> {
+        self.inner.read().unwrap().players.get(&id).cloned()
+    }
+
+    pub fn get_player_position(&self, id: u64) -> Option<Position> {
+        let a = self.inner.read().unwrap().players.get(&id).cloned();
+        a.map(|p| p.position.clone())
+    }
+
+    pub fn get_player_rotation(&self, id: u64) -> Option<Rotation> {
+        let a = self.inner.read().unwrap().players.get(&id).cloned();
+        a.map(|p| p.rotation.clone())
+    }
+
     pub fn set_block(&self, x: i32, y: i32, z: i32, block_id: u32) {
         self.inner.write().unwrap().world.set_block(x, y, z, block_id);
     }
@@ -87,6 +102,17 @@ impl AppState {
     pub fn set_player_gamemode(&self, id: u64, gamemode: PlayerGameMode) {
         let mut state = self.inner.write().unwrap();
         state.players.update_gamemode(id, gamemode.clone());
+
+        match self.get_player_position(id) {
+            Some(pos) => match self.get_player_rotation(id) {
+                Some(rot) => state.players.set_last_valid_transformation(id, pos, rot),
+                None => state.players.set_last_valid_transformation(id, pos, Rotation { x: 0.0, y: 0.0 }),
+            },
+            None => {
+                log_err_server!("Le joueur {id} n'a pas de position valide, aucune transformation n'a été définie")
+            }
+        }
+
         if gamemode != PlayerGameMode::Spectator {
             let (x, y, z) = state
                 .players

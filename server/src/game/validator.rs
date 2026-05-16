@@ -1,5 +1,5 @@
-use shared::{network::messages::Position, world::constants::WALK_SPEED};
 use shared::world::constants::MOVEMENT_PLAUSIBILITY_MULTIPLIER;
+use shared::{network::messages::Position, world::constants::WALK_SPEED};
 
 pub fn is_movement_plausible(old: &Position, new: &Position, dt_sec: f32) -> bool {
     let dx = new.x - old.x;
