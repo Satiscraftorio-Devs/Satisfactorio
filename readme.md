@@ -47,4 +47,4 @@ Les binaires acceptent `--address` / `-a` pour l'adresse de connexion (défaut :
 
 ## Licence
 
-Copyright Theora59-dev & StrachyDev 2025-2026. Tous droits réservés.
+Copyright StrachyDev & Theora59-dev 2025-2026. Tous droits réservés.
