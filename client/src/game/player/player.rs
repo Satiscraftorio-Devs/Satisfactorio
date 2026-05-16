@@ -8,6 +8,7 @@ use crate::game::{
     systems::inputs::InputState,
     world::world::World,
 };
+use shared::network::messages::PlayerGameMode;
 use cgmath::{num_traits::ToPrimitive, Point3};
 use shared::world::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
@@ -15,13 +16,6 @@ use shared::world::constants::{
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::*;
 use winit::dpi::Position;
-
-#[derive(Clone)]
-pub enum PlayerGameMode {
-    // God,
-    Spectator,
-    Survival,
-}
 
 /// État pur du joueur : position, caméra, contrôleurs, distances de rendu.
 /// Séparé de `Player` pour permettre l'ajout d'un corps physique sans tout casser.

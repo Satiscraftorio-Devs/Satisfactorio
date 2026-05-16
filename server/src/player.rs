@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use shared::network::messages::{Position, Rotation};
+use shared::network::messages::{PlayerGameMode, Position, Rotation};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -8,6 +8,9 @@ pub struct Player {
     pub username: String,
     pub position: Position,
     pub rotation: Rotation,
+    pub gamemode: PlayerGameMode,
+    pub last_valid_position: Position,
+    pub last_valid_rotation: Rotation,
 }
 
 pub struct PlayerRegistry {
@@ -24,11 +27,16 @@ impl PlayerRegistry {
     }
 
     pub fn add(&mut self, id: u64, username: String) {
+        let position = Position { x: 0.0, y: 64.0, z: 0.0 };
+        let rotation = Rotation { x: 0.0, y: 0.0 };
         let player = Player {
             id,
             username,
-            position: Position { x: 0.0, y: 64.0, z: 0.0 },
-            rotation: Rotation { x: 0.0, y: 0.0 },
+            position: position.clone(),
+            rotation: rotation.clone(),
+            gamemode: PlayerGameMode::Survival,
+            last_valid_position: position,
+            last_valid_rotation: rotation,
         };
         self.players.insert(id, player);
     }
@@ -63,6 +71,28 @@ impl PlayerRegistry {
 
     pub fn all_required_chunks(&self) -> HashSet<(i32, i32, i32)> {
         self.player_chunks.values().flat_map(|chunks| chunks.iter()).cloned().collect()
+    }
+
+    pub fn update_gamemode(&mut self, id: u64, gamemode: PlayerGameMode) {
+        if let Some(player) = self.players.get_mut(&id) {
+            player.gamemode = gamemode;
+        }
+    }
+    /// Rollback the player's position and rotation
+    pub fn reset_to_last_valid_transformation(&mut self, id: u64) {
+        if let Some(player) = self.players.get_mut(&id) {
+            player.position = player.last_valid_position.clone();
+            player.rotation = player.last_valid_rotation.clone();
+        }
+    }
+    pub fn set_last_valid_transformation(&mut self, id: u64, position: Position, rotation: Rotation) {
+        if let Some(player) = self.players.get_mut(&id) {
+            player.last_valid_position = position.clone();
+            player.last_valid_rotation = rotation;
+        }
+    }
+    pub fn get_older_tranformations(&self, id: u64) -> Option<(Position, Rotation)> {
+        self.players.get(&id).map(|player| (player.last_valid_position.clone(), player.last_valid_rotation.clone()))
     }
 }
 

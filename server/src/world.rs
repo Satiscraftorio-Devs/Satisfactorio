@@ -1,6 +1,8 @@
 use cgmath::Point3;
 use shared::log_warn_server;
+use shared::network::messages::Position;
 use shared::world::data::block::{BlockData, BlockInstance, BlockManager};
+use shared::world::data::chunk::global_position_to_chunk_pos;
 use shared::world::generation::chunk::ChunkWithChecksum;
 use shared::world::generation::chunk_generator::generate_chunks_sequential;
 use shared::world::modified_chunk::ModifiedWorld;
@@ -43,6 +45,41 @@ impl WorldState {
 
     pub fn get_seed(&self) -> u32 {
         self.seed
+    }
+
+    pub fn set_block(&mut self, x: i32, y: i32, z: i32, block_id: u32) {
+        const CS: i32 = 32;
+        let cx = x.div_euclid(CS);
+        let cy = y.div_euclid(CS);
+        let cz = z.div_euclid(CS);
+
+        if self.world_generated_chunks.contains_key(&(cx, cy, cz)) {
+            self.modifications.set_block_at(x, y, z, BlockInstance::new(block_id));
+        } else {
+            log_warn_server!("Tentative de modification d'un chunk non chargé : ({}, {}, {})", cx, cy, cz);
+        }
+    }
+
+    pub fn get_block(&self, gx: i32, gy: i32, gz: i32) -> BlockInstance {
+        if let Some(block) = self.modifications.get_block_at(gx, gy, gz) {
+            return *block;
+        }
+        let ((cx, cy, cz), intra) = global_position_to_chunk_pos(gx, gy, gz);
+        if let Some(wrapped) = self.world_generated_chunks.get(&(cx, cy, cz)) {
+            return wrapped.chunk_data.chunk.get_block_from_xyz(intra.x as i32, intra.y as i32, intra.z as i32)
+        }
+        BlockInstance::air()
+    }
+
+    pub fn find_safe_spawn_point(&self, x: f32, start_y: f32, z: f32) -> Position {
+        let mut y = start_y;
+        while y < 200.0 {
+            if () {
+                return Position { x, y, z };
+            }
+            y += 1.0;
+        }
+        Position { x, y: start_y, z }
     }
 
     pub fn generate_missing(&mut self, coords: &[(i32, i32, i32)]) {
@@ -115,20 +152,6 @@ impl WorldState {
     }
 }
 
-impl WorldState {
-    pub fn set_block(&mut self, x: i32, y: i32, z: i32, block_id: u32) {
-        const CS: i32 = 32;
-        let cx = x.div_euclid(CS);
-        let cy = y.div_euclid(CS);
-        let cz = z.div_euclid(CS);
-
-        if self.world_generated_chunks.contains_key(&(cx, cy, cz)) {
-            self.modifications.set_block_at(x, y, z, BlockInstance::new(block_id));
-        } else {
-            log_warn_server!("Tentative de modification d'un chunk non chargé : ({}, {}, {})", cx, cy, cz);
-        }
-    }
-}
 
 impl Default for WorldState {
     fn default() -> Self {
