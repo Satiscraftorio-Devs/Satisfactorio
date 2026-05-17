@@ -14,22 +14,20 @@ pub const fn max_chunks_in_queue() -> u32 {
 
 // Player physics
 
-/// Demi-taille de la hitbox du joueur
-pub const PLAYER_HALF_SIZE: f32 = 0.4;
 pub const PLAYER_HEIGHT: f32 = 1.8;
-pub const PLAYER_WIDTH: f32 = 0.8;
+pub const PLAYER_WIDTH: f32 = 0.7;
 
 /// Petit epsilon anti-interpénétration flottante
 pub const COLLISION_EPSILON: f32 = 1e-3;
 
 /// Gravité appliquée au joueur en survival (m/s²)
-pub const GRAVITY: f32 = -25.0;
+pub const GRAVITY: f32 = -30.0;
 
 /// Vitesse de saut initiale (m/s)
 pub const JUMP_SPEED: f32 = 8.0;
 
 /// Vitesse de marche maximale (m/s)
-pub const WALK_SPEED: f32 = 4.3;
+pub const WALK_SPEED: f32 = 6.3;
 
 /// Position de spawn initiale du joueur (axe X)
 pub const SPAWN_POSITION_X: f32 = 0.5;
@@ -41,7 +39,7 @@ pub const SPAWN_POSITION_Y: f32 = 0.0;
 pub const SPAWN_POSITION_Z: f32 = 0.5;
 
 /// Hauteur des yeux du joueur par rapport à ses pieds
-pub const PLAYER_EYE_HEIGHT: f32 = 0.6;
+pub const PLAYER_EYE_HEIGHT: f32 = 1.4;
 
 /// Limite maximale de hauteur pour la recherche de point de spawn sûr
 pub const MAX_SPAWN_SEARCH_HEIGHT: f32 = 200.0;

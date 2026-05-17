@@ -75,14 +75,15 @@ impl WorldState {
     }
 
     pub fn is_position_free(&self, x: f32, y: f32, z: f32) -> bool {
-        use shared::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
+        use shared::constants::{COLLISION_EPSILON, PLAYER_HEIGHT, PLAYER_WIDTH};
 
-        let min_x = (x - PLAYER_HALF_SIZE).floor() as i32;
-        let max_x = (x + PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;
+        let half_width = PLAYER_WIDTH / 2.0;
+        let min_x = (x - half_width).floor() as i32;
+        let max_x = (x + half_width - COLLISION_EPSILON).floor() as i32;
         let min_y = y.floor() as i32;
-        let max_y = (y + 2.0 * PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;
-        let min_z = (z - PLAYER_HALF_SIZE).floor() as i32;
-        let max_z = (z + PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;
+        let max_y = (y + PLAYER_HEIGHT - COLLISION_EPSILON).floor() as i32;
+        let min_z = (z - half_width).floor() as i32;
+        let max_z = (z + half_width - COLLISION_EPSILON).floor() as i32;
 
         for bx in min_x..=max_x {
             for by in min_y..=max_y {

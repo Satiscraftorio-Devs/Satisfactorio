@@ -1,17 +1,19 @@
-use cgmath::Point3;
+use cgmath::{Point3, Vector3};
 
 use crate::game::{
     physics::{aabb::AABB, body::PhysicsBody},
     world::world::World,
 };
-use shared::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
+use shared::constants::{COLLISION_EPSILON, PLAYER_HEIGHT, PLAYER_WIDTH};
 use shared::world::data::chunk::CHUNK_SIZE;
 
 /// Construit l'AABB du joueur à partir de sa position aux pieds.
-/// Le centre de la hitbox est à (x, y + half_size, z) pour que le pied soit en y.
+/// Le centre de la hitbox est à (x, y + half_height, z) pour que le pied soit en y.
 fn aabb_at_feet(feet: &Point3<f32>) -> AABB {
-    let center = Point3::new(feet.x, feet.y + PLAYER_HALF_SIZE, feet.z);
-    AABB::new(center, PLAYER_HALF_SIZE)
+    let half_width = PLAYER_WIDTH / 2.0;
+    let half_height = PLAYER_HEIGHT / 2.0;
+    let center = Point3::new(feet.x, feet.y + half_height, feet.z);
+    AABB::new_sized(center, Vector3::new(half_width, half_height, half_width))
 }
 
 /// Trouve tous les blocs solides qu'un AABB chevauche dans le monde.
@@ -73,11 +75,11 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
         let aabb = aabb_at_feet(position);
         let nearest = get_colliding_blocks(world, &aabb)
             .iter()
-            .filter(|&(_, by, _)| (*by as f32) > position.y - 2.0 * PLAYER_HALF_SIZE)
+            .filter(|&(_, by, _)| (*by as f32) > position.y - PLAYER_HEIGHT)
             .map(|&(_, by, _)| by)
             .min();
         if let Some(by) = nearest {
-            position.y = by as f32 - 2.0 * PLAYER_HALF_SIZE - COLLISION_EPSILON;
+            position.y = by as f32 - PLAYER_HEIGHT - COLLISION_EPSILON;
             body.velocity.y = 0.0;
         }
     } else if body.velocity.y < 0.0 {
@@ -106,7 +108,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(bx, _, _)| bx)
                 .max()
             {
-                position.x = bx as f32 - PLAYER_HALF_SIZE - COLLISION_EPSILON;
+                position.x = bx as f32 - PLAYER_WIDTH / 2.0 - COLLISION_EPSILON;
                 body.velocity.x = 0.0;
             }
         } else if body.velocity.x < 0.0 {
@@ -116,7 +118,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(bx, _, _)| bx)
                 .min()
             {
-                position.x = bx as f32 + 1.0 + PLAYER_HALF_SIZE + COLLISION_EPSILON;
+                position.x = bx as f32 + 1.0 + PLAYER_WIDTH / 2.0 + COLLISION_EPSILON;
                 body.velocity.x = 0.0;
             }
         }
@@ -134,7 +136,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(_, _, bz)| bz)
                 .max()
             {
-                position.z = bz as f32 - PLAYER_HALF_SIZE - COLLISION_EPSILON;
+                position.z = bz as f32 - PLAYER_WIDTH / 2.0 - COLLISION_EPSILON;
                 body.velocity.z = 0.0;
             }
         } else if body.velocity.z < 0.0 {
@@ -144,7 +146,7 @@ pub fn resolve_collision(world: &World, body: &mut PhysicsBody, dt: f32, positio
                 .map(|&(_, _, bz)| bz)
                 .min()
             {
-                position.z = bz as f32 + 1.0 + PLAYER_HALF_SIZE + COLLISION_EPSILON;
+                position.z = bz as f32 + 1.0 + PLAYER_WIDTH / 2.0 + COLLISION_EPSILON;
                 body.velocity.z = 0.0;
             }
         }

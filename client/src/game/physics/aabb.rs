@@ -7,12 +7,17 @@ pub struct AABB {
     pub max: Vector3<f32>,
 }
 impl AABB {
-    /// Construit un AABB centré en `center` avec une demi-taille `half_size`.
-    /// Le volume total est donc `(2×half_size)³`.
+    /// Construit un AABB centré en `center` avec une demi-taille uniforme `half_size`.
     pub fn new(center: Point3<f32>, half_size: f32) -> Self {
+        Self::new_sized(center, Vector3::new(half_size, half_size, half_size))
+    }
+
+    /// Construit un AABB centré en `center` avec des demi-tailles non uniformes.
+    /// `half_size.x/y/z` = demi-largeur, demi-hauteur, demi-profondeur.
+    pub fn new_sized(center: Point3<f32>, half_size: Vector3<f32>) -> Self {
         Self {
-            min: Vector3::new(center.x - half_size, center.y - half_size, center.z - half_size),
-            max: Vector3::new(center.x + half_size, center.y + half_size, center.z + half_size),
+            min: Vector3::new(center.x - half_size.x, center.y - half_size.y, center.z - half_size.z),
+            max: Vector3::new(center.x + half_size.x, center.y + half_size.y, center.z + half_size.z),
         }
     }
 
