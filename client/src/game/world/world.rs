@@ -1,6 +1,6 @@
 use crate::engine::render::manager::RenderManager;
+use shared::constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE_SQR};
 use shared::world::{
-    constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE_SQR},
     data::{
         block::{BlockInstance, BlockManager},
         chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE, CHUNK_SIZE_HALFED},

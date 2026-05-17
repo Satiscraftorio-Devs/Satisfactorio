@@ -9,11 +9,11 @@ use crate::game::{
     world::world::World,
 };
 use cgmath::{num_traits::ToPrimitive, Point3};
-use shared::network::messages::{PlayerGameMode, Position, Rotation};
-use shared::world::constants::{
+use shared::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z,
     VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };
+use shared::network::messages::{PlayerGameMode, Position, Rotation};
 use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::*;
 

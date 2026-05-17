@@ -476,7 +476,7 @@ fn buffer_pool_different_types() {
 /// Vérifie les valeurs des constantes de rendu et simulation.
 #[test]
 fn constants_render_distances() {
-    use crate::world::constants::*;
+    use crate::constants::*;
 
     assert_eq!(HORIZONTAL_RENDER_DISTANCE, 9);
     assert_eq!(VERTICAL_RENDER_DISTANCE, 5);
@@ -487,7 +487,7 @@ fn constants_render_distances() {
 /// Vérifie les constantes de priorité des chunks.
 #[test]
 fn constants_chunk_priority() {
-    use crate::world::constants::*;
+    use crate::constants::*;
 
     assert_eq!(CHUNK_PRIORITY_DISTANCE, 32.0);
     assert_eq!(CHUNK_PRIORITY_DISTANCE_SQR, 1024.0);
@@ -496,7 +496,7 @@ fn constants_chunk_priority() {
 /// Vérifie que `max_chunks_in_queue` calcule correctement 11 x 11 x 7 = 847.
 #[test]
 fn constants_max_chunks_in_queue() {
-    use crate::world::constants::max_chunks_in_queue;
+    use crate::constants::max_chunks_in_queue;
     assert_eq!(max_chunks_in_queue(), 847);
 }
 

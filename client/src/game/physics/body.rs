@@ -1,5 +1,5 @@
 use cgmath::{Point3, Vector3};
-use shared::world::constants::{GRAVITY, JUMP_SPEED, WALK_SPEED};
+use shared::constants::{GRAVITY, JUMP_SPEED, WALK_SPEED};
 
 use crate::game::physics::aabb::AABB;
 

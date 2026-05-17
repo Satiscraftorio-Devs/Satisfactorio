@@ -4,7 +4,7 @@ use crate::game::{
     physics::{aabb::AABB, body::PhysicsBody},
     world::world::World,
 };
-use shared::world::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
+use shared::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
 use shared::world::data::chunk::CHUNK_SIZE;
 
 /// Construit l'AABB du joueur à partir de sa position aux pieds.

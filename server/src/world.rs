@@ -1,7 +1,7 @@
 use cgmath::Point3;
+use shared::constants::MAX_SPAWN_SEARCH_HEIGHT;
 use shared::log_warn_server;
 use shared::network::messages::Position;
-use shared::world::constants::MAX_SPAWN_SEARCH_HEIGHT;
 use shared::world::data::block::{BlockInstance, BlockManager};
 use shared::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE};
 use shared::world::generation::chunk::ChunkWithChecksum;
@@ -75,7 +75,7 @@ impl WorldState {
     }
 
     pub fn is_position_free(&self, x: f32, y: f32, z: f32) -> bool {
-        use shared::world::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
+        use shared::constants::{COLLISION_EPSILON, PLAYER_HALF_SIZE};
 
         let min_x = (x - PLAYER_HALF_SIZE).floor() as i32;
         let max_x = (x + PLAYER_HALF_SIZE - COLLISION_EPSILON).floor() as i32;

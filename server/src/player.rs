@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
+use shared::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
 use shared::network::messages::{PlayerGameMode, Position, Rotation};
-use shared::world::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::collections::{HashMap, HashSet};
 

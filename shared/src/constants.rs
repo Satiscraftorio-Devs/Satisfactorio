@@ -16,6 +16,8 @@ pub const fn max_chunks_in_queue() -> u32 {
 
 /// Demi-taille de la hitbox du joueur
 pub const PLAYER_HALF_SIZE: f32 = 0.4;
+pub const PLAYER_HEIGHT: f32 = 1.8;
+pub const PLAYER_WIDTH: f32 = 0.8;
 
 /// Petit epsilon anti-interpénétration flottante
 pub const COLLISION_EPSILON: f32 = 1e-3;
@@ -33,7 +35,7 @@ pub const WALK_SPEED: f32 = 4.3;
 pub const SPAWN_POSITION_X: f32 = 0.5;
 
 /// Position de spawn initiale du joueur (axe Y) — hauteur de départ pour la recherche de spawn safe
-pub const SPAWN_POSITION_Y: f32 = 64.0;
+pub const SPAWN_POSITION_Y: f32 = 0.0;
 
 /// Position de spawn initiale du joueur (axe Z)
 pub const SPAWN_POSITION_Z: f32 = 0.5;

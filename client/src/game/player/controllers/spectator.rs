@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3, Zero};
-use shared::world::constants::PLAYER_EYE_HEIGHT;
+use shared::constants::PLAYER_EYE_HEIGHT;
 use winit::keyboard::KeyCode;
 
 use crate::game::{
