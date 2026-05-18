@@ -16,6 +16,7 @@ use crate::{
         },
     },
     game::{
+        api::texture_loader::TextureLoader,
         network::NetworkManager,
         player::{
             controllers::free::{FreeCameraController, FreePlayerController},
@@ -23,7 +24,7 @@ use crate::{
             remote_players::RemotePlayersManager,
         },
         render::meshing::world::WorldMesh,
-        systems::inputs::InputState,
+        systems::{inputs::InputState, texture_registry::TextureRegistry},
         world::world::World,
     },
 };
@@ -42,6 +43,7 @@ pub struct GameState {
     pub delay_s: f32,
     pub network: Option<NetworkManager>,
     inputs: InputState,
+    texture_registry: TextureRegistry,
 }
 
 impl GameState {
@@ -66,12 +68,16 @@ impl GameState {
             inputs: InputState::new(),
             delay_s: 0.0,
             network: Some(network),
+            texture_registry: TextureRegistry::new(),
         }
     }
 }
 
 impl AppState for GameState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>) {
+        let mut tex_loader = TextureLoader::new(&mut renderer.texture_manager, &mut self.texture_registry);
+        self.world.init(&mut tex_loader);
+
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
         self.world_mesh.update(renderer, &mut self.world, &self.player);
 

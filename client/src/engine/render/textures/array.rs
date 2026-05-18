@@ -61,6 +61,7 @@ impl Texture2DArray {
 
     pub fn write_at(&mut self, queue: &wgpu::Queue, depth: u16, data: &[u8]) {
         assert_eq!(data.len(), (self.width as u32 * self.height as u32 * 4) as usize);
+        assert!(depth <= self.depth);
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,

@@ -5,14 +5,6 @@ use image::GenericImageView;
 
 use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};
 
-pub struct Texture {
-    #[allow(unused)]
-    texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
-    pub dimensions: (u32, u32),
-}
-
 #[repr(usize)]
 pub enum PipelineType {
     Opaque = 0,
@@ -28,80 +20,19 @@ impl PipelineType {
     }
 }
 
-impl Texture {
-    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: &str) -> Result<Self> {
-        let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, Some(label))
-    }
-
-    fn from_image(device: &wgpu::Device, queue: &wgpu::Queue, img: &image::DynamicImage, label: Option<&str>) -> Result<Self> {
-        let rgba = img.to_rgba8();
-        let dimensions = img.dimensions();
-
-        let size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                aspect: wgpu::TextureAspect::All,
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
-                rows_per_image: Some(dimensions.1),
-            },
-            size,
-        );
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest, // En agrandissant les textures, on veut un effet "pixelisé", comme si on zoomait sur un bloc d'herbe dans Minecraft, sinon ça devient flou et dégueu pour un projet voxel.
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-            ..Default::default()
-        });
-
-        Ok(Self {
-            texture,
-            view,
-            sampler,
-            dimensions,
-        })
-    }
-}
-
 pub struct TextureManager {
     gpu_resources: Arc<GpuTools>,
-    arrays: Vec<Texture2DArray>,
+    textures_arrays: Vec<Texture2DArray>,
     max_texture_size: u32,
     max_array_depth: u32,
 }
 
 #[repr(C)]
 pub enum TextureArrayIndex {
-    BLOCKS = 0,
-    ITEMS = 1,
-    BILLBOARDS = 2,
+    Opaque = 0,
+    AlphaCutout = 1,
+    Translucent = 2,
+    Billboard = 3,
 }
 
 impl TextureArrayIndex {
@@ -119,6 +50,14 @@ impl TextureID {
     pub fn new(array: usize, depth: u16) -> Self {
         Self { array, depth }
     }
+
+    pub fn array(&self) -> usize {
+        self.array
+    }
+
+    pub fn depth(&self) -> u16 {
+        self.depth
+    }
 }
 
 impl TextureManager {
@@ -127,18 +66,23 @@ impl TextureManager {
 
         let mut instance = Self {
             gpu_resources,
-            arrays: vec![],
+            textures_arrays: vec![],
             max_texture_size,
             max_array_depth,
         };
 
-        let blocks = instance.make_new_array("Blocks".to_string(), size, size);
-        let items = instance.make_new_array("Items".to_string(), size, size);
-        let billboards = instance.make_new_array("Billboards".to_string(), size, size);
+        let texture_array = instance.make_new_array("Textures".to_string(), size, size);
+        assert!(texture_array == TextureArrayIndex::Opaque.to_usize());
 
-        assert!(blocks == TextureArrayIndex::BLOCKS.to_usize());
-        assert!(items == TextureArrayIndex::ITEMS.to_usize());
-        assert!(billboards == TextureArrayIndex::BILLBOARDS.to_usize());
+        // let opaque = instance.make_new_array("Opaque".to_string(), size, size);
+        // let alpha_cutout = instance.make_new_array("Alpha Cutout".to_string(), size, size);
+        // let translucent = instance.make_new_array("Translucent".to_string(), size, size);
+        // let billboard = instance.make_new_array("Billboard".to_string(), size, size);
+
+        // assert!(opaque == TextureArrayIndex::Opaque.to_usize());
+        // assert!(alpha_cutout == TextureArrayIndex::AlphaCutout.to_usize());
+        // assert!(translucent == TextureArrayIndex::Translucent.to_usize());
+        // assert!(billboard == TextureArrayIndex::Billboard.to_usize());
 
         instance
     }
@@ -153,29 +97,29 @@ impl TextureManager {
             )
         }
 
-        let id = self.arrays.len();
+        let id = self.textures_arrays.len();
         let depth = self.max_array_depth;
         let array = Texture2DArray::new(label, self.gpu_resources.device(), width, height, depth);
 
-        self.arrays.push(array);
+        self.textures_arrays.push(array);
 
         id
     }
 
-    pub fn find_place(&mut self, array_index: TextureArrayIndex) -> Result<TextureID, Error> {
+    fn find_place(&mut self, array_index: TextureArrayIndex) -> Result<TextureID, Error> {
         let idx = array_index.to_usize();
-        if let Some(array) = self.arrays.get_mut(idx) {
+        if let Some(array) = self.textures_arrays.get_mut(idx) {
             let depth = array.next_id();
             if depth > self.max_array_depth as u16 {
-                return Err(Error::msg(""));
+                return Err(Error::msg(format!("No spot found for new texture.\nIndex provided: {}", idx)));
             } else {
                 return Ok(TextureID::new(idx, depth));
             }
         }
-        Err(Error::msg("No spot found for new texture"))
+        Err(Error::msg(format!("Texture array not found.\nIndex provided: {}", idx)))
     }
 
-    pub fn register(&mut self, array: TextureArrayIndex, texture: &[u8], width: u16, height: u16) -> TextureID {
+    pub fn register(&mut self, array: TextureArrayIndex, texture: &[u8], width: u16, height: u16) -> Result<TextureID, Error> {
         if texture.len() != ((width as u32) * (height as u32) * 4) as usize {
             panic!(
                 "Texture data length does not match expected size for given dimensions.\n{} != {}*{}*4",
@@ -185,15 +129,15 @@ impl TextureManager {
             );
         }
 
-        let id = self.find_place(array).expect("No more space available on the array");
+        let id = self.find_place(array)?;
 
         self.write(texture, &id);
 
-        id
+        Ok(id)
     }
 
     pub fn write(&mut self, texture: &[u8], id: &TextureID) {
-        let Some(array) = self.arrays.get_mut(id.array) else {
+        let Some(array) = self.textures_arrays.get_mut(id.array) else {
             return;
         };
 
@@ -201,10 +145,10 @@ impl TextureManager {
     }
 
     pub fn get_array(&self, index: TextureArrayIndex) -> &Texture2DArray {
-        self.arrays.get(index.to_usize()).unwrap()
+        self.textures_arrays.get(index.to_usize()).unwrap()
     }
 
     pub fn get_array_mut(&mut self, index: TextureArrayIndex) -> &mut Texture2DArray {
-        self.arrays.get_mut(index.to_usize()).unwrap()
+        self.textures_arrays.get_mut(index.to_usize()).unwrap()
     }
 }

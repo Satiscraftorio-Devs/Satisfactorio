@@ -5,3 +5,5 @@ pub mod world;
 
 pub mod game;
 pub mod systems;
+
+pub mod api;

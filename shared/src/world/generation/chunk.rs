@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::world::data::block::{BlockInstance, BlockManager};
 use crate::world::data::chunk::{Chunk, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
@@ -12,7 +12,7 @@ pub struct ChunkWithChecksum {
 
 impl Chunk {
     #[inline]
-    pub fn generate(block_manager: Arc<BlockManager>, cx: i32, cy: i32, cz: i32, seed: u32) -> Chunk {
+    pub fn generate(block_manager: Arc<RwLock<BlockManager>>, cx: i32, cy: i32, cz: i32, seed: u32) -> Chunk {
         let ctx = ChunkGenContext::new(seed, block_manager);
         Self::generate_with_context(cx, cy, cz, &ctx)
     }
@@ -27,18 +27,17 @@ impl Chunk {
         let cwy = cy * CHUNK_SIZE;
         let cwz = cz * CHUNK_SIZE;
 
-        let grass_id = ctx
-            .block_manager
+        let blocks = ctx.block_manager.read().unwrap();
+
+        let grass_id = blocks
             .get_block_by_string(String::from("grass"))
             .expect("Did not find block 'grass' in block manager")
             .get_id();
-        let dirt_id = ctx
-            .block_manager
+        let dirt_id = blocks
             .get_block_by_string(String::from("dirt"))
             .expect("Did not find block 'dirt' in block manager")
             .get_id();
-        let stone_id = ctx
-            .block_manager
+        let stone_id = blocks
             .get_block_by_string(String::from("stone"))
             .expect("Did not find block 'stone' in block manager")
             .get_id();

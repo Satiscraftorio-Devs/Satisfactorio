@@ -17,8 +17,8 @@ use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
-    BlendState, BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Face, FragmentState,
-    FrontFace, PolygonMode, PrimitiveState, PrimitiveTopology, ShaderSource, TextureFormat, VertexState,
+    BlendState, BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Face, Features,
+    FragmentState, FrontFace, PolygonMode, PrimitiveState, PrimitiveTopology, ShaderSource, TextureFormat, VertexState,
 };
 use winit::window::Window;
 
@@ -84,46 +84,12 @@ impl State {
 
         let texture_bind_group_layout = gpu_factory.bind_group_layout().make_texture_array(Some("Texture array layout"));
 
-        let blocks_array = texture_manager.get_array(TextureArrayIndex::BLOCKS);
-        let texture_bind_group =
-            gpu_factory
-                .bind_group()
-                .make_texture_array(&texture_bind_group_layout, &blocks_array, Some("Texture array"));
-
-        // à déplacer côté jeu
-        {
-            macro_rules! load_textures {
-                ($($name:ident: $path:literal),*) => {
-                    vec![$(
-                        image::load_from_memory(include_bytes!($path))
-                            .expect(concat!("Failed to load texture: ", $path))
-                            .to_rgba8()
-                    ),*]
-                };
-            }
-
-            let textures_data = load_textures!(
-                stone: "../../../../assets/images/stone.png",
-                dirt: "../../../../assets/images/dirt.png",
-                grass: "../../../../assets/images/grass.png"
-            );
-
-            let (width, height) = textures_data[0].dimensions();
-            for (i, data) in textures_data.iter().enumerate() {
-                assert_eq!(
-                    data.dimensions(),
-                    (width, height),
-                    "All textures must have same dimensions (texture {})",
-                    i
-                );
-            }
-
-            let textures: Vec<&[u8]> = textures_data.iter().map(|d| d.as_ref()).collect();
-
-            for (_, texture) in textures.iter().enumerate() {
-                texture_manager.register(TextureArrayIndex::BLOCKS, texture, 32, 32);
-            }
-        }
+        let opaque_array = texture_manager.get_array(TextureArrayIndex::Opaque);
+        let texture_bind_group = gpu_factory.bind_group().make(
+            Some("Texture array"),
+            &texture_bind_group_layout,
+            &gpu_factory.bind_group().make_texture_array_entry(0, &opaque_array),
+        );
 
         let render_camera = RenderCamera::new();
 
@@ -184,7 +150,7 @@ impl State {
             cull_mode: Some(Face::Back),
             polygon_mode: PolygonMode::Fill,
             unclipped_depth: false,
-            conservative: false,
+            conservative: gpu_context.features.contains(Features::CONSERVATIVE_RASTERIZATION),
         };
 
         let gizmo_primitive = PrimitiveState {

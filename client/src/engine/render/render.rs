@@ -35,8 +35,9 @@ impl RenderOptions {
 pub struct Renderer {
     pub is_surface_configured: bool,
 
-    pub render_manager: RenderManager,
     pub render_options: RenderOptions,
+
+    pub render_manager: RenderManager,
     pub texture_manager: TextureManager,
 
     pub gpu_context: GpuContext,

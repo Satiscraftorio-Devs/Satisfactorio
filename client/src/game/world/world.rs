@@ -1,4 +1,10 @@
-use crate::engine::render::manager::RenderManager;
+use crate::{
+    engine::render::{
+        manager::RenderManager,
+        texture::{TextureArrayIndex, TextureManager},
+    },
+    game::api::texture_loader::{self, TextureLoader},
+};
 use shared::world::{
     constants::{max_chunks_in_queue, CHUNK_PRIORITY_DISTANCE_SQR},
     data::{
@@ -7,7 +13,12 @@ use shared::world::{
     },
     generation::chunk_generator::ChunkGenerator,
 };
-use std::{cmp::min, collections::HashMap, sync::Arc, time::Instant};
+use std::{
+    cmp::min,
+    collections::HashMap,
+    sync::{Arc, RwLock},
+    time::Instant,
+};
 
 use crate::{
     // engine::render::mesh::manager::RenderManager,
@@ -29,27 +40,12 @@ pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
     seed: u32,
     chunk_generator: ChunkGenerator,
-    block_manager: Arc<BlockManager>,
+    block_manager: Arc<RwLock<BlockManager>>,
 }
 
 impl World {
     pub fn new(seed: u32) -> World {
-        let block_manager = {
-            let mut block_manager = BlockManager::new();
-
-            let blocks = [
-                BlockData::new("air"),
-                BlockData::new("stone"),
-                BlockData::new("dirt"),
-                BlockData::new("grass"),
-            ];
-
-            for block in blocks {
-                block_manager.register(block);
-            }
-
-            Arc::new(block_manager)
-        };
+        let block_manager = Arc::new(RwLock::new(BlockManager::new()));
 
         // let max_chunks = max_chunks_in_queue() as usize;
         let worker_count = min((num_cpus::get() as f32 / 2.0).floor() as usize, 1);
@@ -62,6 +58,33 @@ impl World {
             chunk_generator: chunk_generator,
             block_manager: block_manager,
         };
+    }
+
+    pub fn init(&mut self, texture_loader: &mut TextureLoader) {
+        let mut block_manager = self.block_manager.write().unwrap();
+
+        let blocks = [
+            (BlockData::new("air"), ""),
+            (
+                BlockData::new("stone"),
+                "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/stone.png",
+            ),
+            (
+                BlockData::new("dirt"),
+                "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/dirt.png",
+            ),
+            (
+                BlockData::new("grass"),
+                "/home/strachy/Documents/GitHub/Satisfactorio/assets/images/grass.png",
+            ),
+        ];
+
+        for mut values in blocks {
+            if let Ok(tex_id) = texture_loader.register(values.1.to_string(), TextureArrayIndex::Opaque) {
+                values.0.texture_index = Some(tex_id.depth() as u32);
+            };
+            block_manager.register(values.0);
+        }
     }
 
     pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {

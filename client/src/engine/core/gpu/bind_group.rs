@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource,
-    BindingType, Buffer, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
+    BindingType, Buffer, Sampler, SamplerBindingType, ShaderStages, Texture, TextureSampleType, TextureView, TextureViewDimension,
 };
 
 use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};
@@ -44,6 +44,71 @@ impl BindGroupLayoutFactory {
         self.make(label, &entries)
     }
 
+    pub fn make_texture_array_entry(&self, binding: u32) -> [BindGroupLayoutEntry; 2] {
+        [
+            BindGroupLayoutEntry {
+                binding: binding,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    view_dimension: TextureViewDimension::D2Array,
+                    multisampled: false,
+                    sample_type: TextureSampleType::Float { filterable: true },
+                },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: binding + 1,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: None,
+            },
+        ]
+    }
+
+    pub fn make_texture_atlas_entry(&self, binding: u32) -> [BindGroupLayoutEntry; 2] {
+        [
+            BindGroupLayoutEntry {
+                binding: binding,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    view_dimension: TextureViewDimension::D2,
+                    multisampled: false,
+                    sample_type: TextureSampleType::Float { filterable: true },
+                },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: binding + 1,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: None,
+            },
+        ]
+    }
+
+    pub fn make_textures(&self, label: Option<&str>) -> BindGroupLayout {
+        let opaque = self.make_texture_array_entry(0);
+        let alpha_cutout = self.make_texture_array_entry(2);
+        let translucent = self.make_texture_array_entry(4);
+        let billboard = self.make_texture_array_entry(6);
+        let ui = self.make_texture_atlas_entry(8);
+
+        let entries = [
+            opaque[0],
+            opaque[1],
+            alpha_cutout[0],
+            alpha_cutout[1],
+            translucent[0],
+            translucent[1],
+            billboard[0],
+            billboard[1],
+            ui[0],
+            ui[1],
+        ];
+
+        self.make(label, &entries)
+    }
+
     pub fn make_camera(&self) -> BindGroupLayout {
         let entries = [BindGroupLayoutEntry {
             binding: 0,
@@ -74,17 +139,49 @@ impl BindGroupFactory {
             .create_bind_group(&BindGroupDescriptor { label, layout, entries })
     }
 
-    pub fn make_texture_array(&self, layout: &BindGroupLayout, array: &Texture2DArray, label: Option<&str>) -> BindGroup {
-        let entries = [
+    pub fn make_texture_array_entry<'a>(&'a self, binding: u32, array: &'a Texture2DArray) -> [BindGroupEntry<'a>; 2] {
+        [
             BindGroupEntry {
-                binding: 0,
+                binding: binding,
                 resource: BindingResource::TextureView(array.view()),
             },
             BindGroupEntry {
-                binding: 1,
+                binding: binding + 1,
                 resource: BindingResource::Sampler(array.sampler()),
             },
-        ];
+        ]
+    }
+
+    pub fn make_texture_atlas_entry<'a>(&'a self, binding: u32, view: &'a TextureView, sampler: &'a Sampler) -> [BindGroupEntry<'a>; 2] {
+        [
+            BindGroupEntry {
+                binding: binding,
+                resource: BindingResource::TextureView(view),
+            },
+            BindGroupEntry {
+                binding: binding + 1,
+                resource: BindingResource::Sampler(sampler),
+            },
+        ]
+    }
+
+    pub fn make_textures_arrays(
+        &self,
+        layout: &BindGroupLayout,
+        arrays: &[&Texture2DArray; 4],
+        // atlas_view: ,
+        label: Option<&str>,
+    ) -> BindGroup {
+        let entries: Vec<BindGroupEntry> = [
+            self.make_texture_array_entry(0, arrays[0]), // opaque
+            self.make_texture_array_entry(2, arrays[1]), // alpha cutout
+            self.make_texture_array_entry(4, arrays[2]), // translucent
+            self.make_texture_array_entry(6, arrays[3]), // billboard
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
         self.make(label, layout, &entries)
     }
 
