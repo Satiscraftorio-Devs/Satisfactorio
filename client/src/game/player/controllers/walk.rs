@@ -43,8 +43,9 @@ impl PlayerController for WalkPlayerController {
             body.velocity.x = dir.x * body.walk_speed;
             body.velocity.z = dir.z * body.walk_speed;
         } else {
-            body.velocity.x = 0.0;
-            body.velocity.z = 0.0;
+            // La vitesse du joueur s'estompe au lieu de se réinitialiser nette (impression réaliste de s'arrêter)
+            body.velocity.x *= 0.95;
+            body.velocity.z *= 0.95;
         }
 
         // Saut : seulement si au sol
