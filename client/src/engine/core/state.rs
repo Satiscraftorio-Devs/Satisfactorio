@@ -2,17 +2,24 @@ use std::sync::Arc;
 
 use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
+use crate::engine::core::application::AppState;
 use crate::engine::core::frame::{EngineFrameData, GameFrameData};
+use crate::engine::core::gpu::pipeline::Pipelines;
+use crate::engine::core::gpu::GpuFactory;
 use crate::engine::render::camera::RenderCamera;
 use crate::engine::render::manager::RenderManager;
-use crate::engine::render::render::{GpuContext, RenderOptions, Renderer};
+use crate::engine::render::render::{DebugRenderResources, GpuContext, GpuResources, RenderOptions, Renderer};
 use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
-use crate::engine::render::texture::TextureManager;
+use crate::engine::render::texture::{TextureArrayIndex, TextureManager};
+use bytemuck::cast_slice;
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
-use wgpu::util::DeviceExt;
-use wgpu::Features;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{
+    BlendState, BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Face, Features,
+    FragmentState, FrontFace, PolygonMode, PrimitiveState, PrimitiveTopology, ShaderSource, TextureFormat, VertexState,
+};
 use winit::window::Window;
 
 pub struct State {
@@ -25,323 +32,8 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new<S: crate::engine::core::application::AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
-        let audio_manager = GameAudioManager::new(&window).ok();
-        let size = window.inner_size();
-
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
-
-        let surface = instance.create_surface(window.clone()).unwrap();
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await?;
-
-        let features = {
-            let mut requested = vec![
-                Features::CONSERVATIVE_RASTERIZATION,
-                Features::POLYGON_MODE_LINE,
-                Features::MULTI_DRAW_INDIRECT_COUNT,
-            ];
-
-            requested.retain(|value| adapter.features().contains(*value));
-            let result = requested.iter().fold(Features::empty(), |acc, value| acc.union(*value));
-            result
-        };
-
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: features,
-                experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: Default::default(),
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-
-        let limits = device.limits();
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(surface_caps.formats[0]);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::AutoNoVsync,
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-
-        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("texture_bind_group_layout"),
-        });
-
-        macro_rules! load_textures {
-            ($($name:ident: $path:literal),*) => {
-                vec![$(
-                    image::load_from_memory(include_bytes!($path))
-                        .expect(concat!("Failed to load texture: ", $path))
-                        .to_rgba8()
-                ),*]
-            };
-        }
-
-        let textures_data = load_textures!(
-            grass: "../../../../assets/images/grass.png",
-            dirt: "../../../../assets/images/dirt.png",
-            stone: "../../../../assets/images/stone.png"
-        );
-
-        let (width, height) = textures_data[0].dimensions();
-        for (i, data) in textures_data.iter().enumerate() {
-            assert_eq!(
-                data.dimensions(),
-                (width, height),
-                "All textures must have same dimensions (texture {})",
-                i
-            );
-        }
-
-        let textures: Vec<&[u8]> = textures_data.iter().map(|d| d.as_ref()).collect();
-
-        let mut texture_manager = TextureManager::new(limits.max_texture_dimension_2d, limits.max_texture_array_layers);
-
-        for (_, texture) in textures.iter().enumerate() {
-            texture_manager.register(&device, &queue, texture, 32, 32);
-        }
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_manager.arrays.first().unwrap().view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture_manager.arrays.first().unwrap().sampler()),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
-        let render_camera = RenderCamera::new();
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(render_camera.view_proj().current()),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-            label: Some("camera_bind_group_layout"),
-        });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../../../../assets/shaders/shader.wgsl").into()),
-        });
-
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
-            immediate_size: 0,
-        });
-
-        let wireframe_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Wireframe Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::buffer_layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Line,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview_mask: None,
-            cache: None,
-        });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Normal Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::buffer_layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: features.contains(Features::CONSERVATIVE_RASTERIZATION),
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview_mask: None,
-            cache: None,
-        });
-
-        let gizmo_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Gizmo Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::buffer_layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::LineList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview_mask: None,
-            cache: None,
-        });
-
-        let gizmo = [
+    pub async fn new<S: AppState>(window: Arc<Window>, _app_state: &S) -> anyhow::Result<Self> {
+        const GIZMO: [Vertex; 6] = [
             Vertex::new_with_rgba(0.0, 0.0, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(1.0, 0.0, 0.0, 255, 0, 0, 255, 0, 3.0, 0.0, 0.0),
             Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 0.0),
@@ -350,13 +42,7 @@ impl State {
             Vertex::new_with_rgba(0.0, 0.0, 1.0, 0, 0, 255, 255, 0, 3.0, 0.0, 0.0),
         ];
 
-        let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Gizmo Buffer"),
-            contents: bytemuck::cast_slice(&gizmo),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let chunk_borders = vec![
+        const CHUNK_BORDERS: [Vertex; 24] = [
             Vertex::new_with_rgba(0.0, 0.0, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
             Vertex::new_with_rgba(0.0, CHUNK_SIZE_F, 0.0, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
             Vertex::new_with_rgba(0.0, 0.0, CHUNK_SIZE_F, 0, 255, 0, 255, 0, 3.0, 0.0, 1.0),
@@ -383,9 +69,148 @@ impl State {
             Vertex::new_with_rgba(CHUNK_SIZE_F, CHUNK_SIZE_F, CHUNK_SIZE_F, 0, 0, 255, 255, 0, 3.0, 0.0, 1.0),
         ];
 
+        let audio_manager = GameAudioManager::new(&window).ok();
+
+        let size = window.inner_size();
+        let mut gpu_context = GpuContext::new(Arc::clone(&window)).unwrap();
+
+        let mut texture_manager = TextureManager::new(
+            gpu_context.get_tools(),
+            gpu_context.limits.max_texture_dimension_2d,
+            gpu_context.limits.max_texture_array_layers,
+        );
+
+        let gpu_factory = GpuFactory::new(&mut gpu_context);
+
+        let texture_bind_group_layout = gpu_factory.bind_group_layout().make_texture_array(Some("Texture array layout"));
+
+        let opaque_array = texture_manager.get_array(TextureArrayIndex::Opaque);
+        let texture_bind_group = gpu_factory.bind_group().make(
+            Some("Texture array"),
+            &texture_bind_group_layout,
+            &gpu_factory.bind_group().make_texture_array_entry(0, &opaque_array),
+        );
+
+        let render_camera = RenderCamera::new();
+
+        let camera_buffer = gpu_context.tools.device().create_buffer_init(&BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: cast_slice(render_camera.view_proj().current()),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout = gpu_factory.bind_group_layout().make_camera();
+        let camera_bind_group = gpu_factory.bind_group().make_camera(&camera_bind_group_layout, &camera_buffer);
+
+        let device = gpu_context.tools.device();
+        let queue = gpu_context.tools.queue();
+        let config = &gpu_context.config;
+
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: ShaderSource::Wgsl(include_str!("../../../../assets/shaders/shader.wgsl").into()),
+        });
+
+        let render_pipeline_layout = gpu_factory
+            .pipeline_layout()
+            .make(None, &[&texture_bind_group_layout, &camera_bind_group_layout]);
+
+        let vertex = VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[Vertex::buffer_layout()],
+            compilation_options: Default::default(),
+        };
+
+        let fragment = FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(ColorTargetState {
+                format: config.format,
+                blend: Some(BlendState::REPLACE),
+                write_mask: ColorWrites::ALL,
+            })],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        };
+
+        let wireframe_primitive = PrimitiveState {
+            topology: PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: Some(Face::Back),
+            polygon_mode: PolygonMode::Line,
+            unclipped_depth: false,
+            conservative: false,
+        };
+
+        let normal_primitive = PrimitiveState {
+            topology: PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: Some(Face::Back),
+            polygon_mode: PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: gpu_context.features.contains(Features::CONSERVATIVE_RASTERIZATION),
+        };
+
+        let gizmo_primitive = PrimitiveState {
+            topology: PrimitiveTopology::LineList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: Some(Face::Back),
+            polygon_mode: PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        };
+
+        let depth_stencil = DepthStencilState {
+            format: TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+            stencil: Default::default(),
+        };
+
+        let wireframe_render_pipeline = gpu_factory.pipeline().make(
+            "Wireframe",
+            &render_pipeline_layout,
+            vertex.clone(),
+            fragment.clone(),
+            wireframe_primitive,
+            Some(depth_stencil.clone()),
+        );
+
+        let render_pipeline = gpu_factory.pipeline().make(
+            "Normal",
+            &render_pipeline_layout,
+            vertex.clone(),
+            fragment.clone(),
+            normal_primitive,
+            Some(depth_stencil.clone()),
+        );
+
+        let gizmo_render_pipeline = gpu_factory.pipeline().make(
+            "Gizmo",
+            &render_pipeline_layout,
+            vertex.clone(),
+            fragment.clone(),
+            gizmo_primitive,
+            Some(depth_stencil.clone()),
+        );
+
+        let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Gizmo Buffer"),
+            contents: bytemuck::cast_slice(&GIZMO),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         let chunk_borders_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Chunk Borders Buffer"),
-            contents: bytemuck::cast_slice(&chunk_borders),
+            contents: bytemuck::cast_slice(&CHUNK_BORDERS),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -418,14 +243,7 @@ impl State {
 
         let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let gpu_context = GpuContext {
-            surface,
-            device,
-            queue,
-            config,
-        };
-
-        let render_manager = RenderManager::new(&gpu_context.device);
+        let render_manager = RenderManager::new(&device);
 
         // let player_mesh = gpu_context.device.create_buffer(&BufferDescriptor {
         //     label: Some("Player Mesh Buffer"),
@@ -434,29 +252,48 @@ impl State {
         //     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         // });
 
-        let renderer = Renderer::new(
-            false,
-            wireframe_render_pipeline,
-            render_pipeline,
-            diffuse_bind_group,
-            texture_manager,
-            camera_buffer,
-            camera_bind_group,
-            gizmo_render_pipeline,
-            gizmo_buffer,
-            (size.width, size.height),
-            chunk_borders,
-            chunk_borders_buffer,
-            gpu_context,
-            render_manager,
-            depth_texture,
-            depth_view,
+        let text_renderer = TextRenderer::new(&device, &queue, config.format);
+
+        // TODO: faire les autres pipelines
+        let pipelines = Pipelines::new(
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+            render_pipeline.clone(),
+            render_pipeline.clone(),
         );
 
-        let text_renderer = TextRenderer::new(
-            &renderer.gpu_context.device,
-            &renderer.gpu_context.queue,
-            renderer.gpu_context.config.format,
+        // TODO (wireframe)
+        let debug_pipelines = Pipelines::new(
+            wireframe_render_pipeline.clone(),
+            wireframe_render_pipeline.clone(),
+            wireframe_render_pipeline.clone(),
+            wireframe_render_pipeline.clone(),
+            wireframe_render_pipeline.clone(),
+        );
+
+        let render_options = RenderOptions::new((size.width as f32) / (size.height as f32), 0.1, 1000.0);
+
+        let gpu_tools = GpuResources::new(
+            pipelines,
+            camera_bind_group,
+            texture_bind_group,
+            camera_buffer,
+            depth_texture,
+            depth_view,
+            None,
+        );
+
+        let debug = DebugRenderResources::new(debug_pipelines, gizmo_render_pipeline, gizmo_buffer, chunk_borders_buffer);
+
+        let renderer = Renderer::new(
+            false,
+            render_manager,
+            render_options,
+            texture_manager,
+            gpu_context,
+            gpu_tools,
+            debug,
         );
 
         Ok(Self {
@@ -481,10 +318,10 @@ impl State {
             self.renderer
                 .gpu_context
                 .surface
-                .configure(&self.renderer.gpu_context.device, &self.renderer.gpu_context.config);
+                .configure(&self.renderer.gpu_context.tools.device(), &self.renderer.gpu_context.config);
             self.renderer.is_surface_configured = true;
             self.text_renderer.resize(width, height);
-            self.renderer.depth_texture = self.renderer.gpu_context.device.create_texture(&wgpu::TextureDescriptor {
+            self.renderer.gpu_resources.depth_texture = self.renderer.gpu_context.tools.device().create_texture(&wgpu::TextureDescriptor {
                 size: wgpu::Extent3d {
                     width: width,
                     height: height,
@@ -501,7 +338,11 @@ impl State {
                     size: Default::default(),
                 }
             });
-            self.renderer.depth_view = self.renderer.depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            self.renderer.gpu_resources.depth_view = self
+                .renderer
+                .gpu_resources
+                .depth_texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
         }
     }
 
@@ -539,16 +380,19 @@ impl State {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        self.renderer.render_manager.mesh_manager.flush(&self.renderer.gpu_context.queue);
+        self.renderer
+            .render_manager
+            .mesh_manager
+            .flush(&self.renderer.gpu_context.tools.queue());
         self.renderer.render(&self.game_frame_data.camera, Some(&mut self.text_renderer));
 
         Ok(())
     }
 
     pub fn dispose(&mut self) {
-        if let Some(audio) = self.audio_manager.as_mut() {
-            // TODO: faire fonctionner -> audio.dispose();
-        }
+        // if let Some(audio) = self.audio_manager.as_mut() {
+        //     // TODO: faire fonctionner -> audio.dispose();
+        // }
         self.text_renderer.dispose();
         self.renderer.dispose();
     }

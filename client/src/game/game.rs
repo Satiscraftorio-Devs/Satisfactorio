@@ -1,6 +1,5 @@
-use std::time::Duration;
-
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
+use std::{thread::sleep, time::Duration};
 
 use crate::{
     common::geometry::{plane::Plane, vertex::generate_cube},
@@ -13,6 +12,7 @@ use crate::{
         render::{mesh::manager::DataEntry, render::Renderer},
     },
     game::{
+        api::texture_loader::TextureLoader,
         network::NetworkManager,
         player::{
             controllers::{spectator::FreeCameraController, walk::WalkPlayerController},
@@ -20,7 +20,7 @@ use crate::{
             remote_players::RemotePlayersManager,
         },
         render::meshing::world::WorldMesh,
-        systems::inputs::InputState,
+        systems::{inputs::InputState, texture_registry::TextureRegistry},
         world::world::World,
     },
 };
@@ -28,7 +28,7 @@ use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 60;
-const DT_CAP: f32 = 1.0 / (FPS_CAP as f32);
+const DT_CAP: f32 = 1.0 / (FPS_CAP as f32 + 0.125);
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 
 pub struct GameState {
@@ -36,9 +36,10 @@ pub struct GameState {
     pub world_mesh: WorldMesh,
     pub player: Player,
     pub remote_players: RemotePlayersManager,
-    pub delay_ms: f32,
+    pub delay_s: f32,
     pub network: Option<NetworkManager>,
     inputs: InputState,
+    texture_registry: TextureRegistry,
 }
 
 impl GameState {
@@ -58,14 +59,18 @@ impl GameState {
             world_mesh: WorldMesh::new(),
             remote_players: RemotePlayersManager::new(),
             inputs: InputState::new(),
-            delay_ms: 0.0,
+            delay_s: 0.0,
             network: Some(network),
+            texture_registry: TextureRegistry::new(),
         }
     }
 }
 
 impl AppState for GameState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>) {
+        let mut tex_loader = TextureLoader::new(&mut renderer.texture_manager, &mut self.texture_registry);
+        self.world.init(&mut tex_loader);
+
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
         self.world_mesh.update(renderer, &mut self.world, &self.player);
 
@@ -79,13 +84,13 @@ impl AppState for GameState {
 
     fn update(&mut self, frame: &EngineFrameData, data: &mut GameFrameData, renderer: &mut Renderer) {
         // UPDATE DELAY
-        self.delay_ms += frame.dt;
+        self.delay_s += frame.dt;
 
-        if self.delay_ms < DT_CAP {
-            // sleep(Duration::from_micros(((DT_CAP - self.delay_ms) * 1_000_000.0) as u64));
+        if self.delay_s < DT_CAP {
+            sleep(Duration::from_micros(((DT_CAP - self.delay_s) * 1_000_000.0) as u64));
         }
 
-        self.delay_ms -= DT_CAP;
+        self.delay_s -= DT_CAP;
         // Commande debug (touches)
         self.update_debug_commands();
         // PHYSICS
@@ -195,24 +200,27 @@ impl AppState for GameState {
                     let player_data = generate_cube(new_pos.0, new_pos.1, new_pos.2);
                     let raw_data = bytemuck::cast_slice(&player_data);
                     if let Some(mesh_id) = p.mesh_id {
-                        renderer
+                        if let Some(update_err) = renderer
                             .render_manager
                             .mesh_manager
                             .update_data(
-                                &renderer.gpu_context.device,
-                                &renderer.gpu_context.queue,
-                                &mut renderer.frame_encoder.as_mut().unwrap(),
+                                &renderer.gpu_context.tools.device(),
+                                &renderer.gpu_context.tools.queue(),
+                                &mut renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
                                 DataEntry::new(mesh_id, raw_data),
                             )
-                            .ok();
+                            .err()
+                        {
+                            println!("Failed to update mesh id {}.\nError: {}", mesh_id, update_err);
+                        };
                     } else {
                         p.mesh_id = renderer
                             .render_manager
                             .mesh_manager
                             .add_data(
-                                &renderer.gpu_context.device,
-                                &renderer.gpu_context.queue,
-                                &mut renderer.frame_encoder.as_mut().unwrap(),
+                                &renderer.gpu_context.tools.device(),
+                                &renderer.gpu_context.tools.queue(),
+                                &mut renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
                                 raw_data,
                             )
                             .ok();

@@ -3,7 +3,7 @@ use crate::world::data::block::BlockManager;
 use crate::world::data::chunk::{Chunk, ChunkData};
 use crate::world::generation::chunk::ChunkWithChecksum;
 use noise::{NoiseFn, Perlin, Seedable};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub const CAVE_SCALE: f64 = 0.025;
 pub const CAVE_THRESHOLD: f64 = 0.04;
@@ -15,11 +15,11 @@ pub struct ChunkGenContext {
     pub perlin: Arc<Perlin>,
     pub cave_noise_1: Arc<Perlin>,
     pub cave_noise_2: Arc<Perlin>,
-    pub block_manager: Arc<BlockManager>,
+    pub block_manager: Arc<RwLock<BlockManager>>,
 }
 
 impl ChunkGenContext {
-    pub fn new(seed: u32, block_manager: Arc<BlockManager>) -> Self {
+    pub fn new(seed: u32, block_manager: Arc<RwLock<BlockManager>>) -> Self {
         Self {
             seed,
             perlin: Arc::new(Perlin::default().set_seed(seed)),
@@ -65,7 +65,7 @@ pub struct ChunkGenerator {
 }
 
 impl ChunkGenerator {
-    pub fn new(block_manager: Arc<BlockManager>, seed: u32) -> Self {
+    pub fn new(block_manager: Arc<RwLock<BlockManager>>, seed: u32) -> Self {
         let ctx = ChunkGenContext::new(seed, block_manager);
         let worker_count = num_cpus::get();
         Self {
@@ -73,7 +73,7 @@ impl ChunkGenerator {
         }
     }
 
-    pub fn with_max_pending(worker_count: usize, block_manager: Arc<BlockManager>, seed: u32, max_pending: usize) -> Self {
+    pub fn with_max_pending(worker_count: usize, block_manager: Arc<RwLock<BlockManager>>, seed: u32, max_pending: usize) -> Self {
         let ctx = ChunkGenContext::new(seed, block_manager);
         Self {
             inner: WorkerPool::with_max_pending(worker_count, ctx, Some(max_pending)),
@@ -96,7 +96,7 @@ impl ChunkGenerator {
 /// Génère des chunks de manière séquentielle (sans parallélisme).
 /// À utiliser UNIQUEMNT lorsque le nombre de chunks est faible (ex: 27 chunks server).
 pub fn generate_chunks_sequential(
-    block_manager: Arc<BlockManager>,
+    block_manager: Arc<RwLock<BlockManager>>,
     seed: u32,
     coords: Vec<(i32, i32, i32)>,
 ) -> std::collections::HashMap<(i32, i32, i32), ChunkWithChecksum> {

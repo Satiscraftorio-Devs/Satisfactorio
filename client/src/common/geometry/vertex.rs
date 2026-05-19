@@ -15,7 +15,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn new(x: f32, y: f32, z: f32, tex_layer: u32, ao: f32, u: f32, v: f32) -> Vertex {
+    pub const fn new(x: f32, y: f32, z: f32, tex_layer: u32, ao: f32, u: f32, v: f32) -> Vertex {
         return Vertex {
             position: [x, y, z],
             color: 4294967295,
@@ -32,7 +32,7 @@ impl Vertex {
         copy
     }
 
-    pub fn player_vertex(pos: (f32, f32, f32), u: f32, v: f32) -> Vertex {
+    pub const fn player_vertex(pos: (f32, f32, f32), u: f32, v: f32) -> Vertex {
         let (x, y, z) = pos;
         Vertex {
             position: [x, y, z],
@@ -44,7 +44,7 @@ impl Vertex {
         }
     }
 
-    pub fn new_with_rgba(x: f32, y: f32, z: f32, r: u8, g: u8, b: u8, a: u8, tex_layer: u32, ao: f32, u: f32, v: f32) -> Vertex {
+    pub const fn new_with_rgba(x: f32, y: f32, z: f32, r: u8, g: u8, b: u8, a: u8, tex_layer: u32, ao: f32, u: f32, v: f32) -> Vertex {
         return Vertex {
             position: [x, y, z],
             color: (a as u32) << 24 | (r as u32) << 16 | (g as u32) << 8 | (b as u32),
@@ -55,7 +55,7 @@ impl Vertex {
         };
     }
 
-    pub fn new_with_color(x: f32, y: f32, z: f32, color: u32, tex_layer: u32, ao: f32, u: f32, v: f32) -> Vertex {
+    pub const fn new_with_color(x: f32, y: f32, z: f32, color: u32, tex_layer: u32, ao: f32, u: f32, v: f32) -> Vertex {
         return Vertex {
             position: [x, y, z],
             color: color,
@@ -66,7 +66,7 @@ impl Vertex {
         };
     }
 
-    pub fn buffer_layout() -> VertexBufferLayout<'static> {
+    pub const fn buffer_layout() -> VertexBufferLayout<'static> {
         VertexBufferLayout {
             array_stride: size_of::<Vertex>() as BufferAddress,
             step_mode: VertexStepMode::Vertex,

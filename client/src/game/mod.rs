@@ -5,3 +5,5 @@ pub mod player;
 pub mod render;
 pub mod systems;
 pub mod world;
+
+pub mod api;

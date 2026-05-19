@@ -13,7 +13,7 @@
 //! - [`world::generation`]      : Génération déterministe de chunks
 
 use aes_gcm::{Aes256Gcm, KeyInit};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 // ---------------------------------------------------------------------------
 // network::messages
@@ -828,7 +828,7 @@ fn generation_is_cave_block_shallow() {
     use crate::world::data::block::BlockManager;
     use crate::world::generation::chunk_generator::ChunkGenContext;
 
-    let bm = Arc::new(BlockManager::new());
+    let bm = Arc::new(RwLock::new(BlockManager::new()));
     let ctx = ChunkGenContext::new(42, bm);
 
     assert!(!ctx.is_cave_block(0.0, 0.0, 0.0, -1));
@@ -841,7 +841,7 @@ fn generation_context_seeds() {
     use crate::world::data::block::BlockManager;
     use crate::world::generation::chunk_generator::ChunkGenContext;
 
-    let bm = Arc::new(BlockManager::new());
+    let bm = Arc::new(RwLock::new(BlockManager::new()));
     let ctx = ChunkGenContext::new(42, bm);
 
     assert_eq!(ctx.seed, 42);
@@ -859,7 +859,7 @@ fn generation_chunk_deterministic() {
     for name in &["air", "stone", "dirt", "grass"] {
         bm.register(BlockData::new(name));
     }
-    let bm = Arc::new(bm);
+    let bm = Arc::new(RwLock::new(bm));
 
     let ctx = ChunkGenContext::new(42, Arc::clone(&bm));
 
@@ -883,7 +883,7 @@ fn generation_chunk_different_seeds() {
     for name in &["air", "stone", "dirt", "grass"] {
         bm.register(BlockData::new(name));
     }
-    let bm = Arc::new(bm);
+    let bm = Arc::new(RwLock::new(bm));
 
     let ctx_a = ChunkGenContext::new(1, Arc::clone(&bm));
     let ctx_b = ChunkGenContext::new(2, Arc::clone(&bm));
@@ -905,7 +905,7 @@ fn generation_sequential() {
     for name in &["air", "stone", "dirt", "grass"] {
         bm.register(BlockData::new(name));
     }
-    let bm = Arc::new(bm);
+    let bm = Arc::new(RwLock::new(bm));
 
     let coords = vec![(0, 0, 0), (1, 0, 0), (0, 1, 0)];
     let result = generate_chunks_sequential(bm, 42, coords);
@@ -929,12 +929,13 @@ fn generation_terrain_stratification() {
     for name in &["air", "stone", "dirt", "grass"] {
         bm.register(BlockData::new(name));
     }
-    let bm = Arc::new(bm);
+    let bm = Arc::new(RwLock::new(bm));
 
     let ctx = ChunkGenContext::new(42, Arc::clone(&bm));
 
     let chunk = Chunk::generate_with_context(0, 0, 0, &ctx);
 
+    let bm = bm.read().unwrap();
     let grass_id = bm.get_block_by_string("grass".to_string()).unwrap().get_id();
     let dirt_id = bm.get_block_by_string("dirt".to_string()).unwrap().get_id();
     let stone_id = bm.get_block_by_string("stone".to_string()).unwrap().get_id();

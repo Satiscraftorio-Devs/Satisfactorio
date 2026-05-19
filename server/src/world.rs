@@ -2,30 +2,50 @@ use cgmath::Point3;
 use shared::constants::MAX_SPAWN_SEARCH_HEIGHT;
 use shared::log_warn_server;
 use shared::network::messages::Position;
+use shared::world::data::block::BlockData;
 use shared::world::data::block::{BlockInstance, BlockManager};
 use shared::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE};
 use shared::world::generation::chunk::ChunkWithChecksum;
 use shared::world::generation::chunk_generator::generate_chunks_sequential;
 use shared::world::modified_chunk::ModifiedWorld;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub struct WorldState {
     pub seed: u32,
-    pub block_manager: Arc<BlockManager>,
+    pub block_manager: Arc<RwLock<BlockManager>>,
     pub world_generated_chunks: HashMap<(i32, i32, i32), ChunkWithChecksum>,
     pub modifications: ModifiedWorld,
 }
 
 impl WorldState {
     pub fn new() -> Self {
-        let block_manager = Arc::new(BlockManager::default());
+        let block_manager = Arc::new(RwLock::new(BlockManager::new()));
 
-        Self {
+        let mut instance = Self {
             seed: 0,
             block_manager,
             world_generated_chunks: HashMap::new(),
             modifications: ModifiedWorld::new(),
+        };
+
+        instance.init();
+
+        instance
+    }
+
+    pub fn init(&mut self) {
+        let mut block_manager = self.block_manager.write().unwrap();
+
+        let blocks = [
+            BlockData::new("air"),
+            BlockData::new("stone"),
+            BlockData::new("dirt"),
+            BlockData::new("grass"),
+        ];
+
+        for block in blocks {
+            block_manager.register(block);
         }
     }
 

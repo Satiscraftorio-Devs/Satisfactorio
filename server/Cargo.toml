@@ -21,6 +21,6 @@ serde = { workspace = true }
 bincode = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1.0.102"
-rand = "0.10.1"
+rand = "0.10"
 
 shared = { path = "../shared" }
