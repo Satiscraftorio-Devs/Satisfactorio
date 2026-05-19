@@ -1,7 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
-
 use crate::client::ClientSession;
 use crate::game::{PacketHandler, ProductionHandler};
 use crate::state::AppState;
@@ -11,6 +7,9 @@ use shared::log_err_server;
 use shared::log_server;
 use shared::network::crypto::generate_server_id;
 use shared::network::messages::Paquet;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 

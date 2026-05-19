@@ -1,11 +1,11 @@
-mod broadcast;
-mod client;
-mod game;
-mod network;
-mod player;
-mod server;
-mod state;
-mod world;
+pub mod broadcast;
+pub mod client;
+pub mod game;
+pub mod network;
+pub mod player;
+pub mod server;
+pub mod state;
+pub mod world;
 
 #[cfg(test)]
 mod tests;

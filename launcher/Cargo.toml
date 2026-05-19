@@ -1,0 +1,22 @@
+[package]
+name = "launcher"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "launcher"
+path = "src/main.rs"
+
+
+
+
+[features]
+default = ["launcher"]
+launcher = []
+
+[dependencies]
+server = { path = "../server" }
+client = { path = "../client" }
+shared = { path = "../shared" }
+tokio.workspace = true
+eframe = { version = "0.27", default-features = false, features = ["default_fonts", "wgpu", "x11"] }

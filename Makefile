@@ -7,6 +7,11 @@ build-bg: fmt
 build: fmt
 	RUSTFLAGS="-Awarnings" cargo build
 
+launcher:
+	cargo run --bin "launcher"
+
+launch: launcher
+
 server-bg: build-bg
 	RUSTFLAGS="-Awarnings" cargo run -q -p server --bin server | tee logs/server.txt &
 
