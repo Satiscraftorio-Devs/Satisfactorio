@@ -29,6 +29,9 @@ pub const JUMP_SPEED: f32 = 8.0;
 /// Vitesse de marche maximale (m/s)
 pub const WALK_SPEED: f32 = 6.3;
 
+/// Coefficient de décélération (m/s). Valeur basée sur 60 fps + frame independant.
+pub const DECEL_COEF: f32 = 3.69319145e-7; // 0.78125^60
+
 /// Position de spawn initiale du joueur (axe X)
 pub const SPAWN_POSITION_X: f32 = 0.5;
 
