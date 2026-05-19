@@ -1,4 +1,4 @@
-pub const HORIZONTAL_RENDER_DISTANCE: u16 = 9;
+pub const HORIZONTAL_RENDER_DISTANCE: u16 = 11;
 pub const VERTICAL_RENDER_DISTANCE: u16 = 5;
 pub const HORIZONTAL_SIMULATION_DISTANCE: u16 = HORIZONTAL_RENDER_DISTANCE + 2;
 pub const VERTICAL_SIMULATION_DISTANCE: u16 = VERTICAL_RENDER_DISTANCE + 2;
@@ -6,11 +6,11 @@ pub const VERTICAL_SIMULATION_DISTANCE: u16 = VERTICAL_RENDER_DISTANCE + 2;
 pub const CHUNK_PRIORITY_DISTANCE: f32 = 32.0;
 pub const CHUNK_PRIORITY_DISTANCE_SQR: f32 = CHUNK_PRIORITY_DISTANCE * CHUNK_PRIORITY_DISTANCE;
 
-pub const fn max_chunks_in_queue() -> u32 {
+pub const MAX_CHUNKS_IN_QUEUE: u32 = {
     let h_chunks = HORIZONTAL_SIMULATION_DISTANCE as u32;
     let v_chunks = VERTICAL_SIMULATION_DISTANCE as u32;
     h_chunks * h_chunks * v_chunks
-}
+};
 
 // Player physics
 
@@ -52,3 +52,57 @@ pub const GUARD_CYCLE_INTERVAL_MS: u64 = 200;
 
 /// Multiplicateur de tolérance pour la plausibilité des déplacements (anti-cheat)
 pub const MOVEMENT_PLAUSIBILITY_MULTIPLIER: f32 = 3.5;
+
+// Géométrie
+
+pub const DIRECT_NORMALS_3D: [(i32, i32, i32); 6] = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)];
+pub const INDIRECT_NORMALS_3D: [(i32, i32, i32); 20] = [
+    (-1, -1, 0),
+    (1, -1, 0),
+    (-1, 1, 0),
+    (1, 1, 0),
+    (-1, 0, -1),
+    (1, 0, -1),
+    (0, -1, -1),
+    (-1, -1, -1),
+    (1, -1, -1),
+    (0, 1, -1),
+    (-1, 1, -1),
+    (1, 1, -1),
+    (-1, 0, 1),
+    (1, 0, 1),
+    (0, -1, 1),
+    (-1, -1, 1),
+    (1, -1, 1),
+    (0, 1, 1),
+    (-1, 1, 1),
+    (1, 1, 1),
+];
+pub const ALL_NORMALS_3D: [(i32, i32, i32); 26] = [
+    (-1, 0, 0),
+    (1, 0, 0),
+    (0, -1, 0),
+    (-1, -1, 0),
+    (1, -1, 0),
+    (0, 1, 0),
+    (-1, 1, 0),
+    (1, 1, 0),
+    (0, 0, -1),
+    (-1, 0, -1),
+    (1, 0, -1),
+    (0, -1, -1),
+    (-1, -1, -1),
+    (1, -1, -1),
+    (0, 1, -1),
+    (-1, 1, -1),
+    (1, 1, -1),
+    (0, 0, 1),
+    (-1, 0, 1),
+    (1, 0, 1),
+    (0, -1, 1),
+    (-1, -1, 1),
+    (1, -1, 1),
+    (0, 1, 1),
+    (-1, 1, 1),
+    (1, 1, 1),
+];

@@ -28,7 +28,13 @@ use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 60;
-const DT_CAP: f32 = 1.0 / (FPS_CAP as f32 + 0.125);
+const DT_CAP: f32 = {
+    if FPS_CAP == 0 {
+        0.0
+    } else {
+        1.0 / (FPS_CAP as f32 + 0.125)
+    }
+};
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 
 pub struct GameState {
@@ -69,10 +75,8 @@ impl GameState {
 impl AppState for GameState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>) {
         let mut tex_loader = TextureLoader::new(&mut renderer.texture_manager, &mut self.texture_registry);
-        self.world.init(&mut tex_loader);
-
-        self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
-        self.world_mesh.update(renderer, &mut self.world, &self.player);
+        self.world.init(&mut tex_loader, &self.player);
+        self.world_mesh.init(&mut self.world);
 
         if let Some(ref mut audio) = audio_manager {
             if let Err(e) = audio.play_main_theme() {
@@ -91,8 +95,10 @@ impl AppState for GameState {
         }
 
         self.delay_s -= DT_CAP;
+
         // Commande debug (touches)
         self.update_debug_commands();
+
         // PHYSICS
         self.player
             .physics_update(frame.dt, &mut self.inputs, &self.world, self.player.state.game_mode.clone());
@@ -154,12 +160,12 @@ impl AppState for GameState {
                 }
 
                 // Nettoyer les joueurs distants qui n'ont pas envoyé de mise à jour depuis 30s
-                self.remote_players.cleanup_stale(std::time::Duration::from_secs(30));
+                self.remote_players.cleanup_stale(Duration::from_secs(30));
             }
         }
 
         // MESHING
-        self.world_mesh.update(renderer, &mut self.world, &self.player);
+        self.world_mesh.update(renderer, &mut self.world);
 
         // RENDER
         {
@@ -267,9 +273,7 @@ impl GameState {
                 chunk.set_dirty();
                 println!("General:\n- State: {}\n- Is dirty?: {}", state.to_str(), dirty);
             }
-            if let Some(mesh) = self.world_mesh.mesh_at_mut(&key) {
-                let (id, dirty) = mesh.get_debug_infos();
-                mesh.set_dirty();
+            if let Some((id, dirty)) = self.world_mesh.mesh_infos_at(&key) {
                 let id = {
                     if id.is_some() {
                         id.unwrap().to_string()

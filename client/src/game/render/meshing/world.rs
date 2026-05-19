@@ -6,17 +6,24 @@ use crate::{
         world::world::World,
     },
 };
-use shared::parallel::{WorkResult, WorkerPool};
 use shared::{buffer_pool::BufferPool, world::data::chunk::ChunkState};
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
+use shared::{
+    parallel::{WorkResult, WorkerPool},
+    world::data::chunk::CHUNK_SIZE,
+};
 use std::sync::Arc;
+use std::{cmp::max, collections::VecDeque};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::remove_dir,
+};
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
     mesh_worker: WorkerPool<GreedyMeshingProcessor>,
     pending: HashMap<usize, (i32, i32, i32)>,
     pending_keys: HashSet<(i32, i32, i32)>,
+    queued: VecDeque<(i32, i32, i32)>,
 }
 
 impl WorldMesh {
@@ -28,11 +35,142 @@ impl WorldMesh {
             mesh_worker: WorkerPool::new(worker_count, buffer_pool),
             pending: HashMap::new(),
             pending_keys: HashSet::new(),
+            queued: VecDeque::new(),
         }
     }
 
-    pub fn mesh_at(&self, cpos: &(i32, i32, i32)) -> Option<&ChunkMesh> {
-        self.meshes.get(&cpos)
+    pub fn init(&mut self, world: &mut World) {
+        self.enqueue_missing_meshes(world);
+        self.submit_meshes(world);
+    }
+
+    pub fn update(&mut self, renderer: &mut Renderer, world: &mut World) {
+        self.enqueue_missing_meshes(world);
+        self.submit_meshes(world);
+        self.compute_generated_meshes(renderer, world);
+    }
+
+    fn enqueue_missing_meshes(&mut self, world: &mut World) {
+        // Récupérer les chunks prêts à êtres meshés
+        let missing_keys = world.ready_to_mesh();
+
+        if missing_keys.is_empty() {
+            return;
+        }
+
+        let mut lefts_to_mesh = VecDeque::new();
+
+        for key in missing_keys.iter() {
+            let (cx, cy, cz) = *key;
+
+            // Si le chunk n'existe pas, on ne crée pas le mesh
+            if world.get_chunk_data(cx, cy, cz).is_none() {
+                continue;
+            };
+
+            // Si les chunks voisins sont prêts, on le met en file d'attente pour le mesh
+            if world.are_all_neighbors_ready(cx, cy, cz) {
+                self.queued.push_back(*key);
+            }
+            // Si les chunks voisins ne sont pas encore générés, on le laisse en attente
+            else {
+                lefts_to_mesh.push_back(*key);
+            }
+        }
+
+        world.set_ready_to_mesh(lefts_to_mesh);
+    }
+
+    fn submit_meshes(&mut self, world: &mut World) {
+        // Si la file d'attente est pleine, ça ne sert à rien d'essayer de soumettre des demandes
+        if self.mesh_worker.is_queue_full() {
+            return;
+        }
+
+        while let Some(key) = self.queued.pop_front() {
+            let (cx, cy, cz) = key;
+
+            // Si le chunk associé au mesh n'existe pas, on passe au suivant (on l'a déjà retiré de la liste au début de la boucle)
+            let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) else {
+                continue;
+            };
+
+            // On récupère les infos nécessaires pour le mesher
+            let chunk_copy = Arc::clone(&chunk_data.chunk);
+            let snapshot = world.get_mesh_snapshot(cx, cy, cz);
+            let input = (chunk_copy, snapshot, cx, cy, cz);
+
+            let result = self.mesh_worker.submit(input);
+
+            match result {
+                Ok(id) => {
+                    // La demande a aboutit
+                    self.pending.insert(id, key);
+                    self.pending_keys.insert(key);
+                }
+                Err(_) => {
+                    // La file d'attente est pleine, on arrête ici pour l'instant
+                    break;
+                }
+            }
+        }
+    }
+
+    fn compute_generated_meshes(&mut self, renderer: &mut Renderer, world: &mut World) {
+        while let Some(WorkResult { output: vertices_opt, id }) = self.mesh_worker.try_recv() {
+            // Si la mesh était dans la file d'attente on la retire, sinon on passe à la suivante (déjà traitée)
+            let Some(key) = self.pending.remove(&id) else {
+                continue;
+            };
+
+            // On retire la mesh des clés en attente
+            self.pending_keys.remove(&key);
+
+            // On récupère les données, et si elles n'existent pas, on passe à la mesh suivante
+            let Some(vertices) = vertices_opt else {
+                continue;
+            };
+
+            if let Some(chunk) = world.get_chunk_data_mut(key.0, key.1, key.2) {
+                match self.mesh_at_mut(&key) {
+                    // Le mesh existe, on le met à jour
+                    Some(mesh) => match mesh.update(&vertices, renderer) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Could not update mesh: {:?}", e as u8);
+                        }
+                    },
+                    // Le mesh n'existe pas encore, on le crée
+                    None => {
+                        let mut mesh = ChunkMesh::new();
+                        match mesh.update(&vertices, renderer) {
+                            Ok(_) => {
+                                // Le mesh a correctement été configuré, donc on peut l'insérer
+                                self.meshes.insert(key, mesh);
+                            }
+                            Err(e) => {
+                                // Le mesh a eu un problème de configuration, on ne fait rien
+                                println!("Could not insert mesh: {:?}", e as u8);
+                            }
+                        }
+                    }
+                };
+
+                // On marque le chunk comme prêt
+                chunk.state = ChunkState::Ready;
+            }
+            // Si le chunk relié à la mesh n'existe pas alors on supprime la mesh et son entrée
+            else {
+                self.meshes.remove(&key);
+            }
+
+            // Nettoyage
+            self.mesh_worker.context().release_buffer(vertices);
+        }
+    }
+
+    pub fn mesh_infos_at(&self, cpos: &(i32, i32, i32)) -> Option<(Option<u32>, bool)> {
+        self.meshes.get(&cpos).map(|mesh| mesh.get_debug_infos())
     }
 
     pub fn mesh_at_mut(&mut self, cpos: &(i32, i32, i32)) -> Option<&mut ChunkMesh> {
@@ -42,79 +180,7 @@ impl WorldMesh {
     pub fn set_dirty(&mut self, cpos: &(i32, i32, i32)) {
         if let Some(chunk) = self.meshes.get_mut(&cpos) {
             chunk.set_dirty();
-        }
-    }
-
-    pub fn update(&mut self, renderer: &mut Renderer, world: &mut World, player: &Player) {
-        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
-        let mut needed_rendered_keys: Vec<(i32, i32, i32)> = Vec::new();
-
-        for x in min_cx..=max_cx {
-            for y in min_cy..=max_cy {
-                for z in min_cz..=max_cz {
-                    needed_rendered_keys.push((x, y, z));
-                }
-            }
-        }
-
-        for &(cx, cy, cz) in needed_rendered_keys.iter() {
-            let key = (cx, cy, cz);
-
-            if self.pending_keys.contains(&key) {
-                continue;
-            }
-
-            if let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) {
-                let needs_processing = self.meshes.get(&key).map_or(true, |mesh: &ChunkMesh| mesh.is_dirty());
-
-                if needs_processing && world.are_all_neighbors_ready(cx, cy, cz) {
-                    println!("yes");
-                    let snapshot = world.get_mesh_snapshot(cx, cy, cz);
-                    if let Ok(id) = self.mesh_worker.submit((Arc::clone(&chunk_data.chunk), snapshot, cx, cy, cz)) {
-                        self.pending.insert(id, key);
-                        self.pending_keys.insert(key);
-                    }
-                }
-            }
-        }
-        // println!("Mesh infos: {} {}", self.meshes.len(), self.meshes.capacity(),);
-
-        while let Some(WorkResult { output: vertices_opt, id }) = self.mesh_worker.try_recv() {
-            if let Some(key) = self.pending.remove(&id) {
-                self.pending_keys.remove(&key);
-
-                let Some(vertices) = vertices_opt else {
-                    continue;
-                };
-
-                if let Some(chunk) = world.get_chunk_data_mut(key.0, key.1, key.2) {
-                    match self.mesh_at_mut(&key) {
-                        Some(mesh) => match mesh.update(&vertices, renderer) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                println!("Could not update mesh: {:?}", e as u8);
-                            }
-                        },
-                        None => {
-                            let mut mesh = ChunkMesh::new();
-                            match mesh.update(&vertices, renderer) {
-                                Ok(_) => {
-                                    self.meshes.insert(key, mesh);
-                                }
-                                Err(e) => {
-                                    println!("Could not insert mesh: {:?}", e as u8);
-                                }
-                            }
-                        }
-                    };
-                    chunk.is_dirty = false;
-                    chunk.state = ChunkState::Ready;
-                } else {
-                    self.meshes.remove(&key);
-                }
-
-                self.mesh_worker.context().release_buffer(vertices);
-            }
+            self.queued.push_back(*cpos);
         }
     }
 
@@ -122,6 +188,7 @@ impl WorldMesh {
         self.meshes.clear();
         self.pending.clear();
         self.pending_keys.clear();
+        self.queued.clear();
         // TODO: faire fonctionner -> self.mesh_worker.dispose();
     }
 }

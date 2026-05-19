@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::common::utils::updatable::Updatable;
 use crate::game::network::protocol::GameProtocol;
 use crate::game::player::controllers::spectator::SpectatorPlayerController;
@@ -68,22 +70,26 @@ impl PlayerState {
         let mut commands = Vec::new();
 
         if inputs.take_key_pressed(KeyCode::KeyB) {
-            let hit = voxel_raycast(self.camera.eye, self.camera.forward(), 12.0, |x, y, z| {
-                world.get_block_from_xyz(x, y, z).is_solid()
-            });
-            if let Some(hit) = hit {
-                let (x, y, z) = hit.block_pos;
-                let air = BlockInstance::air();
-                let success = world.set_block(x, y, z, air);
-                if success {
-                    commands.push(GameProtocol::create_block_modification(x, y, z, air));
-                    let chunk_pos = World::chunk_coords_from_block(x, y, z);
-                    world_mesh.set_dirty(&chunk_pos);
-                }
-            }
+            self.break_block(world, world_mesh, &mut commands);
         }
 
         commands
+    }
+
+    fn break_block(&mut self, world: &mut World, world_mesh: &mut WorldMesh, commands: &mut Vec<Paquet>) {
+        let hit = voxel_raycast(self.camera.eye, self.camera.forward(), 12.0, |x, y, z| {
+            world.get_block_from_xyz(x, y, z).is_solid()
+        });
+        if let Some(hit) = hit {
+            let (x, y, z) = hit.block_pos;
+            let air = BlockInstance::air();
+            let success = world.set_block(x, y, z, air);
+            if success {
+                commands.push(GameProtocol::create_block_modification(x, y, z, air));
+                let chunk_pos = World::chunk_coords_from_block(x, y, z);
+                world_mesh.set_dirty(&chunk_pos);
+            }
+        }
     }
 
     pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {
@@ -147,8 +153,6 @@ impl PlayerState {
         self.camera.pitch = rot.y;
     }
 
-    pub fn break_block_at(_block_pos: Point3<f32>) {}
-
     /// Retourne [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
     /// pour les chunks à simuler autour du joueur.
     pub fn get_simulation_chunk_range(&self) -> [i32; 6] {
@@ -173,7 +177,8 @@ impl PlayerState {
     pub fn get_rendered_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_rendered_chunk_range();
 
-        let mut keys: Vec<(i32, i32, i32)> = Vec::new();
+        let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)) as usize;
+        let mut keys: Vec<(i32, i32, i32)> = Vec::with_capacity(chunk_number);
 
         for x in min_cx..=max_cx {
             for y in min_cy..=max_cy {
@@ -190,7 +195,8 @@ impl PlayerState {
     pub fn get_simulation_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_simulation_chunk_range();
 
-        let mut keys: Vec<(i32, i32, i32)> = Vec::new();
+        let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)) as usize;
+        let mut keys: Vec<(i32, i32, i32)> = Vec::with_capacity(chunk_number);
 
         for x in min_cx..=max_cx {
             for y in min_cy..=max_cy {
@@ -311,10 +317,6 @@ impl Player {
 
     pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
         self.state.teleport(x, y, z);
-    }
-
-    pub fn break_block_at(block_pos: Point3<f32>) {
-        PlayerState::break_block_at(block_pos);
     }
 
     pub fn get_simulation_chunk_range(&self) -> [i32; 6] {

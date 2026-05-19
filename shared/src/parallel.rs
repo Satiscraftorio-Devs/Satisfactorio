@@ -89,10 +89,8 @@ impl<P: Parallelizable> WorkerPool<P> {
     }
 
     pub fn submit(&self, input: P::Input) -> Result<usize, QueueFull> {
-        if let Some(max) = self.max_pending {
-            if self.pending_count.load(Ordering::Relaxed) >= max {
-                return Err(QueueFull);
-            }
+        if self.is_queue_full() {
+            return Err(QueueFull);
         }
         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
         self.pending_count.fetch_add(1, Ordering::Relaxed);
@@ -107,6 +105,13 @@ impl<P: Parallelizable> WorkerPool<P> {
             Err(mpsc::TryRecvError::Empty) => None,
             Err(mpsc::TryRecvError::Disconnected) => None,
         }
+    }
+
+    pub fn is_queue_full(&self) -> bool {
+        if let Some(max) = self.max_pending {
+            return self.pending_count.load(Ordering::Relaxed) >= max;
+        }
+        return false;
     }
 
     pub fn context(&self) -> &P::Context {

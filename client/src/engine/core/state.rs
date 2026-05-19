@@ -74,7 +74,7 @@ impl State {
         let size = window.inner_size();
         let mut gpu_context = GpuContext::new(Arc::clone(&window)).unwrap();
 
-        let mut texture_manager = TextureManager::new(
+        let texture_manager = TextureManager::new(
             gpu_context.get_tools(),
             gpu_context.limits.max_texture_dimension_2d,
             gpu_context.limits.max_texture_array_layers,

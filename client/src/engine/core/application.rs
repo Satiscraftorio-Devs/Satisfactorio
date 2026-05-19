@@ -9,7 +9,7 @@ use winit::{application::ApplicationHandler, keyboard::KeyCode, keyboard::Physic
 use crate::engine::audio::GameAudioManager;
 use crate::engine::core::frame::{EngineFrameData, GameFrameData};
 use crate::engine::core::state::State;
-use crate::engine::render::render::{RenderOptions, Renderer};
+use crate::engine::render::render::Renderer;
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 

@@ -496,8 +496,8 @@ fn constants_chunk_priority() {
 /// Vérifie que `max_chunks_in_queue` calcule correctement 11 x 11 x 7 = 847.
 #[test]
 fn constants_max_chunks_in_queue() {
-    use crate::constants::max_chunks_in_queue;
-    assert_eq!(max_chunks_in_queue(), 847);
+    use crate::constants::MAX_CHUNKS_IN_QUEUE;
+    assert_eq!(MAX_CHUNKS_IN_QUEUE, 847);
 }
 
 // ---------------------------------------------------------------------------

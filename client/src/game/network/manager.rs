@@ -26,7 +26,6 @@ use crate::game::network::protocol::GameProtocol;
 use shared::{
     log_client, log_err_client,
     network::messages::{Paquet, PlayerGameMode},
-    world::data::block::BlockInstance,
 };
 use std::time::{Duration, Instant};
 

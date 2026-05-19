@@ -59,7 +59,7 @@ impl ChunkMesh {
         self.dirty.store(true, Ordering::Relaxed);
     }
 
-    pub fn get_debug_infos(&mut self) -> (Option<u32>, bool) {
+    pub fn get_debug_infos(&self) -> (Option<u32>, bool) {
         (self.id, self.dirty.load(Ordering::Relaxed))
     }
 

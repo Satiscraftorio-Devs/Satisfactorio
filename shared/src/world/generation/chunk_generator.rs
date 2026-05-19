@@ -88,6 +88,10 @@ impl ChunkGenerator {
         self.inner.try_recv()
     }
 
+    pub fn is_queue_full(&self) -> bool {
+        self.inner.is_queue_full()
+    }
+
     pub fn dispose(&mut self) {
         // TODO: dispose
     }

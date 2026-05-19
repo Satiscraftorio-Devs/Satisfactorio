@@ -20,6 +20,9 @@ server: build
 client: build
 	RUSTFLAGS="-Awarnings" cargo run -p client --bin client
 
+launcher: build
+	RUSTFLAGS="-Awarnings" cargo run -p launcher --bin launcher
+
 profile:
 	RUSTFLAGS="-C force-frame-pointers=yes" cargo flamegraph --profile flamegraph -p client --bin client -F 49
 
@@ -46,8 +49,5 @@ kill: killall
 clean-code:
 	cargo fix -p server --bin "server" --allow-dirty
 	cargo fix -p client --bin "client" --allow-dirty
-
-launcher: build
-	cargo run --bin "launcher"
 
 launch: launcher

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource,
-    BindingType, Buffer, Sampler, SamplerBindingType, ShaderStages, Texture, TextureSampleType, TextureView, TextureViewDimension,
+    BindingType, Buffer, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureView, TextureViewDimension,
 };
 
 use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};

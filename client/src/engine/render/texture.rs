@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::*;
-use image::GenericImageView;
 
 use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};
 
