@@ -1,4 +1,5 @@
 use cgmath::{InnerSpace, Vector3};
+use shared::constants::DECEL_COEF;
 use winit::keyboard::KeyCode;
 
 use crate::game::{
@@ -14,7 +15,7 @@ use crate::game::{
 pub struct WalkPlayerController;
 
 impl PlayerController for WalkPlayerController {
-    fn update(&self, _dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
+    fn update(&self, dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
         // Direction horizontale depuis la caméra (forward/right projeté sur XZ)
         let forward = camera.forward();
         let right = camera.right();
@@ -44,8 +45,9 @@ impl PlayerController for WalkPlayerController {
             body.velocity.z = dir.z * body.walk_speed;
         } else {
             // La vitesse du joueur s'estompe au lieu de se réinitialiser nette (impression réaliste de s'arrêter)
-            body.velocity.x *= 0.95;
-            body.velocity.z *= 0.95;
+            let decel = DECEL_COEF.powf(dt);
+            body.velocity.x *= decel;
+            body.velocity.z *= decel;
         }
 
         // Saut : seulement si au sol
