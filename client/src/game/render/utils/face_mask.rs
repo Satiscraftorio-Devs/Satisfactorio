@@ -1,4 +1,4 @@
-use crate::common::geometry::direction::Direction;
+use shared::geometry::direction::Direction;
 
 const VISITED_SHIFT: u64 = 63;
 const BLOCK_ID_SHIFT: u64 = 31;
@@ -20,6 +20,7 @@ impl FaceMask {
         };
     }
 
+    #[inline(always)]
     pub fn from(visited: bool, id: u32, face: Direction, ao: u8) -> FaceMask {
         let mut mask = FaceMask::empty();
         mask.set_visited(visited);

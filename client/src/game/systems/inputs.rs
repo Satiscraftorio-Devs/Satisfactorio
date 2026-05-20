@@ -7,6 +7,7 @@ pub struct InputState {
     pressed_keys: HashMap<KeyCode, bool>,
 }
 
+#[allow(unused)]
 impl InputState {
     #[inline(always)]
     pub fn new() -> Self {
@@ -49,7 +50,7 @@ impl InputState {
 
     #[inline(always)]
     pub fn take_mouse_delta_f32(&mut self) -> (f32, f32) {
-        let (dx, dy) = mem::replace(&mut self.mouse_delta, (0.0, 0.0));
+        let (dx, dy) = self.take_mouse_delta();
         (dx as f32, dy as f32)
     }
 }

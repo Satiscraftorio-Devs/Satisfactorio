@@ -1,6 +1,3 @@
-use std::collections::HashSet;
-
-use crate::common::utils::updatable::Updatable;
 use crate::game::network::protocol::GameProtocol;
 use crate::game::player::controllers::spectator::SpectatorPlayerController;
 use crate::game::player::controllers::walk::WalkPlayerController;
@@ -12,14 +9,15 @@ use crate::game::{
     systems::inputs::InputState,
     world::world::World,
 };
-use cgmath::{num_traits::ToPrimitive, Point3};
+use cgmath::Point3;
 use shared::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z,
     VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };
 use shared::network::messages::{Paquet, PlayerGameMode, Position, Rotation};
+use shared::utils::updatable::Updatable;
 use shared::world::data::block::BlockInstance;
-use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
+use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F};
 use shared::world::raycast::voxel_raycast;
 use shared::*;
 use winit::keyboard::KeyCode;
@@ -92,15 +90,6 @@ impl PlayerState {
         }
     }
 
-    pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {
-        self.horizontal_render_distance = horizontal;
-        self.vertical_render_distance = vertical;
-    }
-
-    pub fn set_player_controller(&mut self, player_controller: Box<dyn PlayerController>) {
-        self.player_controller = player_controller;
-    }
-
     pub fn switch_player_game_mode(&mut self) {
         match self.game_mode {
             PlayerGameMode::Spectator => {
@@ -112,6 +101,25 @@ impl PlayerState {
                 self.game_mode = PlayerGameMode::Spectator;
             }
         }
+    }
+
+    pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
+        log_client!(
+            "Joueur {}: téléportation de {:?} à {:?}",
+            self.uuid,
+            self.get_pos(),
+            Point3 { x: x, y: y, z: z }
+        );
+        self.set_pos(Point3 { x: x, y: y, z: z });
+    }
+
+    pub fn set_render_distance(&mut self, horizontal: u16, vertical: u16) {
+        self.horizontal_render_distance = horizontal;
+        self.vertical_render_distance = vertical;
+    }
+
+    pub fn set_player_controller(&mut self, player_controller: Box<dyn PlayerController>) {
+        self.player_controller = player_controller;
     }
 
     pub fn get_pos(&self) -> cgmath::Point3<f32> {
@@ -131,123 +139,56 @@ impl PlayerState {
         self.pos.update(self.pos.current().clone());
     }
 
-    pub fn set_pos(&mut self, pos: cgmath::Point3<f32>) {
+    pub fn set_pos(&mut self, pos: Point3<f32>) {
         self.pos.update(pos);
         self.cpos
             .update(self.pos.current().map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32));
     }
 
-    pub fn teleport(&mut self, x: f32, y: f32, z: f32) {
-        log_client!(
-            "Joueur {}: téléportation de {:?} à {:?}",
-            self.uuid,
-            self.get_pos(),
-            Point3 { x: x, y: y, z: z }
-        );
-        self.set_pos(Point3 { x: x, y: y, z: z });
-    }
-
-    pub fn set_position_and_rotation(&mut self, pos: Position, rot: Rotation) {
-        self.set_pos(Point3::new(pos.x, pos.y, pos.z));
+    pub fn set_rot(&mut self, rot: Rotation) {
         self.camera.yaw = rot.x;
         self.camera.pitch = rot.y;
     }
 
-    /// Retourne [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
-    /// pour les chunks à simuler autour du joueur.
-    pub fn get_simulation_chunk_range(&self) -> [i32; 6] {
-        let halfed_hrd = self.horizontal_simulation_distance.to_f32().unwrap().div_euclid(2.0);
-        let halfed_vrd = self.vertical_simulation_distance.to_f32().unwrap().div_euclid(2.0);
-
-        let cx = self.pos.current().x.div_euclid(CHUNK_SIZE as f32);
-        let cy = self.pos.current().y.div_euclid(CHUNK_SIZE as f32);
-        let cz = self.pos.current().z.div_euclid(CHUNK_SIZE as f32);
-
-        let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
-        let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();
-        let min_cy = (cy - halfed_vrd).floor().to_i32().unwrap();
-        let max_cy = (cy + halfed_vrd).floor().to_i32().unwrap();
-        let min_cz = (cz - halfed_hrd).floor().to_i32().unwrap();
-        let max_cz = (cz + halfed_hrd).floor().to_i32().unwrap();
-
-        return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
+    pub fn set_position_and_rotation(&mut self, pos: Position, rot: Rotation) {
+        self.set_pos(Point3::new(pos.x, pos.y, pos.z));
+        self.set_rot(rot);
     }
 
-    /// Génère toutes les clés (cx, cy, cz) des chunks à afficher autour du joueur.
-    pub fn get_rendered_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
-        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_rendered_chunk_range();
-
-        let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)) as usize;
-        let mut keys: Vec<(i32, i32, i32)> = Vec::with_capacity(chunk_number);
-
-        for x in min_cx..=max_cx {
-            for y in min_cy..=max_cy {
-                for z in min_cz..=max_cz {
-                    keys.push((x, y, z));
-                }
-            }
-        }
-
-        return keys;
+    /// Retourne [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
+    /// pour les chunks à simuler autour du joueur.
+    #[inline(always)]
+    pub fn get_simulation_chunk_range(&self) -> [i32; 6] {
+        Chunk::get_cube_chunk_range(
+            (*self.cpos.current()).into(),
+            self.horizontal_simulation_distance,
+            self.vertical_simulation_distance,
+        )
     }
 
     /// Génère toutes les clés (cx, cy, cz) des chunks à simuler autour du joueur.
+    #[inline(always)]
     pub fn get_simulation_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
         let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_simulation_chunk_range();
-
-        let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)) as usize;
-        let mut keys: Vec<(i32, i32, i32)> = Vec::with_capacity(chunk_number);
-
-        for x in min_cx..=max_cx {
-            for y in min_cy..=max_cy {
-                for z in min_cz..=max_cz {
-                    keys.push((x, y, z));
-                }
-            }
-        }
-
-        return keys;
+        Chunk::get_cube_chunk_keys(min_cx, max_cx, min_cy, max_cy, min_cz, max_cz)
     }
 
     /// Retourne [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
     /// pour les chunks à rendre autour du joueur.
+    #[inline(always)]
     pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
-        let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);
-        let halfed_vrd = self.vertical_render_distance.to_f32().unwrap().div_euclid(2.0);
-
-        let cx = self.pos.current().x.div_euclid(CHUNK_SIZE as f32);
-        let cy = self.pos.current().y.div_euclid(CHUNK_SIZE as f32);
-        let cz = self.pos.current().z.div_euclid(CHUNK_SIZE as f32);
-
-        let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
-        let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();
-        let min_cy = (cy - halfed_vrd).floor().to_i32().unwrap();
-        let max_cy = (cy + halfed_vrd).floor().to_i32().unwrap();
-        let min_cz = (cz - halfed_hrd).floor().to_i32().unwrap();
-        let max_cz = (cz + halfed_hrd).floor().to_i32().unwrap();
-
-        return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
+        Chunk::get_cube_chunk_range(
+            (*self.cpos.current()).into(),
+            self.horizontal_render_distance,
+            self.vertical_render_distance,
+        )
     }
 
-    /// Retourne les infos de rendu : plage de chunks + nombre total de chunks.
-    pub fn get_rendered_chunk_data(&self) -> ([i32; 6], u32) {
-        let halfed_hrd = self.horizontal_render_distance.to_f32().unwrap().div_euclid(2.0);
-        let halfed_vrd = self.vertical_render_distance.to_f32().unwrap().div_euclid(2.0);
-
-        let cx = self.pos.current().x.div_euclid(CHUNK_SIZE as f32);
-        let cy = self.pos.current().y.div_euclid(CHUNK_SIZE as f32);
-        let cz = self.pos.current().z.div_euclid(CHUNK_SIZE as f32);
-
-        let min_cx = (cx - halfed_hrd).floor().to_i32().unwrap();
-        let max_cx = (cx + halfed_hrd).floor().to_i32().unwrap();
-        let min_cy = (cy - halfed_vrd).floor().to_i32().unwrap();
-        let max_cy = (cy + halfed_vrd).floor().to_i32().unwrap();
-        let min_cz = (cz - halfed_hrd).floor().to_i32().unwrap();
-        let max_cz = (cz + halfed_hrd).floor().to_i32().unwrap();
-
-        let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)).to_u32().unwrap_or(1);
-
-        return ([min_cx, max_cx, min_cy, max_cy, min_cz, max_cz], chunk_number);
+    /// Génère toutes les clés (cx, cy, cz) des chunks à afficher autour du joueur.
+    #[inline(always)]
+    pub fn get_rendered_chunk_keys(&self) -> Vec<(i32, i32, i32)> {
+        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = self.get_rendered_chunk_range();
+        Chunk::get_cube_chunk_keys(min_cx, max_cx, min_cy, max_cy, min_cz, max_cz)
     }
 }
 
@@ -333,9 +274,5 @@ impl Player {
 
     pub fn get_rendered_chunk_range(&self) -> [i32; 6] {
         self.state.get_rendered_chunk_range()
-    }
-
-    pub fn get_rendered_chunk_data(&self) -> ([i32; 6], u32) {
-        self.state.get_rendered_chunk_data()
     }
 }

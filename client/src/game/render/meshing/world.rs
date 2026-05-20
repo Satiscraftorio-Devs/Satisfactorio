@@ -1,22 +1,15 @@
 use crate::{
     engine::render::render::Renderer,
     game::{
-        player::player::Player,
-        render::meshing::chunk::{ChunkMesh, GreedyMeshingProcessor},
+        render::meshing::{chunk::ChunkMesh, processor::GreedyMeshingProcessor},
         world::world::World,
     },
 };
+use shared::parallel::{WorkResult, WorkerPool};
 use shared::{buffer_pool::BufferPool, world::data::chunk::ChunkState};
-use shared::{
-    parallel::{WorkResult, WorkerPool},
-    world::data::chunk::CHUNK_SIZE,
-};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::{cmp::max, collections::VecDeque};
-use std::{
-    collections::{HashMap, HashSet},
-    fs::remove_dir,
-};
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,

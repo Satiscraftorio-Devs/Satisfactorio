@@ -1,6 +1,6 @@
 use std::{iter, mem, sync::Arc};
 
-use shared::world::data::chunk::CHUNK_SIZE_F;
+use shared::{geometry::vertex::Vertex, world::data::chunk::CHUNK_SIZE_F};
 use wgpu::{
     wgt::{CommandEncoderDescriptor, DeviceDescriptor, DrawIndirectArgs},
     Backends, BindGroup, Buffer, CommandEncoder, Device, ExperimentalFeatures, Features, Instance, InstanceDescriptor, Limits,
@@ -9,12 +9,9 @@ use wgpu::{
 };
 use winit::window::Window;
 
-use crate::{
-    common::geometry::vertex::Vertex,
-    engine::{
-        core::gpu::pipeline::Pipelines,
-        render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureManager},
-    },
+use crate::engine::{
+    core::gpu::pipeline::Pipelines,
+    render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureManager},
 };
 
 const WIREFRAME: bool = false;

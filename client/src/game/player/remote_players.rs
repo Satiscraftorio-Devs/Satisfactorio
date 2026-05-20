@@ -1,8 +1,7 @@
 use shared::network::messages::PlayerTransformation;
+use shared::utils::updatable::Updatable;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-
-use crate::common::utils::updatable::Updatable;
 
 pub struct RemotePlayer {
     pub player_id: u64,

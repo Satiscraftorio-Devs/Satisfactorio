@@ -7,6 +7,7 @@ use crate::engine::{
 };
 
 pub mod bind_group;
+pub mod layouts;
 pub mod pipeline;
 
 pub struct GpuFactory {

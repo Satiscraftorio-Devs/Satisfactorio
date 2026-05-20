@@ -1,6 +1,6 @@
 use crate::world::data::block::BlockInstance;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 pub const CHUNK_VALIDATION_BATCH_SIZE: usize = 20;
 
@@ -43,6 +43,12 @@ impl ChunkState {
     }
 }
 
+impl Display for ChunkState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.to_str())
+    }
+}
+
 pub struct ChunkData {
     pub chunk: Arc<Chunk>,
     pub state: ChunkState,
@@ -79,8 +85,8 @@ impl ChunkData {
         }
     }
 
-    pub fn get_debug_infos(&self) -> ((i32, i32, i32), ChunkState, bool) {
-        ((self.chunk.x, self.chunk.y, self.chunk.z), self.state, self.is_dirty)
+    pub fn get_debug_infos(&self) -> (ChunkState, bool) {
+        (self.state, self.is_dirty)
     }
 }
 
@@ -106,6 +112,42 @@ impl Chunk {
     pub fn compute_checksum(&self) -> [u8; 2] {
         let bytes = bincode::serialize(&self).unwrap();
         fletcher16(&bytes)
+    }
+
+    /// Retourne \[min_cx, max_cx, min_cy, max_cy, min_cz, max_cz\]
+    /// pour les chunks autour du point donné et en fonction des distances horizontale et verticale données.
+    ///
+    /// [`center` a pour échelle les chunks.]
+    pub const fn get_cube_chunk_range(center: (i32, i32, i32), hd: u16, vd: u16) -> [i32; 6] {
+        let halfed_hd = hd.div_euclid(2) as i32;
+        let halfed_vd = vd.div_euclid(2) as i32;
+
+        let (cx, cy, cz) = center;
+
+        let min_cx = cx - halfed_hd;
+        let max_cx = cx + halfed_hd;
+        let min_cy = cy - halfed_vd;
+        let max_cy = cy + halfed_vd;
+        let min_cz = cz - halfed_hd;
+        let max_cz = cz + halfed_hd;
+
+        return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
+    }
+
+    /// Génère toutes les combinaisons de clés (cx, cy, cz) en fonction des paramètres d'entrée.
+    pub fn get_cube_chunk_keys(min_cx: i32, max_cx: i32, min_cy: i32, max_cy: i32, min_cz: i32, max_cz: i32) -> Vec<(i32, i32, i32)> {
+        let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)) as usize;
+        let mut keys: Vec<(i32, i32, i32)> = Vec::with_capacity(chunk_number);
+
+        for x in min_cx..=max_cx {
+            for y in min_cy..=max_cy {
+                for z in min_cz..=max_cz {
+                    keys.push((x, y, z));
+                }
+            }
+        }
+
+        return keys;
     }
 }
 

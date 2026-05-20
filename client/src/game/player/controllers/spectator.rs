@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use cgmath::{InnerSpace, Point3, Vector3, Zero};
-use shared::constants::PLAYER_EYE_HEIGHT;
+use shared::constants::{PLAYER_EYE_HEIGHT, UP};
 use winit::keyboard::KeyCode;
 
 use crate::game::{
@@ -26,7 +26,6 @@ impl SpectatorPlayerController {
 
 impl PlayerController for SpectatorPlayerController {
     fn update(&self, _dt: f32, inputs: &mut InputState, body: &mut PhysicsBody, camera: &Camera) {
-        const UP: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
         let forward = camera.forward();
         let right = camera.right();
 

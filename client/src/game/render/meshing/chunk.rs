@@ -1,46 +1,19 @@
 use crate::{
     engine::render::mesh::manager::{AllocError, DataEntry, MeshId},
-    game::{
-        render::utils::{face_mask::FaceMask, padded_chunk::*},
-        world::world::MeshSnapshot,
-    },
+    game::render::utils::{face_mask::FaceMask, padded_chunk::*},
 };
-use shared::buffer_pool::BufferPool;
-use shared::parallel::Parallelizable;
-use shared::time_noprint;
-use shared::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F, LAST_CHUNK_AXIS_INDEX_USIZE};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-use std::time::Duration;
+use shared::geometry::corner::SquareCorner;
+use shared::geometry::direction::Direction;
+use shared::geometry::vertex::Vertex;
+use shared::world::data::chunk::{CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX_USIZE};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{
-    common::geometry::{direction::Direction, vertex::Vertex},
-    engine::render::render::Renderer,
-};
-
-enum Corner {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
-}
-
-impl Corner {
-    #[inline(always)]
-    pub const fn to_usize(self) -> usize {
-        self as usize
-    }
-}
+use crate::engine::render::render::Renderer;
 
 pub struct ChunkMesh {
     pub id: Option<MeshId>,
     dirty: AtomicBool,
 }
-
-const GREEDY_MESH_MAX_FACE_WIDTH: usize = CHUNK_SIZE as usize;
-const GREEDY_MESH_MAX_FACE_HEIGHT: usize = CHUNK_SIZE as usize;
 
 impl ChunkMesh {
     pub fn new() -> ChunkMesh {
@@ -55,16 +28,18 @@ impl ChunkMesh {
         return self.dirty.load(Ordering::Relaxed);
     }
 
+    #[inline(always)]
     pub fn set_dirty(&mut self) {
         self.dirty.store(true, Ordering::Relaxed);
     }
 
+    #[inline(always)]
     pub fn get_debug_infos(&self) -> (Option<u32>, bool) {
         (self.id, self.dirty.load(Ordering::Relaxed))
     }
 
     #[inline(always)]
-    pub fn get_face_ao(chunk: &PaddedChunk, pos: [i32; 3], neighbors: [(i32, i32, i32); 3]) -> u8 {
+    fn get_face_ao(chunk: &PaddedChunk, pos: [i32; 3], neighbors: [(i32, i32, i32); 3]) -> u8 {
         // AO for each configuration (range 0-3 both included)
         // Scheme:
         // [side1][side2][corner]
@@ -95,7 +70,7 @@ impl ChunkMesh {
         return AO_TABLE[idx];
     }
 
-    const fn get_ao_neighbors(face: Direction, corner: Corner) -> [(i32, i32, i32); 3] {
+    const fn get_ao_neighbors(face: Direction, corner: SquareCorner) -> [(i32, i32, i32); 3] {
         const UVNORMAL_TABLE: [((i32, i32, i32), (i32, i32, i32), (i32, i32, i32)); 6] = [
             ((0, 1, 0), (0, 0, 1), (-1, 0, 0)), // -X
             ((1, 0, 0), (0, 0, 1), (0, -1, 0)), // -Y
@@ -137,7 +112,7 @@ impl ChunkMesh {
     /// Makes the greedy mesh for the x axis, in both directions (+, -).
     pub fn make_greedy_x(
         padded_chunk: &PaddedChunk,
-        solidity: &[bool; PADDED_CHUNK_BLOCK_NUMBER],
+        solidity: &[bool; PADDED_CHUNK_BLOCK_CBE_USIZE],
         vertices: &mut Vec<Vertex>,
         chunk_origin_x: f32,
         chunk_origin_y: f32,
@@ -158,16 +133,16 @@ impl ChunkMesh {
         // AO Neighbors pre-calculated for each corner and face direction
         const NEIGHBORS: [[[(i32, i32, i32); 3]; 4]; 2] = [
             [
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::BottomLeft),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::BottomRight),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::TopLeft),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::TopRight),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::BottomLeft),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::BottomRight),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::TopLeft),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::TopRight),
             ],
             [
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::BottomLeft),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::BottomRight),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::TopLeft),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::TopRight),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::BottomLeft),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::BottomRight),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::TopLeft),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::TopRight),
             ],
         ];
 
@@ -254,7 +229,7 @@ impl ChunkMesh {
                     // Expansion in the U axis
                     // If face was not meshed and corresponds to the face we want to mesh, enlarge the rect
                     for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if width >= GREEDY_MESH_MAX_FACE_WIDTH || mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
+                        if mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
                             break;
                         }
                         width += 1;
@@ -264,9 +239,6 @@ impl ChunkMesh {
                     // Expansion in the V axis
                     // We must check for each additional height if the whole line corresponds
                     'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if height >= GREEDY_MESH_MAX_FACE_HEIGHT {
-                            break;
-                        }
                         // For each time we increment in the V axis, we must verify that every block in the U axis is compatible.
                         for u_2 in u..(u + width) {
                             if mask[u_2][v_2].get_visited() || mask[u_2][v_2].data != face.data {
@@ -337,7 +309,7 @@ impl ChunkMesh {
     /// Makes the greedy mesh for the y axis, in both directions (+, -).
     pub fn make_greedy_y(
         padded_chunk: &PaddedChunk,
-        solidity: &[bool; PADDED_CHUNK_BLOCK_NUMBER],
+        solidity: &[bool; PADDED_CHUNK_BLOCK_CBE_USIZE],
         vertices: &mut Vec<Vertex>,
         chunk_origin_x: f32,
         chunk_origin_y: f32,
@@ -354,16 +326,16 @@ impl ChunkMesh {
 
         const NEIGHBORS: [[[(i32, i32, i32); 3]; 4]; 2] = [
             [
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::BottomLeft),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::BottomRight),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::TopLeft),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::TopRight),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::BottomLeft),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::BottomRight),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::TopLeft),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::TopRight),
             ],
             [
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::BottomLeft),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::BottomRight),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::TopLeft),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::TopRight),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::BottomLeft),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::BottomRight),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::TopLeft),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::TopRight),
             ],
         ];
 
@@ -444,7 +416,7 @@ impl ChunkMesh {
                     let mut height = 1; // expansion en V (X)
 
                     for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if width >= GREEDY_MESH_MAX_FACE_WIDTH || mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
+                        if mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
                             break;
                         }
                         width += 1;
@@ -452,9 +424,6 @@ impl ChunkMesh {
                     }
 
                     'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if height >= GREEDY_MESH_MAX_FACE_HEIGHT {
-                            break;
-                        }
                         for u_2 in u..(u + width) {
                             if mask[u_2][v_2].get_visited() || mask[u_2][v_2].data != face.data {
                                 break 'expand;
@@ -520,7 +489,7 @@ impl ChunkMesh {
     /// Makes the greedy mesh for the z axis, in both directions (+, -).
     pub fn make_greedy_z(
         padded_chunk: &PaddedChunk,
-        solidity: &[bool; PADDED_CHUNK_BLOCK_NUMBER],
+        solidity: &[bool; PADDED_CHUNK_BLOCK_CBE_USIZE],
         vertices: &mut Vec<Vertex>,
         chunk_origin_x: f32,
         chunk_origin_y: f32,
@@ -537,16 +506,16 @@ impl ChunkMesh {
 
         const NEIGHBORS: [[[(i32, i32, i32); 3]; 4]; 2] = [
             [
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::BottomLeft),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::BottomRight),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::TopLeft),
-                ChunkMesh::get_ao_neighbors(FACES[0], Corner::TopRight),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::BottomLeft),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::BottomRight),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::TopLeft),
+                ChunkMesh::get_ao_neighbors(FACES[0], SquareCorner::TopRight),
             ],
             [
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::BottomLeft),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::BottomRight),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::TopLeft),
-                ChunkMesh::get_ao_neighbors(FACES[1], Corner::TopRight),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::BottomLeft),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::BottomRight),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::TopLeft),
+                ChunkMesh::get_ao_neighbors(FACES[1], SquareCorner::TopRight),
             ],
         ];
 
@@ -627,7 +596,7 @@ impl ChunkMesh {
                     let mut height = 1; // expansion en V (Y)
 
                     for u_2 in (u + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if width >= GREEDY_MESH_MAX_FACE_WIDTH || mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
+                        if mask[u_2][v].get_visited() || mask[u_2][v].data != face.data {
                             break;
                         }
                         width += 1;
@@ -635,9 +604,6 @@ impl ChunkMesh {
                     }
 
                     'expand: for v_2 in (v + 1)..=LAST_CHUNK_AXIS_INDEX_USIZE {
-                        if height >= GREEDY_MESH_MAX_FACE_HEIGHT {
-                            break;
-                        }
                         for u_2 in u..(u + width) {
                             if mask[u_2][v_2].get_visited() || mask[u_2][v_2].data != face.data {
                                 break 'expand;
@@ -708,7 +674,6 @@ impl ChunkMesh {
     }
 
     /// Updates a ChunkMesh with the data processed by [GreedyMeshingProcessor]'s threads.
-    /// Returns the vertices buffer so it can be returned to the pool.
     pub fn update(&mut self, vertices: &Vec<Vertex>, renderer: &mut Renderer) -> Result<(), AllocError> {
         // It's no longer dirty since we're updating it.
         self.dirty.store(false, Ordering::Relaxed);
@@ -717,19 +682,19 @@ impl ChunkMesh {
         if let Some(mesh_id) = self.id {
             // Empty new data, we free the mesh.
             if vertices.is_empty() {
-                renderer.render_manager.mesh_manager.free_data(mesh_id);
                 self.id = None;
-                return Ok(());
+                let result = renderer.render_manager.mesh_manager.free_data(mesh_id);
+                return result;
             }
 
             // Updates new data.
-            renderer.render_manager.mesh_manager.update_data(
+            let result = renderer.render_manager.mesh_manager.update_data(
                 &renderer.gpu_context.tools.device(),
                 &renderer.gpu_context.tools.queue(),
                 renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
                 DataEntry::new(mesh_id, bytemuck::cast_slice(vertices)),
             );
-            return Ok(());
+            return result;
         }
 
         // No data, no existing mesh.
@@ -746,55 +711,5 @@ impl ChunkMesh {
         )?);
 
         Ok(())
-    }
-}
-
-pub struct GreedyMeshingProcessor;
-
-impl Parallelizable for GreedyMeshingProcessor {
-    type Context = Arc<BufferPool<Vertex>>;
-    type Input = (Arc<Chunk>, MeshSnapshot, i32, i32, i32);
-    type Output = Option<Vec<Vertex>>;
-
-    /// Make greedy
-    fn process(input: Self::Input, ctx: &Self::Context) -> Self::Output {
-        let (main_chunk, neighbors, cx, cy, cz) = input;
-
-        let (padded, _padded_time) = time_noprint!({ PaddedChunk::from_snapshot(&main_chunk, &neighbors) });
-
-        // Pre-calc entire chunk blocks solidity to save CPU (by avoiding repetition)
-        let mut solidity = [false; PADDED_CHUNK_BLOCK_NUMBER];
-
-        for i in 0..PADDED_CHUNK_BLOCK_NUMBER {
-            solidity[i] = padded.get_block_from_i(i).is_solid();
-        }
-
-        // Pre-calc chunk origin to save CPU (by avoiding repetition)
-        let chunk_origin_x = (cx as f32) * CHUNK_SIZE_F;
-        let chunk_origin_y = (cy as f32) * CHUNK_SIZE_F;
-        let chunk_origin_z = (cz as f32) * CHUNK_SIZE_F;
-
-        let mut vertices = ctx.get_buffer();
-
-        let total: Duration;
-
-        (_, total) = time_noprint!({
-            ChunkMesh::make_greedy_x(&padded, &solidity, &mut vertices, chunk_origin_x, chunk_origin_y, chunk_origin_z);
-            ChunkMesh::make_greedy_y(&padded, &solidity, &mut vertices, chunk_origin_x, chunk_origin_y, chunk_origin_z);
-            ChunkMesh::make_greedy_z(&padded, &solidity, &mut vertices, chunk_origin_x, chunk_origin_y, chunk_origin_z);
-        });
-
-        // println!(
-        //     "Greedy Mesh - Chunk {} {} {}\nPadding: {}ms/{}µs\nMeshing: {}ms/{}µs",
-        //     cx,
-        //     cy,
-        //     cz,
-        //     padded_time.as_millis(),
-        //     padded_time.as_micros(),
-        //     total.as_millis(),
-        //     total.as_micros()
-        // );
-
-        return Some(vertices);
     }
 }

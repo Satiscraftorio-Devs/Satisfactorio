@@ -63,6 +63,7 @@ impl PipelineFactory {
     }
 }
 
+#[allow(unused)]
 pub struct Pipelines {
     opaque: RenderPipeline,
     alpha_cutout: RenderPipeline,
@@ -71,6 +72,7 @@ pub struct Pipelines {
     ui: RenderPipeline,
 }
 
+#[allow(unused)]
 impl Pipelines {
     pub fn new(
         opaque: RenderPipeline,

@@ -1,13 +1,11 @@
 use std::collections::HashSet;
 
+use shared::geometry::vertex::Vertex;
 use wgpu::{wgt::DrawIndirectArgs, BufferUsages, Device, Queue};
 
-use crate::{
-    common::geometry::vertex::Vertex,
-    engine::render::{
-        mesh::manager::{MeshEntry, MeshId, MeshManager},
-        utils::smart_buffer::SmartBuffer,
-    },
+use crate::engine::render::{
+    mesh::manager::{MeshEntry, MeshId, MeshManager},
+    utils::smart_buffer::SmartBuffer,
 };
 
 pub struct RenderManager {

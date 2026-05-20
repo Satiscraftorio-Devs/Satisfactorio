@@ -30,7 +30,7 @@ pub enum AllocError {
 
 impl Display for AllocError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match (*self) {
+        f.write_str(match *self {
             Self::InvalidId => "InvalidId",
             Self::NotEnoughSpace => "NotEnoughSpace",
         })

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use crate::common::geometry::vertex::Vertex;
 use crate::engine::audio::GameAudioManager;
 use crate::engine::core::application::AppState;
 use crate::engine::core::frame::{EngineFrameData, GameFrameData};
+use crate::engine::core::gpu::layouts::BufferLayouts;
 use crate::engine::core::gpu::pipeline::Pipelines;
 use crate::engine::core::gpu::GpuFactory;
 use crate::engine::render::camera::RenderCamera;
@@ -11,8 +11,9 @@ use crate::engine::render::manager::RenderManager;
 use crate::engine::render::render::{DebugRenderResources, GpuContext, GpuResources, RenderOptions, Renderer};
 use crate::engine::render::text::text_renderer::FPS_UPDATE_DELAY;
 use crate::engine::render::text::TextRenderer;
-use crate::engine::render::texture::{TextureArrayIndex, TextureManager};
+use crate::engine::render::texture::{RenderMode, TextureManager};
 use bytemuck::cast_slice;
+use shared::geometry::vertex::Vertex;
 use shared::world::data::chunk::CHUNK_SIZE_F;
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -84,7 +85,7 @@ impl State {
 
         let texture_bind_group_layout = gpu_factory.bind_group_layout().make_texture_array(Some("Texture array layout"));
 
-        let opaque_array = texture_manager.get_array(TextureArrayIndex::Opaque);
+        let opaque_array = texture_manager.get_array(RenderMode::Opaque);
         let texture_bind_group = gpu_factory.bind_group().make(
             Some("Texture array"),
             &texture_bind_group_layout,
@@ -118,7 +119,7 @@ impl State {
         let vertex = VertexState {
             module: &shader,
             entry_point: Some("vs_main"),
-            buffers: &[Vertex::buffer_layout()],
+            buffers: &[BufferLayouts::vertex()],
             compilation_options: Default::default(),
         };
 

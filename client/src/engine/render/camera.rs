@@ -1,7 +1,8 @@
 use cgmath::{Matrix4, SquareMatrix};
-use shared::world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F};
-
-use crate::common::utils::updatable::Updatable;
+use shared::{
+    utils::updatable::Updatable,
+    world::data::chunk::{CHUNK_SIZE, CHUNK_SIZE_F},
+};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::from_cols(

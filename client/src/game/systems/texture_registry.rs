@@ -1,24 +1,11 @@
-use std::collections::HashMap;
-
 use anyhow::Error;
 
-use crate::engine::render::texture::{TextureArrayIndex, TextureID, TextureManager};
+use crate::engine::render::texture::{RenderMode, TextureID, TextureManager};
 
-pub struct TextureRegistry {
-    textures: HashMap<u32, usize>,
-}
+pub struct TextureRegistry;
 
 impl TextureRegistry {
-    pub fn new() -> Self {
-        Self { textures: HashMap::new() }
-    }
-
-    pub fn register(
-        &mut self,
-        texture_manager: &mut TextureManager,
-        path: String,
-        render_mode: TextureArrayIndex,
-    ) -> Result<TextureID, Error> {
+    pub fn register(texture_manager: &mut TextureManager, path: String, render_mode: RenderMode) -> Result<TextureID, Error> {
         let Ok(texture) = image::open(path) else {
             return Err(Error::msg("idk"));
         };

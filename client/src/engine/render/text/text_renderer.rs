@@ -1,6 +1,5 @@
+use shared::utils::updatable::Updatable;
 use wgpu_text::{glyph_brush::ab_glyph::FontRef, BrushBuilder, TextBrush};
-
-use crate::common::utils::updatable::Updatable;
 
 pub const FPS_UPDATE_DELAY: f32 = 0.25;
 

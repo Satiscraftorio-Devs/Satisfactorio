@@ -6,6 +6,8 @@ pub struct AABB {
     pub min: Vector3<f32>,
     pub max: Vector3<f32>,
 }
+
+#[allow(unused)]
 impl AABB {
     /// Construit un AABB centré en `center` avec une demi-taille uniforme `half_size`.
     pub fn new(center: Point3<f32>, half_size: f32) -> Self {

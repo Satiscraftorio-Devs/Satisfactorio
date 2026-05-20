@@ -2,7 +2,6 @@ use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 use std::{thread::sleep, time::Duration};
 
 use crate::{
-    common::geometry::{plane::Plane, vertex::generate_cube},
     engine::{
         audio::GameAudioManager,
         core::{
@@ -20,11 +19,15 @@ use crate::{
             remote_players::RemotePlayersManager,
         },
         render::meshing::world::WorldMesh,
-        systems::{inputs::InputState, texture_registry::TextureRegistry},
+        systems::inputs::InputState,
         world::world::World,
     },
 };
-use shared::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
+use shared::{
+    geometry::{plane::Plane, vertex::generate_cube},
+    log_client, log_err_client,
+    world::data::chunk::CHUNK_SIZE_F,
+};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 60;
@@ -45,7 +48,6 @@ pub struct GameState {
     pub delay_s: f32,
     pub network: Option<NetworkManager>,
     inputs: InputState,
-    texture_registry: TextureRegistry,
 }
 
 impl GameState {
@@ -67,14 +69,13 @@ impl GameState {
             inputs: InputState::new(),
             delay_s: 0.0,
             network: Some(network),
-            texture_registry: TextureRegistry::new(),
         }
     }
 }
 
 impl AppState for GameState {
     fn init(&mut self, renderer: &mut Renderer, audio_manager: &mut Option<GameAudioManager>) {
-        let mut tex_loader = TextureLoader::new(&mut renderer.texture_manager, &mut self.texture_registry);
+        let mut tex_loader = TextureLoader::new(&mut renderer.texture_manager);
         self.world.init(&mut tex_loader, &self.player);
         self.world_mesh.init(&mut self.world);
 
@@ -156,7 +157,13 @@ impl AppState for GameState {
                     }
                 }
                 for command in network_commands {
-                    net.send_packet(command);
+                    let result = net.send_packet(command);
+                    match result {
+                        Ok(_) => {}
+                        Err(err) => {
+                            log_err_client!("Failed to send command packet.\nError: {}", err);
+                        }
+                    }
                 }
 
                 // Nettoyer les joueurs distants qui n'ont pas envoyé de mise à jour depuis 30s
@@ -268,29 +275,31 @@ impl GameState {
             let cpos = self.player.state.cpos.current();
             let key = (cpos[0], cpos[1], cpos[2]);
             println!("---------\nDEBUG: Chunk x={} y={} z={}\n---------", key.0, key.1, key.2);
-            if let Some(chunk) = self.world.get_chunk_mut(key.0, key.1, key.2) {
-                let (_, state, dirty) = chunk.get_debug_infos();
-                chunk.set_dirty();
-                println!("General:\n- State: {}\n- Is dirty?: {}", state.to_str(), dirty);
+            if let Some((state, dirty)) = self.world.chunk_infos_at(&key) {
+                println!("General:\n- State: {}\n- Is dirty?: {}", state, dirty);
             }
             if let Some((id, dirty)) = self.world_mesh.mesh_infos_at(&key) {
-                let id = {
-                    if id.is_some() {
-                        id.unwrap().to_string()
-                    } else {
-                        "None".to_string()
-                    }
+                let id = match id {
+                    Some(id) => &id.to_string(),
+                    None => "None",
                 };
                 println!("Mesh:\n- Id: {}\n- Is dirty?: {}", id, dirty);
             };
             println!("---------")
         }
 
-        if self.inputs.take_key_pressed(KeyCode::KeyP) {
+        // SWITCH GAMEMODE
+        if self.inputs.take_key_pressed(KeyCode::KeyG) {
             println!("Command \"P\" Pressed");
             self.player.state.switch_player_game_mode();
             if let Some(ref mut net) = self.network {
-                let _ = net.send_gamemode_change(self.player.state.game_mode);
+                let result = net.send_gamemode_change(self.player.state.game_mode);
+                match result {
+                    Ok(_) => {}
+                    Err(err) => {
+                        log_err_client!("Failed to switch gamemode.\nError: {}", err);
+                    }
+                }
             }
         }
     }

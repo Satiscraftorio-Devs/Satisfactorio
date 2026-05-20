@@ -11,6 +11,7 @@ pub struct PhysicsBody {
     pub jump_speed: f32,
     pub walk_speed: f32,
 }
+
 impl PhysicsBody {
     pub fn new(center: Point3<f32>, half_size: f32) -> Self {
         Self {

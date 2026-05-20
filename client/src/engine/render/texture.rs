@@ -4,21 +4,6 @@ use anyhow::*;
 
 use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};
 
-#[repr(usize)]
-pub enum PipelineType {
-    Opaque = 0,
-    AlphaCutout = 1,
-    Translucent = 2,
-    Billboard = 3,
-    UI = 4,
-}
-
-impl PipelineType {
-    pub const fn to_usize(self) -> usize {
-        self as usize
-    }
-}
-
 pub struct TextureManager {
     gpu_resources: Arc<GpuTools>,
     textures_arrays: Vec<Texture2DArray>,
@@ -27,14 +12,16 @@ pub struct TextureManager {
 }
 
 #[repr(C)]
-pub enum TextureArrayIndex {
+#[allow(unused)]
+pub enum RenderMode {
     Opaque = 0,
     AlphaCutout = 1,
     Translucent = 2,
     Billboard = 3,
+    UI = 4,
 }
 
-impl TextureArrayIndex {
+impl RenderMode {
     pub fn to_usize(self) -> usize {
         self as usize
     }
@@ -71,7 +58,7 @@ impl TextureManager {
         };
 
         let texture_array = instance.make_new_array("Textures".to_string(), size, size);
-        assert!(texture_array == TextureArrayIndex::Opaque.to_usize());
+        assert!(texture_array == RenderMode::Opaque.to_usize());
 
         // let opaque = instance.make_new_array("Opaque".to_string(), size, size);
         // let alpha_cutout = instance.make_new_array("Alpha Cutout".to_string(), size, size);
@@ -105,7 +92,7 @@ impl TextureManager {
         id
     }
 
-    fn find_place(&mut self, array_index: TextureArrayIndex) -> Result<TextureID, Error> {
+    fn find_place(&mut self, array_index: RenderMode) -> Result<TextureID, Error> {
         let idx = array_index.to_usize();
         if let Some(array) = self.textures_arrays.get_mut(idx) {
             let depth = array.next_id();
@@ -118,7 +105,7 @@ impl TextureManager {
         Err(Error::msg(format!("Texture array not found.\nIndex provided: {}", idx)))
     }
 
-    pub fn register(&mut self, array: TextureArrayIndex, texture: &[u8], width: u16, height: u16) -> Result<TextureID, Error> {
+    pub fn register(&mut self, array: RenderMode, texture: &[u8], width: u16, height: u16) -> Result<TextureID, Error> {
         if texture.len() != ((width as u32) * (height as u32) * 4) as usize {
             panic!(
                 "Texture data length does not match expected size for given dimensions.\n{} != {}*{}*4",
@@ -143,11 +130,11 @@ impl TextureManager {
         array.write_at(self.gpu_resources.queue(), id.depth, texture);
     }
 
-    pub fn get_array(&self, index: TextureArrayIndex) -> &Texture2DArray {
+    pub fn get_array(&self, index: RenderMode) -> &Texture2DArray {
         self.textures_arrays.get(index.to_usize()).unwrap()
     }
 
-    pub fn get_array_mut(&mut self, index: TextureArrayIndex) -> &mut Texture2DArray {
+    pub fn get_array_mut(&mut self, index: RenderMode) -> &mut Texture2DArray {
         self.textures_arrays.get_mut(index.to_usize()).unwrap()
     }
 }

@@ -1,10 +1,11 @@
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3};
+use shared::constants::UP;
 
 use crate::engine::render::camera::OPENGL_TO_WGPU_MATRIX;
 
 #[derive(Clone)]
 pub struct Camera {
-    pub eye: cgmath::Point3<f32>,
+    pub eye: Point3<f32>,
     pub yaw: f32,
     pub pitch: f32,
     pub fovy: f32,
@@ -14,7 +15,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(eye: cgmath::Point3<f32>, aspect: f32) -> Camera {
+    pub fn new(eye: Point3<f32>, aspect: f32) -> Camera {
         Camera {
             eye,
             yaw: 0.0,
@@ -34,7 +35,7 @@ impl Camera {
     }
 
     pub fn right(&self) -> Vector3<f32> {
-        self.forward().cross(Vector3::unit_y()).normalize()
+        self.forward().cross(UP).normalize()
     }
 
     pub fn target(&self) -> Point3<f32> {
@@ -42,7 +43,7 @@ impl Camera {
     }
 
     pub fn get_view_proj(&self) -> Matrix4<f32> {
-        let view = Matrix4::look_at_rh(self.eye, self.target(), Vector3::unit_y());
+        let view = Matrix4::look_at_rh(self.eye, self.target(), UP);
         let proj = cgmath::perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
         OPENGL_TO_WGPU_MATRIX * proj * view
     }

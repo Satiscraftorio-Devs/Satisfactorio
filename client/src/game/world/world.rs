@@ -1,5 +1,5 @@
 use crate::{
-    engine::render::{manager::RenderManager, texture::TextureArrayIndex},
+    engine::render::{manager::RenderManager, texture::RenderMode},
     game::api::texture_loader::TextureLoader,
 };
 use shared::world::{
@@ -70,7 +70,7 @@ impl World {
             ];
 
             for mut values in blocks {
-                if let Ok(tex_id) = texture_loader.register(values.1.to_string(), TextureArrayIndex::Opaque) {
+                if let Ok(tex_id) = texture_loader.register(values.1.to_string(), RenderMode::Opaque) {
                     values.0.texture_index = Some(tex_id.depth() as u32);
                 };
                 block_manager.register(values.0);
@@ -197,10 +197,6 @@ impl World {
         self.ready_to_mesh = new;
     }
 
-    pub fn is_dirty_at(&self, cx: i32, cy: i32, cz: i32) -> bool {
-        self.chunks.get(&(cx, cy, cz)).map_or(false, |chunk| chunk.is_dirty)
-    }
-
     pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {
         MeshSnapshot {
             main: Arc::clone(&self.chunks.get(&(cx, cy, cz)).unwrap().chunk),
@@ -221,20 +217,6 @@ impl World {
     #[inline(always)]
     pub fn get_chunk_data_mut(&mut self, cx: i32, cy: i32, cz: i32) -> Option<&mut ChunkData> {
         return self.chunks.get_mut(&(cx, cy, cz));
-    }
-
-    #[inline(always)]
-    pub fn get_chunk(&self, cx: i32, cy: i32, cz: i32) -> Option<&Chunk> {
-        return self.chunks.get(&(cx, cy, cz)).map(|d| d.chunk.as_ref());
-    }
-
-    #[inline(always)]
-    pub fn get_chunk_mut(&mut self, cx: i32, cy: i32, cz: i32) -> Option<&mut ChunkData> {
-        return self.chunks.get_mut(&(cx, cy, cz));
-    }
-
-    pub fn set_chunk(&mut self, cx: i32, cy: i32, cz: i32, chunk: Chunk) {
-        self.chunks.insert((cx, cy, cz), ChunkData::new(chunk));
     }
 
     pub fn chunk_coords_from_block(x: i32, y: i32, z: i32) -> (i32, i32, i32) {
@@ -261,40 +243,6 @@ impl World {
         }
     }
 
-    fn set_chunk_dirty(&mut self, cpos: &(i32, i32, i32)) {
-        if let Some(chunk) = self.chunks.get_mut(cpos) {
-            chunk.set_dirty();
-        }
-    }
-
-    pub fn get_player_rendered_chunks(&self, player: &Player) -> Vec<&Chunk> {
-        let [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz] = player.get_rendered_chunk_range();
-
-        let mut chunks: Vec<&Chunk> = Vec::new();
-
-        for x in min_cx..=max_cx {
-            for y in min_cy..=max_cy {
-                for z in min_cz..=max_cz {
-                    if let Some(data) = self.get_chunk_data(x, y, z) {
-                        chunks.push(&data.chunk);
-                    }
-                }
-            }
-        }
-
-        return chunks;
-    }
-
-    pub fn get_dirty_chunks(&self) -> Vec<(i32, i32, i32)> {
-        self.chunks.iter().filter(|(_, data)| data.is_dirty).map(|(key, _)| *key).collect()
-    }
-
-    pub fn mark_chunk_clean(&mut self, cx: i32, cy: i32, cz: i32) {
-        if let Some(data) = self.chunks.get_mut(&(cx, cy, cz)) {
-            data.is_dirty = false;
-        }
-    }
-
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
         let cx: i32 = x.div_euclid(CHUNK_SIZE);
         let cy: i32 = y.div_euclid(CHUNK_SIZE);
@@ -306,18 +254,6 @@ impl World {
 
         if let Some(data) = self.get_chunk_data(cx, cy, cz) {
             return data.chunk.get_block_from_xyz(cbx, cby, cbz);
-        } else {
-            return BlockInstance::air();
-        }
-    }
-
-    pub fn get_local_block_from_xyz(&self, lx: i32, ly: i32, lz: i32, cx: i32, cy: i32, cz: i32) -> BlockInstance {
-        if !(0..CHUNK_SIZE).contains(&lx) || !(0..CHUNK_SIZE).contains(&ly) || !(0..CHUNK_SIZE).contains(&lz) {
-            return self.get_block_from_xyz(lx + cx * CHUNK_SIZE, ly + cy * CHUNK_SIZE, lz + cz * CHUNK_SIZE);
-        }
-
-        if let Some(data) = self.get_chunk_data(cx, cy, cz) {
-            return data.chunk.get_block_from_xyz(lx, ly, lz);
         } else {
             return BlockInstance::air();
         }
@@ -336,6 +272,10 @@ impl World {
             }
         }
         true
+    }
+
+    pub fn chunk_infos_at(&self, cpos: &(i32, i32, i32)) -> Option<(ChunkState, bool)> {
+        self.chunks.get(&cpos).map(|chunk| chunk.get_debug_infos())
     }
 
     /// Retourne vrai si aucun chunk n'est chargé

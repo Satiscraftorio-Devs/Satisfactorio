@@ -1,3 +1,5 @@
+use cgmath::Vector3;
+
 pub const HORIZONTAL_RENDER_DISTANCE: u16 = 11;
 pub const VERTICAL_RENDER_DISTANCE: u16 = 5;
 pub const HORIZONTAL_SIMULATION_DISTANCE: u16 = HORIZONTAL_RENDER_DISTANCE + 2;
@@ -54,6 +56,8 @@ pub const GUARD_CYCLE_INTERVAL_MS: u64 = 200;
 pub const MOVEMENT_PLAUSIBILITY_MULTIPLIER: f32 = 3.5;
 
 // Géométrie
+
+pub const UP: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
 
 pub const DIRECT_NORMALS_3D: [(i32, i32, i32); 6] = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)];
 pub const INDIRECT_NORMALS_3D: [(i32, i32, i32); 20] = [
