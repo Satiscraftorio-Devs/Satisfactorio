@@ -12,15 +12,12 @@ default = ["server"]
 server = []
 
 [dependencies]
-noise = "0.9.0"
 cgmath = "0.18.0"
-num_cpus = "1.17.0"
 
 tokio = { workspace = true }
 serde = { workspace = true }
-bincode = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1.0.102"
-rand = "0.10"
+rand = "0.8"
 
 shared = { path = "../shared" }

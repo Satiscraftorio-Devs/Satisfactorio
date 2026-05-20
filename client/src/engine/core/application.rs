@@ -13,6 +13,7 @@ use crate::engine::render::render::Renderer;
 use winit::event::{DeviceEvent, DeviceId, KeyEvent, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 
+#[allow(unused)]
 pub enum AppEvent {
     None,
 }

@@ -1,14 +1,19 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    sync::{Arc, RwLock},
+};
 
 use shared::geometry::vertex::Vertex;
-use wgpu::{wgt::DrawIndirectArgs, BufferUsages, Device, Queue};
+use wgpu::{wgt::DrawIndirectArgs, BufferUsages, CommandEncoder};
 
 use crate::engine::render::{
     mesh::manager::{MeshEntry, MeshId, MeshManager},
+    render::GpuTools,
     utils::smart_buffer::SmartBuffer,
 };
 
 pub struct RenderManager {
+    pub gpu_tools: Arc<GpuTools>,
     pub mesh_manager: MeshManager,
     pub indirect_buffer: SmartBuffer,
     pub indirect_commands: Vec<DrawIndirectArgs>,
@@ -17,23 +22,23 @@ pub struct RenderManager {
 }
 
 impl RenderManager {
-    pub fn new(device: &Device) -> Self {
+    pub fn new(gpu_tools: Arc<GpuTools>, frame_encoder: Arc<RwLock<CommandEncoder>>) -> Self {
+        let device = gpu_tools.device();
+        let usages = BufferUsages::INDIRECT | BufferUsages::COPY_DST | BufferUsages::COPY_SRC;
+        let indirect_buffer = SmartBuffer::from_capacity(0, device, None, usages);
+        let count_buffer = SmartBuffer::from_capacity(4, device, None, usages);
+
+        let mesh_manager = MeshManager::new(Arc::clone(&gpu_tools), frame_encoder);
+        let indirect_commands = Vec::with_capacity(64);
+        let ids_to_render = HashSet::with_capacity(128);
+
         Self {
-            mesh_manager: MeshManager::new(device),
-            indirect_buffer: SmartBuffer::from_capacity(
-                0,
-                device,
-                None,
-                BufferUsages::INDIRECT | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
-            ),
-            indirect_commands: vec![],
-            count_buffer: SmartBuffer::from_capacity(
-                4,
-                device,
-                None,
-                BufferUsages::INDIRECT | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
-            ),
-            ids_to_render: HashSet::new(),
+            gpu_tools,
+            mesh_manager,
+            indirect_buffer,
+            indirect_commands,
+            count_buffer,
+            ids_to_render,
         }
     }
 
@@ -61,11 +66,13 @@ impl RenderManager {
         self.ids_to_render.clear();
     }
 
-    pub fn update_indirect_buffer(&mut self, device: &Device, queue: &Queue) {
+    pub fn update_indirect_buffer(&mut self) {
         // TODO:
         // - retirer les 2 memory heap allocations
         // - itérer sur mesh_manager.data directement
         // - réutiliser self.indirect_commands, .clear(), .push()
+        let device = self.gpu_tools.device();
+        let queue = self.gpu_tools.queue();
         let mesh_regions: Vec<(usize, usize)> = self
             .mesh_manager
             .data

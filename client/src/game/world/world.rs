@@ -109,7 +109,7 @@ impl World {
             let Some(id) = mesh.id else {
                 return false;
             };
-            let result = render_manager.mesh_manager.free_data(id);
+            let result = render_manager.mesh_manager.free(id);
             match result {
                 Ok(_) => {}
                 Err(err) => {

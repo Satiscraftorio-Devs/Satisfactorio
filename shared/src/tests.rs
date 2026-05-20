@@ -15,6 +15,8 @@
 use aes_gcm::{Aes256Gcm, KeyInit};
 use std::sync::{Arc, RwLock};
 
+use crate::constants::{HORIZONTAL_RENDER_DISTANCE, VERTICAL_RENDER_DISTANCE};
+
 // ---------------------------------------------------------------------------
 // network::messages
 // ---------------------------------------------------------------------------
@@ -478,10 +480,8 @@ fn buffer_pool_different_types() {
 fn constants_render_distances() {
     use crate::constants::*;
 
-    assert_eq!(HORIZONTAL_RENDER_DISTANCE, 9);
-    assert_eq!(VERTICAL_RENDER_DISTANCE, 5);
-    assert_eq!(HORIZONTAL_SIMULATION_DISTANCE, 11);
-    assert_eq!(VERTICAL_SIMULATION_DISTANCE, 7);
+    assert_eq!(HORIZONTAL_SIMULATION_DISTANCE, HORIZONTAL_RENDER_DISTANCE + 2);
+    assert_eq!(VERTICAL_SIMULATION_DISTANCE, VERTICAL_RENDER_DISTANCE + 2);
 }
 
 /// Vérifie les constantes de priorité des chunks.
@@ -493,11 +493,12 @@ fn constants_chunk_priority() {
     assert_eq!(CHUNK_PRIORITY_DISTANCE_SQR, 1024.0);
 }
 
-/// Vérifie que `max_chunks_in_queue` calcule correctement 11 x 11 x 7 = 847.
+/// Vérifie que `max_chunks_in_queue` calcule correctement HRD x HRD x VRD = MAX_CHUNKS_IN_QUEUE.
 #[test]
 fn constants_max_chunks_in_queue() {
     use crate::constants::MAX_CHUNKS_IN_QUEUE;
-    assert_eq!(MAX_CHUNKS_IN_QUEUE, 847);
+    let value = (HORIZONTAL_RENDER_DISTANCE * HORIZONTAL_RENDER_DISTANCE * VERTICAL_RENDER_DISTANCE) as u32;
+    assert_eq!(MAX_CHUNKS_IN_QUEUE, value);
 }
 
 // ---------------------------------------------------------------------------

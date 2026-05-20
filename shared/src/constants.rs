@@ -9,8 +9,8 @@ pub const CHUNK_PRIORITY_DISTANCE: f32 = 32.0;
 pub const CHUNK_PRIORITY_DISTANCE_SQR: f32 = CHUNK_PRIORITY_DISTANCE * CHUNK_PRIORITY_DISTANCE;
 
 pub const MAX_CHUNKS_IN_QUEUE: u32 = {
-    let h_chunks = HORIZONTAL_SIMULATION_DISTANCE as u32;
-    let v_chunks = VERTICAL_SIMULATION_DISTANCE as u32;
+    let h_chunks = HORIZONTAL_RENDER_DISTANCE as u32;
+    let v_chunks = VERTICAL_RENDER_DISTANCE as u32;
     h_chunks * h_chunks * v_chunks
 };
 

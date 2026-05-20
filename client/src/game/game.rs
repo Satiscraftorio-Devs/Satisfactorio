@@ -1,3 +1,4 @@
+use bytemuck::cast_slice;
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
 use std::{thread::sleep, time::Duration};
 
@@ -8,7 +9,7 @@ use crate::{
             application::AppState,
             frame::{EngineFrameData, GameFrameData},
         },
-        render::{mesh::manager::DataEntry, render::Renderer},
+        render::render::Renderer,
     },
     game::{
         api::texture_loader::TextureLoader,
@@ -172,7 +173,8 @@ impl AppState for GameState {
         }
 
         // MESHING
-        self.world_mesh.update(renderer, &mut self.world);
+        let mesh_manager = &mut renderer.render_manager.mesh_manager;
+        self.world_mesh.update(mesh_manager, &mut self.world);
 
         // RENDER
         {
@@ -216,32 +218,13 @@ impl AppState for GameState {
             for p in self.remote_players.get_all_mut().iter_mut() {
                 if let Some(new_pos) = p.position.change() {
                     let player_data = generate_cube(new_pos.0, new_pos.1, new_pos.2);
-                    let raw_data = bytemuck::cast_slice(&player_data);
+                    let raw_data = cast_slice(&player_data);
                     if let Some(mesh_id) = p.mesh_id {
-                        if let Some(update_err) = renderer
-                            .render_manager
-                            .mesh_manager
-                            .update_data(
-                                &renderer.gpu_context.tools.device(),
-                                &renderer.gpu_context.tools.queue(),
-                                &mut renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
-                                DataEntry::new(mesh_id, raw_data),
-                            )
-                            .err()
-                        {
+                        if let Some(update_err) = mesh_manager.update(mesh_id, raw_data).err() {
                             println!("Failed to update mesh id {}.\nError: {}", mesh_id, update_err);
                         };
                     } else {
-                        p.mesh_id = renderer
-                            .render_manager
-                            .mesh_manager
-                            .add_data(
-                                &renderer.gpu_context.tools.device(),
-                                &renderer.gpu_context.tools.queue(),
-                                &mut renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
-                                raw_data,
-                            )
-                            .ok();
+                        p.mesh_id = mesh_manager.add(raw_data).ok();
                     }
                 }
                 data.visible_meshes.insert(p.mesh_id.unwrap());

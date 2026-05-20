@@ -1,4 +1,7 @@
-use std::{iter, mem, sync::Arc};
+use std::{
+    iter, mem,
+    sync::{Arc, RwLock},
+};
 
 use shared::{geometry::vertex::Vertex, world::data::chunk::CHUNK_SIZE_F};
 use wgpu::{
@@ -58,8 +61,6 @@ pub struct GpuResources {
 
     pub depth_texture: Texture,
     pub depth_view: TextureView,
-
-    pub frame_encoder: Option<CommandEncoder>,
 }
 
 impl GpuResources {
@@ -73,8 +74,6 @@ impl GpuResources {
 
         depth_texture: Texture,
         depth_view: TextureView,
-
-        frame_encoder: Option<CommandEncoder>,
     ) -> Self {
         Self {
             pipelines,
@@ -83,7 +82,6 @@ impl GpuResources {
             camera_buffer,
             depth_texture,
             depth_view,
-            frame_encoder,
         }
     }
 }
@@ -100,11 +98,16 @@ impl GpuTools {
     pub fn queue(&self) -> &Queue {
         &self.queue
     }
+
+    pub fn from_arc(gpu_tools: &Arc<Self>) -> Arc<GpuTools> {
+        Arc::clone(gpu_tools)
+    }
 }
 
 pub struct GpuContext {
     pub surface: Surface<'static>,
     pub tools: Arc<GpuTools>,
+    pub frame_encoder: Arc<RwLock<CommandEncoder>>,
     pub config: SurfaceConfiguration,
     pub limits: Limits,
     pub features: Features,
@@ -147,6 +150,11 @@ impl GpuContext {
             trace: Trace::Off,
         }))?;
 
+        let frame_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Frame encoder"),
+        });
+        let frame_encoder = Arc::new(RwLock::new(frame_encoder));
+
         let tools = Arc::new(GpuTools::new(device, queue));
 
         let limits = tools.device().limits();
@@ -174,14 +182,19 @@ impl GpuContext {
         Ok(Self {
             surface,
             tools,
+            frame_encoder,
             config,
             limits,
             features,
         })
     }
 
-    pub fn get_tools(&mut self) -> Arc<GpuTools> {
-        Arc::clone(&self.tools)
+    pub fn get_tools(&self) -> Arc<GpuTools> {
+        GpuTools::from_arc(&self.tools)
+    }
+
+    pub fn get_encoder(&self) -> Arc<RwLock<CommandEncoder>> {
+        Arc::clone(&self.frame_encoder)
     }
 }
 
@@ -301,15 +314,10 @@ impl Renderer {
 
         let device = self.gpu_context.tools.device();
         let queue = self.gpu_context.tools.queue();
-        self.render_manager.update_indirect_buffer(device, queue);
+        self.render_manager.update_indirect_buffer();
 
-        let mut encoder =
-            self.gpu_resources
-                .frame_encoder
-                .take()
-                .unwrap_or(device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                }));
+        let encoder = self.gpu_context.get_encoder();
+        let mut encoder = encoder.write().unwrap();
 
         if let Some(view_proj) = camera.view_proj().change() {
             queue.write_buffer(&self.gpu_resources.camera_buffer, 0, bytemuck::cast_slice(view_proj));
@@ -393,12 +401,16 @@ impl Renderer {
             text_renderer.render(device, queue, &mut text_render_pass);
         }
 
+        let encoder = {
+            let new_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Frame encoder"),
+            });
+
+            mem::replace(&mut (*encoder), new_encoder)
+        };
+
         queue.submit(iter::once(encoder.finish()));
         output.present();
-
-        self.gpu_resources.frame_encoder = Some(device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Frame encoder"),
-        }));
 
         self.render_manager.mesh_manager.process_pending_destructions();
         self.render_manager.clear_render_queue();

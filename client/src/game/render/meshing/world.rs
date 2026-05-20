@@ -1,5 +1,5 @@
 use crate::{
-    engine::render::render::Renderer,
+    engine::render::mesh::manager::MeshManager,
     game::{
         render::meshing::{chunk::ChunkMesh, processor::GreedyMeshingProcessor},
         world::world::World,
@@ -37,10 +37,10 @@ impl WorldMesh {
         self.submit_meshes(world);
     }
 
-    pub fn update(&mut self, renderer: &mut Renderer, world: &mut World) {
+    pub fn update(&mut self, mesh_manager: &mut MeshManager, world: &mut World) {
         self.enqueue_missing_meshes(world);
         self.submit_meshes(world);
-        self.compute_generated_meshes(renderer, world);
+        self.compute_generated_meshes(mesh_manager, world);
     }
 
     fn enqueue_missing_meshes(&mut self, world: &mut World) {
@@ -109,7 +109,7 @@ impl WorldMesh {
         }
     }
 
-    fn compute_generated_meshes(&mut self, renderer: &mut Renderer, world: &mut World) {
+    fn compute_generated_meshes(&mut self, mesh_manager: &mut MeshManager, world: &mut World) {
         while let Some(WorkResult { output: vertices_opt, id }) = self.mesh_worker.try_recv() {
             // Si la mesh était dans la file d'attente on la retire, sinon on passe à la suivante (déjà traitée)
             let Some(key) = self.pending.remove(&id) else {
@@ -127,16 +127,15 @@ impl WorldMesh {
             if let Some(chunk) = world.get_chunk_data_mut(key.0, key.1, key.2) {
                 match self.mesh_at_mut(&key) {
                     // Le mesh existe, on le met à jour
-                    Some(mesh) => match mesh.update(&vertices, renderer) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            println!("Could not update mesh: {:?}", e as u8);
+                    Some(mesh) => {
+                        if let Some(err) = mesh.update(&vertices, mesh_manager).err() {
+                            println!("Could not update mesh: {:?}", err);
                         }
-                    },
+                    }
                     // Le mesh n'existe pas encore, on le crée
                     None => {
                         let mut mesh = ChunkMesh::new();
-                        match mesh.update(&vertices, renderer) {
+                        match mesh.update(&vertices, mesh_manager) {
                             Ok(_) => {
                                 // Le mesh a correctement été configuré, donc on peut l'insérer
                                 self.meshes.insert(key, mesh);

@@ -1,14 +1,13 @@
 use crate::{
-    engine::render::mesh::manager::{AllocError, DataEntry, MeshId},
+    engine::render::mesh::manager::{AllocError, MeshId, MeshManager},
     game::render::utils::{face_mask::FaceMask, padded_chunk::*},
 };
+use bytemuck::cast_slice;
 use shared::geometry::corner::SquareCorner;
 use shared::geometry::direction::Direction;
 use shared::geometry::vertex::Vertex;
 use shared::world::data::chunk::{CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX_USIZE};
 use std::sync::atomic::{AtomicBool, Ordering};
-
-use crate::engine::render::render::Renderer;
 
 pub struct ChunkMesh {
     pub id: Option<MeshId>,
@@ -674,42 +673,32 @@ impl ChunkMesh {
     }
 
     /// Updates a ChunkMesh with the data processed by [GreedyMeshingProcessor]'s threads.
-    pub fn update(&mut self, vertices: &Vec<Vertex>, renderer: &mut Renderer) -> Result<(), AllocError> {
+    pub fn update(&mut self, vertices: &Vec<Vertex>, mesh_manager: &mut MeshManager) -> Result<(), AllocError> {
         // It's no longer dirty since we're updating it.
         self.dirty.store(false, Ordering::Relaxed);
 
-        // Mesh already exists.
-        if let Some(mesh_id) = self.id {
-            // Empty new data, we free the mesh.
-            if vertices.is_empty() {
-                self.id = None;
-                let result = renderer.render_manager.mesh_manager.free_data(mesh_id);
-                return result;
-            }
-
-            // Updates new data.
-            let result = renderer.render_manager.mesh_manager.update_data(
-                &renderer.gpu_context.tools.device(),
-                &renderer.gpu_context.tools.queue(),
-                renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
-                DataEntry::new(mesh_id, bytemuck::cast_slice(vertices)),
-            );
-            return result;
-        }
-
-        // No data, no existing mesh.
+        // Empty data, we free the mesh if it exists.
         if vertices.is_empty() {
-            return Ok(());
+            return match self.id {
+                Some(mesh_id) => {
+                    self.id = None;
+                    mesh_manager.free(mesh_id)
+                }
+                None => Ok(()),
+            };
         }
 
-        // Create mesh, update it with new data and associate it with the chunk mesh.
-        self.id = Some(renderer.render_manager.mesh_manager.add_data(
-            &renderer.gpu_context.tools.device(),
-            &renderer.gpu_context.tools.queue(),
-            renderer.gpu_resources.frame_encoder.as_mut().unwrap(),
-            bytemuck::cast_slice(&vertices),
-        )?);
+        let data = cast_slice(vertices);
 
-        Ok(())
+        return match self.id {
+            // Mesh already exists.
+            Some(mesh_id) => mesh_manager.update(mesh_id, data),
+            // Creates mesh with new data and associates it with the chunk mesh.
+            None => {
+                let mesh_id = mesh_manager.add(data)?;
+                self.id = Some(mesh_id);
+                Ok(())
+            }
+        };
     }
 }

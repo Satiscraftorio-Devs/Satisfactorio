@@ -9,13 +9,12 @@ client = []
 
 [dependencies]
 serde = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["io-util"] }
 bincode = "1.3"
 sha2 = { workspace = true}
 getrandom = "0.2"
-rustls = { version = "0.23.37", default-features = false, features = ["ring"] }
 noise = "0.9.0"
 num_cpus = "1.17.0"
 aes-gcm = "0.10.3"
 cgmath = "0.18.0"
-bytemuck = "1.25.0"
+bytemuck = { version = "1.25.0", features = ["derive"] }
