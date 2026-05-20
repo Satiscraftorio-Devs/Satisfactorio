@@ -109,6 +109,40 @@ impl Chunk {
         self.blocks[i] = block;
     }
 
+    pub fn chunk_coords_from_world(x: i32, y: i32, z: i32) -> (i32, i32, i32) {
+        (x.div_euclid(CHUNK_SIZE), y.div_euclid(CHUNK_SIZE), z.div_euclid(CHUNK_SIZE))
+    }
+
+    pub fn local_coords_from_world(x: i32, y: i32, z: i32) -> (i32, i32, i32) {
+        (x.rem_euclid(CHUNK_SIZE), y.rem_euclid(CHUNK_SIZE), z.rem_euclid(CHUNK_SIZE))
+    }
+
+    pub fn neighbors_from_block_pos(x: i32, y: i32, z: i32) -> Vec<(i32, i32, i32)> {
+        let mut neighbors = Vec::new();
+        let (cx, cy, cz) = Chunk::chunk_coords_from_world(x, y, z);
+        let (lx, ly, lz) = Chunk::local_coords_from_world(x, y, z);
+
+        if lx == 0 {
+            neighbors.push((cx - 1, cy, cz));
+        } else if lx == LAST_CHUNK_AXIS_INDEX {
+            neighbors.push((cx + 1, cy, cz));
+        }
+
+        if ly == 0 {
+            neighbors.push((cx, cy - 1, cz));
+        } else if ly == LAST_CHUNK_AXIS_INDEX {
+            neighbors.push((cx, cy + 1, cz));
+        }
+
+        if lz == 0 {
+            neighbors.push((cx, cy, cz - 1));
+        } else if lz == LAST_CHUNK_AXIS_INDEX {
+            neighbors.push((cx, cy, cz + 1));
+        }
+
+        neighbors
+    }
+
     pub fn compute_checksum(&self) -> [u8; 2] {
         let bytes = bincode::serialize(&self).unwrap();
         fletcher16(&bytes)

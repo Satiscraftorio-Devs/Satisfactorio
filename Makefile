@@ -26,6 +26,14 @@ launcher: build
 profile:
 	RUSTFLAGS="-C force-frame-pointers=yes" cargo flamegraph --profile flamegraph -p client --bin client -F 49
 
+doc:
+	cargo doc --no-deps --open --document-private-items
+
+clean-doc:
+	cargo clean --doc
+
+new-doc: clean-doc doc
+
 clean-logs:
 	rm logs/* -rf
 

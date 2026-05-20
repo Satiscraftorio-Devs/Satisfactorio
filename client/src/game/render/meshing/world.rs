@@ -80,7 +80,15 @@ impl WorldMesh {
             return;
         }
 
+        let mut kept_requests = VecDeque::new();
+
         while let Some(key) = self.queued.pop_front() {
+            // Si un traitement est déjà en cours, on attend en déplaçant la requête à la fin pour ne pas la perdre
+            if self.pending_keys.contains(&key) {
+                kept_requests.push_back(key);
+                continue;
+            }
+
             let (cx, cy, cz) = key;
 
             // Si le chunk associé au mesh n'existe pas, on passe au suivant (on l'a déjà retiré de la liste au début de la boucle)
@@ -103,9 +111,14 @@ impl WorldMesh {
                 }
                 Err(_) => {
                     // La file d'attente est pleine, on arrête ici pour l'instant
+                    kept_requests.push_back(key);
                     break;
                 }
             }
+        }
+
+        if !kept_requests.is_empty() {
+            self.queued.append(&mut kept_requests);
         }
     }
 

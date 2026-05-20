@@ -150,7 +150,7 @@ impl ChunkMesh {
         let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
         // D loop must occur CHUNK_SIZE + 1 times since for N blocs there are N + 1 possible faces (pointing out of the chunk and in between each block)
-        for d in 0..=CHUNK_SIZE {
+        for d in 0..CHUNK_SIZE {
             // Reset the mask
             mask = CLEARED_MASK;
 
@@ -340,7 +340,7 @@ impl ChunkMesh {
 
         let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
-        for d in 0..=CHUNK_SIZE {
+        for d in 0..CHUNK_SIZE {
             mask = CLEARED_MASK;
 
             let d_f32 = d as f32;
@@ -520,7 +520,7 @@ impl ChunkMesh {
 
         let mut mask: [[FaceMask; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
 
-        for d in 0..=CHUNK_SIZE {
+        for d in 0..CHUNK_SIZE {
             mask = CLEARED_MASK;
 
             let d_f32 = d as f32;

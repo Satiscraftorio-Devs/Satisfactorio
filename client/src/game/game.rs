@@ -106,9 +106,7 @@ impl AppState for GameState {
             .physics_update(frame.dt, &mut self.inputs, &self.world, self.player.state.game_mode.clone());
 
         // LOGIC
-        let network_commands = self
-            .player
-            .update(frame.dt, &mut self.world, &mut self.world_mesh, &mut self.inputs);
+        let network_commands = self.player.update(frame.dt, &mut self.world, &mut self.inputs);
         self.world.update(&mut renderer.render_manager, &mut self.world_mesh, &self.player);
 
         // NETWORK
@@ -273,7 +271,7 @@ impl GameState {
 
         // SWITCH GAMEMODE
         if self.inputs.take_key_pressed(KeyCode::KeyG) {
-            println!("Command \"P\" Pressed");
+            println!("Switch gamemode");
             self.player.state.switch_player_game_mode();
             if let Some(ref mut net) = self.network {
                 let result = net.send_gamemode_change(self.player.state.game_mode);

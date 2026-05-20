@@ -16,47 +16,77 @@ pub fn voxel_raycast(
     let mut y = origin.y.floor() as i32;
     let mut z = origin.z.floor() as i32;
 
-    // Direction de progression sur chaque axe
-    let step_x = (direction.x > 0.0) as i32 * 2 - 1;
-    let step_y = (direction.y > 0.0) as i32 * 2 - 1;
-    let step_z = (direction.z > 0.0) as i32 * 2 - 1;
-
-    // Distance sur le rayon pour traverser 1 bloc sur chaque axe
-    // f32::MAX si l'axe est parallèle
-    let t_delta_x = if direction.x != 0.0 { (1.0 / direction.x).abs() } else { f32::MAX };
-    let t_delta_y = if direction.y != 0.0 { (1.0 / direction.y).abs() } else { f32::MAX };
-    let t_delta_z = if direction.z != 0.0 { (1.0 / direction.z).abs() } else { f32::MAX };
-
-    // Distance jusqu'à la première face sur chaque axe
-    let mut t_max_x = if direction.x > 0.0 {
-        (x as f32 + 1.0 - origin.x) * t_delta_x
+    // step = ±1 selon la direction, 0 si parallèle
+    let step_x = if direction.x > 0.0 {
+        1
     } else if direction.x < 0.0 {
-        (origin.x - x as f32) * t_delta_x
+        -1
     } else {
-        f32::MAX
+        0
     };
-    let mut t_max_y = if direction.y > 0.0 {
-        (y as f32 + 1.0 - origin.y) * t_delta_y
+    let step_y = if direction.y > 0.0 {
+        1
     } else if direction.y < 0.0 {
-        (origin.y - y as f32) * t_delta_y
+        -1
     } else {
-        f32::MAX
+        0
     };
-    let mut t_max_z = if direction.z > 0.0 {
-        (z as f32 + 1.0 - origin.z) * t_delta_z
+    let step_z = if direction.z > 0.0 {
+        1
     } else if direction.z < 0.0 {
-        (origin.z - z as f32) * t_delta_z
+        -1
     } else {
-        f32::MAX
+        0
     };
 
+    // t pour traverser 1 unité sur chaque axe
+    let t_delta_x = if step_x != 0 { 1.0 / direction.x.abs() } else { f32::INFINITY };
+    let t_delta_y = if step_y != 0 { 1.0 / direction.y.abs() } else { f32::INFINITY };
+    let t_delta_z = if step_z != 0 { 1.0 / direction.z.abs() } else { f32::INFINITY };
+
+    // t jusqu'à la prochaine face sur chaque axe
+    let dist_to_next_face_x = if step_x > 0 {
+        x as f32 + 1.0 - origin.x
+    } else {
+        origin.x - x as f32
+    };
+    let dist_to_next_face_y = if step_y > 0 {
+        y as f32 + 1.0 - origin.y
+    } else {
+        origin.y - y as f32
+    };
+    let dist_to_next_face_z = if step_z > 0 {
+        z as f32 + 1.0 - origin.z
+    } else {
+        origin.z - z as f32
+    };
+
+    let mut t_max_x = if step_x != 0 {
+        dist_to_next_face_x * t_delta_x
+    } else {
+        f32::INFINITY
+    };
+    let mut t_max_y = if step_y != 0 {
+        dist_to_next_face_y * t_delta_y
+    } else {
+        f32::INFINITY
+    };
+    let mut t_max_z = if step_z != 0 {
+        dist_to_next_face_z * t_delta_z
+    } else {
+        f32::INFINITY
+    };
+
+    // t paramétrique : distance exacte parcourue depuis l'origine
+    let mut t = 0.0;
     let mut prev_x = x;
     let mut prev_y = y;
     let mut prev_z = z;
 
-    let max_steps = max_distance.ceil() as i32;
-
-    for _ in 0..max_steps {
+    loop {
+        if t > max_distance {
+            return None;
+        }
         if stop_condition(x, y, z) {
             return Some(RaycastHit {
                 block_pos: (x, y, z),
@@ -69,26 +99,21 @@ pub fn voxel_raycast(
         prev_z = z;
 
         // Avance sur l'axe dont la face est la plus proche
-        if t_max_x < t_max_y {
-            if t_max_x > max_distance {
-                break;
-            }
+        if step_x != 0 && t_max_x <= t_max_y && t_max_x <= t_max_z {
+            t = t_max_x;
             x += step_x;
             t_max_x += t_delta_x;
-        } else if t_max_y < t_max_z {
-            if t_max_y > max_distance {
-                break;
-            }
+        } else if step_y != 0 && t_max_y <= t_max_z {
+            t = t_max_y;
             y += step_y;
             t_max_y += t_delta_y;
-        } else {
-            if t_max_z > max_distance {
-                break;
-            }
+        } else if step_z != 0 {
+            t = t_max_z;
             z += step_z;
             t_max_z += t_delta_z;
+        } else {
+            // direction (0,0,0) ou NaN — aucun mouvement
+            return None;
         }
     }
-
-    None
 }

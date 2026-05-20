@@ -1,5 +1,5 @@
-mod engine;
-mod game;
+pub mod engine;
+pub mod game;
 
 use winit::event_loop::EventLoop;
 

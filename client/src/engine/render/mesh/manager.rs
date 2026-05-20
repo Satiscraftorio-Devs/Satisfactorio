@@ -36,6 +36,12 @@ pub struct MeshEntry {
     pub length: usize,
 }
 
+impl MeshEntry {
+    pub fn new(id: MeshId, position: usize, length: usize) -> Self {
+        Self { id, position, length }
+    }
+}
+
 #[derive(Clone)]
 struct Gap {
     pub position: usize,
@@ -175,17 +181,8 @@ impl MeshManager {
 
         self.write_at(position, data, id);
 
-        let entry = MeshEntry {
-            id: id,
-            position: position,
-            length: data.len(),
-        };
-        let entry_index = self
-            .data
-            .iter()
-            .position(|x| x.position > entry.position)
-            .unwrap_or(self.data.len());
-        self.data.insert(entry_index, entry);
+        let entry = MeshEntry::new(id, position, data.len());
+        self.insert_entry(entry);
 
         self.print_buffer_memory_usage();
 
@@ -268,7 +265,10 @@ impl MeshManager {
 
         // Cas 3: on regarde s'il existe un trou suffisant pour accueillir les nouvelles données...
         if let Some(gap_index) = self.find_place(new_len) {
-            self.consume_gap_for(gap_index, id, data);
+            let position = self.consume_gap_for(gap_index, id, data);
+            let entry = MeshEntry::new(id, position, new_len);
+            self.insert_entry(entry);
+
             return Ok(());
         }
 
@@ -279,7 +279,9 @@ impl MeshManager {
         let Some(gap_index) = self.find_place(new_len) else {
             return Err(AllocError::NotEnoughSpace);
         };
-        self.consume_gap_for(gap_index, id, data);
+        let position = self.consume_gap_for(gap_index, id, data);
+        let entry = MeshEntry::new(id, position, new_len);
+        self.insert_entry(entry);
 
         self.print_buffer_memory_usage();
 
@@ -353,6 +355,15 @@ impl MeshManager {
     fn find_place(&self, needed: usize) -> Option<usize> {
         log_allocator!("Finding place for {} bytes.", needed);
         self.gaps.iter().position(|x| x.length >= needed)
+    }
+
+    fn insert_entry(&mut self, entry: MeshEntry) {
+        let entry_index = self
+            .data
+            .iter()
+            .position(|x| x.position > entry.position)
+            .unwrap_or(self.data.len());
+        self.data.insert(entry_index, entry);
     }
 
     fn get_data_next_gap(&self, entry: &MeshEntry) -> Option<usize> {
@@ -472,7 +483,7 @@ impl MeshManager {
         self.gaps.insert(gap_index, gap);
     }
 
-    fn consume_gap_for(&mut self, gap_index: usize, id: u32, data: &[u8]) {
+    fn consume_gap_for(&mut self, gap_index: usize, id: u32, data: &[u8]) -> usize {
         log_allocator!("Consume Gap(index: {}) for DataEntry(id: {}, len: {}).", gap_index, id, data.len());
         let position = self.gaps[gap_index].position;
         let data_length = data.len();
@@ -486,6 +497,8 @@ impl MeshManager {
         if gap.length == 0 {
             self.gaps.remove(gap_index);
         }
+
+        position
     }
 
     fn try_merge_gap(&mut self, position: usize) {

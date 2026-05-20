@@ -61,21 +61,21 @@ impl PlayerState {
 
     /// Met à jour la caméra (yaw/pitch).
     /// La position et `cpos` sont mis à jour dans `physics_update()` (timestep fixe).
-    pub fn update(&mut self, dt: f32, world: &mut World, world_mesh: &mut WorldMesh, inputs: &mut InputState) -> Vec<Paquet> {
+    pub fn update(&mut self, dt: f32, world: &mut World, inputs: &mut InputState) -> Vec<Paquet> {
         let pos = self.get_pos();
         self.camera_controller.update(dt, inputs, &mut self.camera, &pos);
 
         let mut commands = Vec::new();
 
         if inputs.take_key_pressed(KeyCode::KeyB) {
-            self.break_block(world, world_mesh, &mut commands);
+            self.break_block(world, &mut commands);
         }
 
         commands
     }
 
-    fn break_block(&mut self, world: &mut World, world_mesh: &mut WorldMesh, commands: &mut Vec<Paquet>) {
-        let hit = voxel_raycast(self.camera.eye, self.camera.forward(), 12.0, |x, y, z| {
+    fn break_block(&mut self, world: &mut World, commands: &mut Vec<Paquet>) {
+        let hit = voxel_raycast(self.camera.eye, self.camera.forward(), 4.0, |x, y, z| {
             world.get_block_from_xyz(x, y, z).is_solid()
         });
         if let Some(hit) = hit {
@@ -84,8 +84,6 @@ impl PlayerState {
             let success = world.set_block(x, y, z, air);
             if success {
                 commands.push(GameProtocol::create_block_modification(x, y, z, air));
-                let chunk_pos = World::chunk_coords_from_block(x, y, z);
-                world_mesh.set_dirty(&chunk_pos);
             }
         }
     }
@@ -209,8 +207,8 @@ impl Player {
     }
 
     /// Délègue la mise à jour de la caméra à `PlayerState` (yaw/pitch).
-    pub fn update(&mut self, dt: f32, world: &mut World, world_mesh: &mut WorldMesh, inputs: &mut InputState) -> Vec<Paquet> {
-        self.state.update(dt, world, world_mesh, inputs)
+    pub fn update(&mut self, dt: f32, world: &mut World, inputs: &mut InputState) -> Vec<Paquet> {
+        self.state.update(dt, world, inputs)
     }
 
     /// Met à jour la physique à timestep fixe :

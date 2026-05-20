@@ -219,41 +219,34 @@ impl World {
         return self.chunks.get_mut(&(cx, cy, cz));
     }
 
-    pub fn chunk_coords_from_block(x: i32, y: i32, z: i32) -> (i32, i32, i32) {
-        (x.div_euclid(CHUNK_SIZE), y.div_euclid(CHUNK_SIZE), z.div_euclid(CHUNK_SIZE))
-    }
-
-    pub fn local_block_coords(x: i32, y: i32, z: i32) -> (i32, i32, i32) {
-        (x.rem_euclid(CHUNK_SIZE), y.rem_euclid(CHUNK_SIZE), z.rem_euclid(CHUNK_SIZE))
-    }
-
     pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: BlockInstance) -> bool {
-        let (cx, cy, cz) = World::chunk_coords_from_block(x, y, z);
-        let (lx, ly, lz) = World::local_block_coords(x, y, z);
+        let (cx, cy, cz) = Chunk::chunk_coords_from_world(x, y, z);
+        let (lx, ly, lz) = Chunk::local_coords_from_world(x, y, z);
         let Some(chunk) = self.get_chunk_data_mut(cx, cy, cz) else {
             return false;
         };
-        println!("lx: {} ly: {} lz: {}", lx, ly, lz);
         let current_block = chunk.chunk.get_block_from_xyz(lx, ly, lz);
         if current_block == block {
             return false;
         } else {
             Arc::make_mut(&mut chunk.chunk).set_block_from_xyz(lx, ly, lz, block);
+
+            self.ready_to_mesh.push_back((cx, cy, cz));
+            for (ncx, ncy, ncz) in Chunk::neighbors_from_block_pos(x, y, z) {
+                if self.get_chunk_data(ncx, ncy, ncz).is_some() {
+                    self.ready_to_mesh.push_back((ncx, ncy, ncz));
+                }
+            }
             return true;
         }
     }
 
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
-        let cx: i32 = x.div_euclid(CHUNK_SIZE);
-        let cy: i32 = y.div_euclid(CHUNK_SIZE);
-        let cz: i32 = z.div_euclid(CHUNK_SIZE);
-
-        let cbx: i32 = x.rem_euclid(CHUNK_SIZE);
-        let cby: i32 = y.rem_euclid(CHUNK_SIZE);
-        let cbz: i32 = z.rem_euclid(CHUNK_SIZE);
+        let (cx, cy, cz) = Chunk::chunk_coords_from_world(x, y, z);
+        let (lx, ly, lz) = Chunk::local_coords_from_world(x, y, z);
 
         if let Some(data) = self.get_chunk_data(cx, cy, cz) {
-            return data.chunk.get_block_from_xyz(cbx, cby, cbz);
+            return data.chunk.get_block_from_xyz(lx, ly, lz);
         } else {
             return BlockInstance::air();
         }
