@@ -102,25 +102,16 @@ impl AppState {
     pub fn set_player_gamemode(&self, id: u64, gamemode: PlayerGameMode) {
         let mut state = self.inner.write().unwrap();
         state.players.update_gamemode(id, gamemode.clone());
-
-        match self.get_player_position(id) {
-            Some(pos) => match self.get_player_rotation(id) {
-                Some(rot) => state.players.set_last_valid_transformation(id, pos, rot),
-                None => state.players.set_last_valid_transformation(id, pos, Rotation { x: 0.0, y: 0.0 }),
-            },
-            None => {
-                log_err_server!("Le joueur {id} n'a pas de position valide, aucune transformation n'a été définie")
-            }
-        }
-
         if gamemode != PlayerGameMode::Spectator {
             let (x, y, z) = state
                 .players
                 .get(&id)
                 .map(|p| (p.position.x, p.position.y, p.position.z))
-                .unwrap_or((0.0, 0.0, 0.0));
-            if !state.world.is_position_free(x, y, z) {
-                state.players.reset_to_last_valid_transformation(id);
+                .unwrap_or((SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z));
+            let surface = state.world.find_safe_spawn_point(x, y, z);
+            if let Some(player) = state.players.get_mut(&id) {
+                player.position = surface.clone();
+                player.last_valid_position = surface;
             }
         }
     }
