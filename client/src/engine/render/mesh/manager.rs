@@ -12,7 +12,7 @@ const MAX_MILLIS_PER_FRAME_CAP: u128 = 8;
 const MAX_WRITE_OPERATIONS_PER_FRAME: usize = 5;
 const ARENA_MIN_SIZE: usize = 1024 * 1024; // 1mb
 const MESH_BUFFER_BASE_SIZE: usize = 1024 * 1024 * 32; // 32mb
-const MESH_BUFFER_EXPAND_COEF: f32 = 1.25;
+const MESH_BUFFER_EXPAND_COEF: f32 = 1.5;
 
 pub type MeshId = u32;
 

@@ -5,21 +5,28 @@ use crate::{
         world::world::World,
     },
 };
-use shared::{buffer_pool::BufferPool, world::data::chunk::ChunkState};
+use shared::{
+    buffer_pool::BufferPool,
+    utils::unique_queue::{FastUniqueQueue, UniqueQueue},
+    world::data::chunk::ChunkState,
+};
 use shared::{
     constants::MAX_MESHING_CHUNKS_IN_QUEUE,
     parallel::{WorkResult, WorkerPool},
 };
-use std::collections::{HashMap, HashSet};
+use std::cmp::max;
 use std::sync::Arc;
-use std::{cmp::max, collections::VecDeque};
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
+};
 
 pub struct WorldMesh {
     pub meshes: HashMap<(i32, i32, i32), ChunkMesh>,
     mesh_worker: WorkerPool<GreedyMeshingProcessor>,
     pending: HashMap<usize, (i32, i32, i32)>,
     pending_keys: HashSet<(i32, i32, i32)>,
-    queued: VecDeque<(i32, i32, i32)>,
+    queued: FastUniqueQueue<(i32, i32, i32)>,
 }
 
 impl WorldMesh {
@@ -31,7 +38,7 @@ impl WorldMesh {
             mesh_worker: WorkerPool::with_max_pending(worker_count, buffer_pool, Some(MAX_MESHING_CHUNKS_IN_QUEUE as usize)),
             pending: HashMap::new(),
             pending_keys: HashSet::new(),
-            queued: VecDeque::new(),
+            queued: FastUniqueQueue::new(),
         }
     }
 
@@ -52,34 +59,28 @@ impl WorldMesh {
     // }
 
     fn enqueue_missing_meshes(&mut self, world: &mut World) {
-        // Récupérer les chunks prêts à êtres meshés
-        let missing_keys = world.ready_to_mesh();
+        // Récupérer les chunks prêts à être meshés
+        let ready = world.ready_to_mesh();
+        let mut ready = mem::replace(ready, UniqueQueue::new());
 
-        if missing_keys.is_empty() {
-            return;
-        }
-
-        let mut lefts_to_mesh = VecDeque::new();
-
-        for key in missing_keys.iter() {
-            let (cx, cy, cz) = *key;
+        ready.retain(|chunk| {
+            let (cx, cy, cz) = *chunk;
 
             // Si le chunk n'existe pas, on ne crée pas le mesh
             if world.get_chunk_data(cx, cy, cz).is_none() {
-                continue;
+                return true;
             };
 
             // Si les chunks voisins sont prêts, on le met en file d'attente pour le mesh
             if world.are_all_neighbors_ready(cx, cy, cz) {
-                self.queued.push_back(*key);
+                self.queued.push_back(*chunk);
+                false
             }
             // Si les chunks voisins ne sont pas encore générés, on le laisse en attente
             else {
-                lefts_to_mesh.push_back(*key);
+                true
             }
-        }
-
-        world.set_ready_to_mesh(lefts_to_mesh);
+        });
     }
 
     fn submit_meshes(&mut self, world: &mut World) {
@@ -88,20 +89,22 @@ impl WorldMesh {
             return;
         }
 
-        let mut kept_requests = VecDeque::new();
-
-        while let Some(key) = self.queued.pop_front() {
-            // Si un traitement est déjà en cours, on attend en déplaçant la requête à la fin pour ne pas la perdre
-            if self.pending_keys.contains(&key) {
-                kept_requests.push_back(key);
-                continue;
+        let mut keep_going = true;
+        self.queued.retain(|chunk| {
+            // Si on doit arrêter la boucle (file d'attente pleine), on garde les éléments même s'ils sont indésirables
+            if !keep_going {
+                return true;
+            }
+            // Si un traitement est déjà en cours, on attend pour cette requête
+            if self.pending_keys.contains(chunk) {
+                return true;
             }
 
-            let (cx, cy, cz) = key;
+            let (cx, cy, cz) = *chunk;
 
-            // Si le chunk associé au mesh n'existe pas, on passe au suivant (on l'a déjà retiré de la liste au début de la boucle)
+            // Si le chunk associé au mesh n'existe pas, on retire la requête
             let Some(chunk_data) = world.get_chunk_data(cx, cy, cz) else {
-                continue;
+                return false;
             };
 
             // On récupère les infos nécessaires pour le mesher
@@ -113,21 +116,18 @@ impl WorldMesh {
 
             match result {
                 Ok(id) => {
-                    // La demande a aboutit
-                    self.pending.insert(id, key);
-                    self.pending_keys.insert(key);
+                    // La demande a aboutit, on peut retirer la requête
+                    self.pending.insert(id, *chunk);
+                    self.pending_keys.insert(*chunk);
+                    false
                 }
                 Err(_) => {
-                    // La file d'attente est pleine, on arrête ici pour l'instant
-                    kept_requests.push_back(key);
-                    break;
+                    // La file d'attente est pleine, on arrête ici pour l'instant et on conserve cette requête
+                    keep_going = true;
+                    true
                 }
             }
-        }
-
-        if !kept_requests.is_empty() {
-            self.queued.append(&mut kept_requests);
-        }
+        });
     }
 
     fn compute_generated_meshes(&mut self, mesh_manager: &mut MeshManager, world: &mut World) {

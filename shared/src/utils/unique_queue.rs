@@ -1,7 +1,9 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{vec_deque::Iter, HashSet, VecDeque},
     hash::{BuildHasher, Hash, RandomState},
 };
+
+use rustc_hash::FxBuildHasher;
 
 /// A FIFO data structure whose main characteristic is that each element is guaranteed to be **unique**.
 ///
@@ -20,6 +22,8 @@ pub struct UniqueQueue<T, S = RandomState> {
     queue: VecDeque<T>,
     set: HashSet<T, S>,
 }
+
+pub type FastUniqueQueue<T> = UniqueQueue<T, FxBuildHasher>;
 
 impl<T: Hash + Eq + Clone, S: BuildHasher + Default> UniqueQueue<T, S> {
     pub fn new() -> Self {
@@ -88,5 +92,25 @@ impl<T: Hash + Eq + Clone, S: BuildHasher + Default> UniqueQueue<T, S> {
     pub fn clear(&mut self) {
         self.queue.clear();
         self.set.clear();
+    }
+
+    pub fn iter(&self) -> Iter<'_, T> {
+        self.queue.iter()
+    }
+
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.queue.retain(f);
+    }
+}
+
+impl<T: Hash + Eq + Clone, S: BuildHasher + Default> Default for UniqueQueue<T, S> {
+    fn default() -> Self {
+        Self {
+            queue: Default::default(),
+            set: Default::default(),
+        }
     }
 }

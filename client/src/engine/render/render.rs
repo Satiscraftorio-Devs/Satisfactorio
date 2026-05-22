@@ -267,7 +267,7 @@ impl Renderer {
         if mesh_count > 0 {
             render_pass.set_vertex_buffer(0, self.render_manager.mesh_manager.get_buffer().slice(..));
 
-            let can_multidraw = self.gpu_context.features.contains(Features::MULTI_DRAW_INDIRECT_COUNT); // TODO: detect if the device supports multi-draw indirect
+            let can_multidraw = self.gpu_context.features.contains(Features::MULTI_DRAW_INDIRECT_COUNT);
 
             if can_multidraw {
                 render_pass.multi_draw_indirect(&self.render_manager.indirect_buffer.buffer(), 0, mesh_count);

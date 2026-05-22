@@ -18,3 +18,4 @@ num_cpus = "1.17.0"
 aes-gcm = "0.10.3"
 cgmath = "0.18.0"
 bytemuck = { version = "1.25.0", features = ["derive"] }
+rustc-hash = "2.1.2"

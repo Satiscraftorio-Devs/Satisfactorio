@@ -3,7 +3,11 @@ use crate::{
     game::{api::texture_loader::TextureLoader, physics::aabb::AABB},
 };
 use cgmath::Point3;
-use shared::{constants::DIRECT_NORMALS_3D, world::data::block::BlockData};
+use shared::{
+    constants::DIRECT_NORMALS_3D,
+    utils::unique_queue::{FastUniqueQueue, UniqueQueue},
+    world::data::block::BlockData,
+};
 use shared::{constants::MAX_GENERATION_CHUNKS_IN_QUEUE, log_err_client};
 use shared::{
     constants::SIMULATION_DISTANCE_IN_BLOCKS_HALFED_VEC3_F,
@@ -17,7 +21,8 @@ use shared::{
 };
 use std::{
     cmp::max,
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
+    mem,
     sync::{Arc, RwLock},
 };
 
@@ -42,8 +47,8 @@ pub struct World {
     chunks: HashMap<(i32, i32, i32), ChunkData>,
     chunk_generator: ChunkGenerator,
     block_manager: Arc<RwLock<BlockManager>>,
-    waiting_to_mesh: VecDeque<(i32, i32, i32)>,
-    ready_to_mesh: VecDeque<(i32, i32, i32)>,
+    waiting_to_mesh: FastUniqueQueue<(i32, i32, i32)>,
+    ready_to_mesh: FastUniqueQueue<(i32, i32, i32)>,
 }
 
 impl World {
@@ -63,8 +68,8 @@ impl World {
             chunks: HashMap::new(),
             chunk_generator: chunk_generator,
             block_manager: block_manager,
-            waiting_to_mesh: VecDeque::new(),
-            ready_to_mesh: VecDeque::new(),
+            waiting_to_mesh: UniqueQueue::with_capacity(256),
+            ready_to_mesh: UniqueQueue::with_capacity(256),
         };
     }
 
@@ -199,38 +204,36 @@ impl World {
             let mut chunk = chunk_with_checksum.chunk_data;
             chunk.is_dirty = false;
             self.chunks.insert(key, chunk);
-            if !self.waiting_to_mesh.contains(&key) {
-                self.waiting_to_mesh.push_back(key);
-            }
+            self.waiting_to_mesh.push_back(key);
         }
     }
 
     fn submit_to_mesh(&mut self) {
-        let mut kept_waiting = VecDeque::new();
+        if self.waiting_to_mesh.is_empty() {
+            return;
+        }
 
-        for chunk in self.waiting_to_mesh.iter() {
+        let mut waiting = mem::replace(&mut self.waiting_to_mesh, UniqueQueue::new());
+
+        waiting.retain(|chunk| {
             let chunk = *chunk;
             let (cx, cy, cz) = chunk;
             if self.are_all_neighbors_ready(cx, cy, cz) {
-                if !self.ready_to_mesh.contains(&chunk) {
-                    self.ready_to_mesh.push_back(chunk);
-                }
+                self.ready_to_mesh.push_back(chunk);
+                false
             } else {
-                kept_waiting.push_back(chunk);
+                true
             }
-        }
+        });
 
-        self.waiting_to_mesh.clear();
-        if !kept_waiting.is_empty() {
-            self.waiting_to_mesh.append(&mut kept_waiting);
-        }
+        self.waiting_to_mesh = waiting;
     }
 
-    pub fn ready_to_mesh(&self) -> &VecDeque<(i32, i32, i32)> {
-        &self.ready_to_mesh
+    pub fn ready_to_mesh(&mut self) -> &mut FastUniqueQueue<(i32, i32, i32)> {
+        &mut self.ready_to_mesh
     }
 
-    pub fn set_ready_to_mesh(&mut self, new: VecDeque<(i32, i32, i32)>) {
+    pub fn set_ready_to_mesh(&mut self, new: FastUniqueQueue<(i32, i32, i32)>) {
         self.ready_to_mesh = new;
     }
 
