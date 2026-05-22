@@ -5,7 +5,7 @@ use wgpu::{
     VertexState,
 };
 
-use crate::engine::render::render::GpuTools;
+use crate::engine::gpu::tools::GpuTools;
 
 pub struct PipelineLayoutFactory {
     gpu_tools: Arc<GpuTools>,

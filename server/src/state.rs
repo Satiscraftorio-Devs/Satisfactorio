@@ -1,7 +1,6 @@
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use shared::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
-use shared::log_err_server;
 use shared::network::messages::{ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
 use std::sync::RwLock;
 use tokio::sync::broadcast;

@@ -5,12 +5,19 @@ use crate::engine::{
     core::{
         application::AppState,
         frame::{EngineFrameData, GameFrameData},
-        gpu::{factory::GpuFactory, layouts::BufferLayouts, pipeline::Pipelines},
+    },
+    gpu::{
+        context::GpuContext,
+        factory::GpuFactory,
+        layouts::BufferLayouts,
+        resources::{pipeline::Pipelines, resources::GpuResources},
     },
     render::{
         camera::RenderCamera,
+        debug::DebugRenderResources,
         manager::RenderManager,
-        render::{DebugRenderResources, GpuContext, GpuResources, RenderOptions, Renderer},
+        options::RenderOptions,
+        render::Renderer,
         text::{text_renderer::FPS_UPDATE_DELAY, TextRenderer},
         texture::{RenderMode, TextureManager},
     },

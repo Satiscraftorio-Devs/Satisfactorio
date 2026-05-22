@@ -5,7 +5,7 @@ use std::{
 
 use wgpu::{Buffer, BufferUsages, CommandEncoder};
 
-use crate::engine::render::{render::GpuTools, utils::smart_buffer::SmartBuffer};
+use crate::engine::{gpu::tools::GpuTools, render::utils::smart_buffer::SmartBuffer};
 
 const BYTES_PER_FRAME_CAP: usize = 1024 * 1024 * 8;
 const MAX_MILLIS_PER_FRAME_CAP: u128 = 8;

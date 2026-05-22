@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::*;
 
-use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};
+use crate::engine::{gpu::tools::GpuTools, render::textures::array::Texture2DArray};
 
 pub struct TextureManager {
     gpu_resources: Arc<GpuTools>,

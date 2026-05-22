@@ -1,6 +1,8 @@
 pub mod camera;
+pub mod debug;
 pub mod manager;
 pub mod mesh;
+pub mod options;
 pub mod render;
 pub mod text;
 pub mod texture;

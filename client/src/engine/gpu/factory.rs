@@ -1,9 +1,9 @@
-use crate::engine::{
-    core::gpu::{
+use crate::engine::gpu::{
+    context::GpuContext,
+    resources::{
         bind_group::{BindGroupFactory, BindGroupLayoutFactory},
         pipeline::{PipelineFactory, PipelineLayoutFactory},
     },
-    render::render::GpuContext,
 };
 
 pub struct GpuFactory {

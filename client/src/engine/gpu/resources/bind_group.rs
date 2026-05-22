@@ -5,7 +5,7 @@ use wgpu::{
     BindingType, Buffer, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureView, TextureViewDimension,
 };
 
-use crate::engine::render::{render::GpuTools, textures::array::Texture2DArray};
+use crate::engine::{gpu::tools::GpuTools, render::textures::array::Texture2DArray};
 
 pub struct BindGroupLayoutFactory {
     gpu_tools: Arc<GpuTools>,

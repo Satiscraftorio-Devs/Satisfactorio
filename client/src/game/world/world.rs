@@ -233,10 +233,6 @@ impl World {
         &mut self.ready_to_mesh
     }
 
-    pub fn set_ready_to_mesh(&mut self, new: FastUniqueQueue<(i32, i32, i32)>) {
-        self.ready_to_mesh = new;
-    }
-
     pub fn get_mesh_snapshot(&self, cx: i32, cy: i32, cz: i32) -> MeshSnapshot {
         MeshSnapshot {
             main: Arc::clone(&self.chunks.get(&(cx, cy, cz)).unwrap().chunk),

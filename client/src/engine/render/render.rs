@@ -1,36 +1,21 @@
-use std::{
-    iter, mem,
-    sync::{Arc, RwLock},
-};
+use std::{iter, mem};
 
 use shared::{geometry::vertex::Vertex, world::data::chunk::CHUNK_SIZE_F};
 use wgpu::{
-    wgt::{CommandEncoderDescriptor, DeviceDescriptor, DrawIndirectArgs},
-    Backends, BindGroup, Buffer, CommandEncoder, Device, ExperimentalFeatures, Features, Instance, InstanceDescriptor, Limits,
-    PowerPreference, PresentMode, Queue, RenderPass, RenderPipeline, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture,
-    TextureUsages, TextureView, Trace,
+    wgt::{CommandEncoderDescriptor, DrawIndirectArgs},
+    Features, RenderPass,
 };
-use winit::window::Window;
 
 use crate::engine::{
-    core::gpu::pipeline::Pipelines,
-    render::{camera::RenderCamera, manager::RenderManager, text::TextRenderer, texture::TextureManager},
+    gpu::{context::GpuContext, resources::resources::GpuResources},
+    render::{
+        camera::RenderCamera, debug::DebugRenderResources, manager::RenderManager, options::RenderOptions, text::TextRenderer,
+        texture::TextureManager,
+    },
 };
 
 const WIREFRAME: bool = false;
 const SHOW_CHUNK_BORDERS: bool = false;
-
-pub struct RenderOptions {
-    pub aspect: f32,
-    pub znear: f32,
-    pub zfar: f32,
-}
-
-impl RenderOptions {
-    pub fn new(aspect: f32, znear: f32, zfar: f32) -> Self {
-        Self { aspect, znear, zfar }
-    }
-}
 
 pub struct Renderer {
     pub is_surface_configured: bool,
@@ -44,194 +29,6 @@ pub struct Renderer {
     pub gpu_resources: GpuResources,
 
     pub debug: DebugRenderResources,
-}
-
-pub struct GpuTools {
-    device: Device,
-    queue: Queue,
-}
-
-pub struct GpuResources {
-    pub pipelines: Pipelines,
-
-    pub camera_bind_group: BindGroup,
-    pub texture_bind_group: BindGroup,
-
-    pub camera_buffer: Buffer,
-
-    pub depth_texture: Texture,
-    pub depth_view: TextureView,
-}
-
-impl GpuResources {
-    pub fn new(
-        pipelines: Pipelines,
-
-        camera_bind_group: BindGroup,
-        texture_bind_group: BindGroup,
-
-        camera_buffer: Buffer,
-
-        depth_texture: Texture,
-        depth_view: TextureView,
-    ) -> Self {
-        Self {
-            pipelines,
-            camera_bind_group,
-            texture_bind_group,
-            camera_buffer,
-            depth_texture,
-            depth_view,
-        }
-    }
-}
-
-impl GpuTools {
-    pub fn new(device: Device, queue: Queue) -> Self {
-        Self { device, queue }
-    }
-
-    pub fn device(&self) -> &Device {
-        &self.device
-    }
-
-    pub fn queue(&self) -> &Queue {
-        &self.queue
-    }
-
-    pub fn from_arc(gpu_tools: &Arc<Self>) -> Arc<GpuTools> {
-        Arc::clone(gpu_tools)
-    }
-}
-
-pub struct GpuContext {
-    pub surface: Surface<'static>,
-    pub tools: Arc<GpuTools>,
-    pub frame_encoder: Arc<RwLock<CommandEncoder>>,
-    pub config: SurfaceConfiguration,
-    pub limits: Limits,
-    pub features: Features,
-}
-
-impl GpuContext {
-    pub fn new(window: Arc<Window>) -> anyhow::Result<Self> {
-        let size = window.inner_size();
-        let instance = Instance::new(&InstanceDescriptor {
-            backends: Backends::PRIMARY,
-            ..Default::default()
-        });
-
-        let surface = instance.create_surface(window).unwrap();
-
-        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
-            power_preference: PowerPreference::default(),
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        }))?;
-
-        let features = {
-            let mut requested = vec![
-                Features::CONSERVATIVE_RASTERIZATION,
-                Features::POLYGON_MODE_LINE,
-                Features::MULTI_DRAW_INDIRECT_COUNT,
-            ];
-
-            requested.retain(|value| adapter.features().contains(*value));
-            let result = requested.iter().fold(Features::empty(), |acc, value| acc.union(*value));
-            result
-        };
-
-        let (device, queue) = pollster::block_on(adapter.request_device(&DeviceDescriptor {
-            label: None,
-            required_features: features,
-            experimental_features: ExperimentalFeatures::disabled(),
-            required_limits: Limits::default(),
-            memory_hints: Default::default(),
-            trace: Trace::Off,
-        }))?;
-
-        let frame_encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Frame encoder"),
-        });
-        let frame_encoder = Arc::new(RwLock::new(frame_encoder));
-
-        let tools = Arc::new(GpuTools::new(device, queue));
-
-        let limits = tools.device().limits();
-        let features = tools.device().features().intersection(adapter.features());
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(surface_caps.formats[0]);
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: PresentMode::AutoNoVsync,
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-
-        Ok(Self {
-            surface,
-            tools,
-            frame_encoder,
-            config,
-            limits,
-            features,
-        })
-    }
-
-    pub fn get_tools(&self) -> Arc<GpuTools> {
-        GpuTools::from_arc(&self.tools)
-    }
-
-    pub fn get_encoder(&self) -> Arc<RwLock<CommandEncoder>> {
-        Arc::clone(&self.frame_encoder)
-    }
-}
-
-pub struct DebugRenderResources {
-    pub wireframe: bool,
-    pub pipelines: Pipelines,
-    pub gizmo_render_pipeline: RenderPipeline,
-    pub gizmo_buffer: Buffer,
-    pub show_chunk_borders: bool,
-    pub chunk_borders_buffer: Buffer,
-}
-
-impl DebugRenderResources {
-    pub fn new(pipelines: Pipelines, gizmo_render_pipeline: RenderPipeline, gizmo_buffer: Buffer, chunk_borders_buffer: Buffer) -> Self {
-        Self {
-            wireframe: false,
-            pipelines,
-            gizmo_render_pipeline,
-            gizmo_buffer,
-            show_chunk_borders: false,
-            chunk_borders_buffer,
-        }
-    }
-
-    pub fn pass(&mut self, render_pass: &mut RenderPass) {
-        if self.wireframe || self.show_chunk_borders {
-            render_pass.set_pipeline(&self.gizmo_render_pipeline);
-            if self.wireframe {
-                render_pass.set_vertex_buffer(0, self.gizmo_buffer.slice(..));
-                render_pass.draw(0..6, 0..1);
-            }
-            if self.show_chunk_borders {
-                render_pass.set_vertex_buffer(0, self.chunk_borders_buffer.slice(..));
-                render_pass.draw(0..24, 0..1);
-            }
-        }
-    }
 }
 
 impl Renderer {

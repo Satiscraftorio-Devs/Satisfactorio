@@ -6,10 +6,12 @@ use std::{
 use shared::geometry::vertex::Vertex;
 use wgpu::{wgt::DrawIndirectArgs, BufferUsages, CommandEncoder};
 
-use crate::engine::render::{
-    mesh::manager::{MeshEntry, MeshId, MeshManager},
-    render::GpuTools,
-    utils::smart_buffer::SmartBuffer,
+use crate::engine::{
+    gpu::tools::GpuTools,
+    render::{
+        mesh::manager::{MeshEntry, MeshId, MeshManager},
+        utils::smart_buffer::SmartBuffer,
+    },
 };
 
 pub struct RenderManager {
