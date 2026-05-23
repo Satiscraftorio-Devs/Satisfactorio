@@ -5,6 +5,7 @@ use std::{fmt::Display, sync::Arc};
 
 pub const CHUNK_VALIDATION_BATCH_SIZE: usize = 20;
 
+// Non utilisé pour l'instant (potentiellement utile à l'avenir)
 fn fletcher16(data: &[u8]) -> [u8; 2] {
     let mut sum1: u16 = 0;
     let mut sum2: u16 = 0;
@@ -149,6 +150,12 @@ impl Chunk {
     pub fn compute_checksum(&self) -> [u8; 2] {
         let mut sum1: u16 = 0;
         let mut sum2: u16 = 0;
+
+        for &coord in &[self.x, self.y, self.z] {
+            let rep = coord as u32;
+            sum1 = sum1.wrapping_add(rep as u16);
+            sum2 = sum2.wrapping_add(sum1);
+        }
 
         for &block in &self.blocks {
             let rep = block.to_bits();
