@@ -147,8 +147,18 @@ impl Chunk {
     }
 
     pub fn compute_checksum(&self) -> [u8; 2] {
-        let bytes = bincode::serialize(&self).unwrap();
-        fletcher16(&bytes)
+        let mut sum1: u16 = 0;
+        let mut sum2: u16 = 0;
+
+        for &block in &self.blocks {
+            let rep = block.to_bits();
+            sum1 = sum1.wrapping_add(rep as u16);
+            sum2 = sum2.wrapping_add(sum1);
+        }
+
+        sum1 = sum1 % 255;
+        sum2 = sum2 % 255;
+        [(sum1 as u8), (sum2 as u8)]
     }
 
     /// Retourne \[min_cx, max_cx, min_cy, max_cy, min_cz, max_cz\]

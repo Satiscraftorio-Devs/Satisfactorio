@@ -63,6 +63,10 @@ impl BlockInstance {
     pub fn texture_index(&self) -> u32 {
         self.block_type().texture_index()
     }
+
+    pub fn to_bits(&self) -> u32 {
+        self.id
+    }
 }
 
 pub struct BlockData {
