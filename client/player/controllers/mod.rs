@@ -1,6 +1,5 @@
-use cgmath::Point3;
-
 use crate::{physics::body::PhysicsBody, player::camera::Camera, systems::inputs::InputState};
+use cgmath::Point3;
 
 pub mod spectator;
 pub mod walk;

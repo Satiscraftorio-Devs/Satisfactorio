@@ -1,12 +1,10 @@
+use crate::physics::body::PhysicsBody;
+use crate::player::camera::Camera;
+use crate::player::controllers::PlayerController;
+use crate::systems::inputs::InputState;
 use cgmath::{InnerSpace, Vector3};
 use satiscore::constants::DECEL_COEF;
 use winit::keyboard::KeyCode;
-
-use crate::{
-    physics::body::PhysicsBody,
-    player::{camera::Camera, controllers::PlayerController},
-    systems::inputs::InputState,
-};
 
 /// Contrôleur de déplacement au sol avec physique (gravité, collision, saut).
 /// Lire WASD pour la direction horizontale, Space pour sauter.

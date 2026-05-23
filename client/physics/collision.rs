@@ -1,9 +1,7 @@
+use crate::physics::aabb::AABB;
+use crate::physics::body::PhysicsBody;
+use crate::world::world::World;
 use cgmath::{Point3, Vector3};
-
-use crate::{
-    physics::{aabb::AABB, body::PhysicsBody},
-    world::world::World,
-};
 use satiscore::constants::{COLLISION_EPSILON, PLAYER_HEIGHT, PLAYER_WIDTH};
 use satiscore::world::data::chunk::CHUNK_SIZE;
 

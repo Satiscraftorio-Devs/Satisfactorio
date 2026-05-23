@@ -1,17 +1,11 @@
-use std::f32::consts::FRAC_PI_2;
-
+use crate::physics::body::PhysicsBody;
+use crate::player::camera::Camera;
+use crate::player::controllers::{CameraController, PlayerController};
+use crate::systems::inputs::InputState;
 use cgmath::{InnerSpace, Point3, Vector3, Zero};
 use satiscore::constants::{PLAYER_EYE_HEIGHT, UP};
+use std::f32::consts::FRAC_PI_2;
 use winit::keyboard::KeyCode;
-
-use crate::{
-    physics::body::PhysicsBody,
-    player::{
-        camera::Camera,
-        controllers::{CameraController, PlayerController},
-    },
-    systems::inputs::InputState,
-};
 
 ///  PLAYER EN MODE SPECTATEUR
 pub struct SpectatorPlayerController {

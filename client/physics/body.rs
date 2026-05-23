@@ -1,7 +1,6 @@
+use crate::physics::aabb::AABB;
 use cgmath::{Point3, Vector3};
 use satiscore::constants::{GRAVITY, JUMP_SPEED, WALK_SPEED};
-
-use crate::physics::aabb::AABB;
 
 pub struct PhysicsBody {
     pub aabb: AABB,

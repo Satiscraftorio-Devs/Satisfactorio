@@ -9,43 +9,15 @@ use crate::systems::inputs::InputState;
 use crate::world::world::World;
 use bytemuck::cast_slice;
 use cgmath::{dot, EuclideanSpace, Matrix4, Vector3};
-use network::messages::ContenuPaquet;
-
-use std::{thread::sleep, time::Duration};
-
 use engine::audio::GameAudioManager;
 use engine::core::application::AppState;
 use engine::core::frame::EngineFrameData;
 use engine::core::frame::GameFrameData;
 use engine::render::render::Renderer;
-
-// use crate::{
-//     game::{
-//         api::texture_loader::TextureLoader,
-//         network::NetworkManager,
-//         player::{
-//             controllers::{spectator::FreeCameraController, walk::WalkPlayerController},
-//             player::Player,
-//             remote_players::RemotePlayersManager,
-//         },
-//         render::meshing::world::WorldMesh,
-//         systems::inputs::InputState,
-//         world::world::World,
-//     },
-//     {
-//         audio::GameAudioManager,
-//         render::render::Renderer,
-//         satiscore::{
-//             application::AppState,
-//             frame::{EngineFrameData, GameFrameData},
-//         },
-//     },
-// };
-use satiscore::{
-    geometry::{plane::Plane, vertex::generate_cube},
-    log_client, log_err_client,
-    world::data::chunk::CHUNK_SIZE_F,
-};
+use network::messages::ContenuPaquet;
+use satiscore::geometry::{plane::Plane, vertex::generate_cube};
+use satiscore::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
+use std::{thread::sleep, time::Duration};
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 60;

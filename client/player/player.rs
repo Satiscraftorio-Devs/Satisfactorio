@@ -1,13 +1,12 @@
 use crate::network::protocol::GameProtocol;
 use crate::player::controllers::spectator::SpectatorPlayerController;
 use crate::player::controllers::walk::WalkPlayerController;
-use crate::{
-    physics::{body::PhysicsBody, collision::resolve_collision},
-    player::camera::Camera,
-    player::controllers::{CameraController, PlayerController},
-    systems::inputs::InputState,
-    world::world::World,
-};
+
+use crate::physics::{body::PhysicsBody, collision::resolve_collision};
+use crate::player::camera::Camera;
+use crate::player::controllers::{CameraController, PlayerController};
+use crate::systems::inputs::InputState;
+use crate::world::world::World;
 use cgmath::Point3;
 use network::messages::{Paquet, PlayerGameMode, Position, Rotation};
 use satiscore::constants::{
@@ -19,7 +18,6 @@ use satiscore::utils::updatable::Updatable;
 use satiscore::world::data::block::BlockInstance;
 use satiscore::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F};
 use satiscore::world::raycast::voxel_raycast;
-use satiscore::*;
 use winit::keyboard::KeyCode;
 
 /// État pur du joueur : position, caméra, contrôleurs, distances de rendu.

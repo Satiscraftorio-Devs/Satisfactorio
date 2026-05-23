@@ -1,7 +1,6 @@
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3};
-use satiscore::constants::UP;
-
 use engine::render::camera::OPENGL_TO_WGPU_MATRIX;
+use satiscore::constants::UP;
 
 #[derive(Clone)]
 pub struct Camera {
