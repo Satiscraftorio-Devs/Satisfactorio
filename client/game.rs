@@ -20,7 +20,7 @@ use satiscore::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
 use std::{thread::sleep, time::Duration};
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 60;
+const FPS_CAP: u32 = u32::MAX;
 const DT_CAP: f32 = {
     if FPS_CAP == 0 {
         0.0
