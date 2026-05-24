@@ -3,23 +3,16 @@ use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use crate::api::texture_loader::TextureLoader;
 use cgmath::Point3;
+use game::constants::{DIRECT_NORMALS_3D, MAX_GENERATION_CHUNKS_IN_QUEUE, SIMULATION_DISTANCE_IN_BLOCKS_HALFED_VEC3_F};
+use game::world::data::block::BlockData;
+use game::world::data::block::{BlockInstance, BlockManager};
+use game::world::data::chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE, CHUNK_SIZE_HALFED_VEC3_F};
+use game::world::generation::chunk_generator::ChunkGenerator;
 use physics::aabb::AABB;
 use physics::collision_world::CollisionWorld;
 use satiscore::{
-    constants::DIRECT_NORMALS_3D,
+    log_err_client,
     utils::unique_queue::{FxUniqueQueue, UniqueQueue},
-    world::data::block::BlockData,
-};
-use satiscore::{constants::MAX_GENERATION_CHUNKS_IN_QUEUE, log_err_client};
-use satiscore::{
-    constants::SIMULATION_DISTANCE_IN_BLOCKS_HALFED_VEC3_F,
-    world::{
-        data::{
-            block::{BlockInstance, BlockManager},
-            chunk::{Chunk, ChunkData, ChunkState, CHUNK_SIZE, CHUNK_SIZE_HALFED_VEC3_F},
-        },
-        generation::chunk_generator::ChunkGenerator,
-    },
 };
 use std::{
     cmp::max,

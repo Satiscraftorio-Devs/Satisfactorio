@@ -1,12 +1,12 @@
-use crate::world::data::block::BlockInstance;
 use cgmath::Vector3;
 use rustc_hash::{FxBuildHasher, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Display, sync::Arc};
 
+use crate::world::data::block::BlockInstance;
+
 pub const CHUNK_VALIDATION_BATCH_SIZE: usize = 20;
 
-// Non utilisé pour l'instant (potentiellement utile à l'avenir)
 fn fletcher16(data: &[u8]) -> [u8; 2] {
     let mut sum1: u16 = 0;
     let mut sum2: u16 = 0;
@@ -14,8 +14,8 @@ fn fletcher16(data: &[u8]) -> [u8; 2] {
         sum1 = sum1.wrapping_add(byte as u16);
         sum2 = sum2.wrapping_add(sum1);
     }
-    sum1 = sum1 % 255;
-    sum2 = sum2 % 255;
+    sum1 %= 255;
+    sum2 %= 255;
     [(sum1 as u8), (sum2 as u8)]
 }
 
@@ -33,7 +33,7 @@ pub const LAST_CHUNK_AXIS_INDEX: i32 = CHUNK_SIZE - 1;
 pub const LAST_CHUNK_AXIS_INDEX_USIZE: usize = LAST_CHUNK_AXIS_INDEX as usize;
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub enum ChunkState {
     Pending = 0,
     Ready = 1,
@@ -97,11 +97,11 @@ impl ChunkData {
 
 impl Chunk {
     pub fn get_block_from_xyz(&self, x: i32, y: i32, z: i32) -> BlockInstance {
-        return self.get_block_from_i((x + y * CHUNK_SIZE + z * CHUNK_SIZE_SQR) as usize);
+        self.get_block_from_i((x + y * CHUNK_SIZE + z * CHUNK_SIZE_SQR) as usize)
     }
 
     pub fn get_block_from_i(&self, i: usize) -> BlockInstance {
-        return self.blocks[i];
+        self.blocks[i]
     }
 
     #[inline(always)]
@@ -158,21 +158,17 @@ impl Chunk {
             sum2 = sum2.wrapping_add(sum1);
         }
 
-        for &block in &self.blocks {
+        for block in &self.blocks {
             let rep = block.to_bits();
             sum1 = sum1.wrapping_add(rep as u16);
             sum2 = sum2.wrapping_add(sum1);
         }
 
-        sum1 = sum1 % 255;
-        sum2 = sum2 % 255;
+        sum1 %= 255;
+        sum2 %= 255;
         [(sum1 as u8), (sum2 as u8)]
     }
 
-    /// Retourne \[min_cx, max_cx, min_cy, max_cy, min_cz, max_cz\]
-    /// pour les chunks autour du point donné et en fonction des distances horizontale et verticale données.
-    ///
-    /// [`center` a pour échelle les chunks.]
     pub const fn get_cube_chunk_range(center: (i32, i32, i32), hd: u16, vd: u16) -> [i32; 6] {
         let halfed_hd = hd.div_euclid(2) as i32;
         let halfed_vd = vd.div_euclid(2) as i32;
@@ -186,10 +182,9 @@ impl Chunk {
         let min_cz = cz - halfed_hd;
         let max_cz = cz + halfed_hd;
 
-        return [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz];
+        [min_cx, max_cx, min_cy, max_cy, min_cz, max_cz]
     }
 
-    /// Génère toutes les combinaisons de clés (cx, cy, cz) en fonction des paramètres d'entrée.
     pub fn get_cube_chunk_keys(min_cx: i32, max_cx: i32, min_cy: i32, max_cy: i32, min_cz: i32, max_cz: i32) -> Vec<(i32, i32, i32)> {
         let chunk_number = ((max_cx - min_cx) * (max_cy - min_cy) * (max_cz - min_cz)) as usize;
         let mut keys = Vec::with_capacity(chunk_number);
@@ -202,12 +197,9 @@ impl Chunk {
             }
         }
 
-        return keys;
+        keys
     }
 
-    /// Génère toutes les combinaisons de clés (cx, cy, cz) en fonction des paramètres d'entrée.
-    ///
-    /// Retourne un FxHashSet.
     pub fn get_cube_chunk_keys_set(
         min_cx: i32,
         max_cx: i32,
@@ -227,7 +219,7 @@ impl Chunk {
             }
         }
 
-        return keys;
+        keys
     }
 }
 

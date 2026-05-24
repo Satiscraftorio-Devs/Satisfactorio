@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
-use satiscore::{
-    buffer_pool::BufferPool,
-    geometry::vertex::Vertex,
-    parallel::Parallelizable,
-    world::data::chunk::{Chunk, CHUNK_SIZE},
-};
+use engine::geometry::vertex::Vertex;
+use game::world::data::chunk::{Chunk, CHUNK_SIZE};
+use satiscore::{buffer_pool::BufferPool, parallel::Parallelizable};
 
 use crate::{
     render::{

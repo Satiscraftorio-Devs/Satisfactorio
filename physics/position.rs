@@ -1,5 +1,5 @@
 use crate::collision_world::CollisionWorld;
-use satiscore::constants::{COLLISION_EPSILON, MAX_SPAWN_SEARCH_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH};
+use game::constants::{COLLISION_EPSILON, MAX_SPAWN_SEARCH_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH};
 
 pub fn is_position_free(world: &impl CollisionWorld, x: f32, y: f32, z: f32) -> bool {
     let half_width = PLAYER_WIDTH / 2.0;

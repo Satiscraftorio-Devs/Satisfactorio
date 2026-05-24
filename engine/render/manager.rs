@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use satiscore::geometry::vertex::Vertex;
+use crate::geometry::vertex::Vertex;
 use wgpu::{wgt::DrawIndirectArgs, BufferUsages, CommandEncoder};
 
 use crate::{

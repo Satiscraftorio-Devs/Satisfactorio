@@ -3,12 +3,14 @@ use serde::{Deserialize, Serialize};
 pub const CURRENT_VERSION: u8 = 1;
 pub const MAX_PAQUET_SIZE: usize = 65536;
 
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PublicPlayerData {
     player_id: u64,
     position: Position,
     rotation: Rotation,
 }
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PrivatePlayerData {}
 

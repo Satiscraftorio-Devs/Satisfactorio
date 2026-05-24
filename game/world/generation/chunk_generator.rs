@@ -1,10 +1,11 @@
-use crate::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
+use noise::{NoiseFn, Perlin, Seedable};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use satiscore::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
+use std::sync::{Arc, RwLock};
+
 use crate::world::data::block::BlockManager;
 use crate::world::data::chunk::{Chunk, ChunkData};
 use crate::world::generation::chunk::ChunkWithChecksum;
-use noise::{NoiseFn, Perlin, Seedable};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::sync::{Arc, RwLock};
 
 pub const CAVE_SCALE: f64 = 0.025;
 pub const CAVE_THRESHOLD: f64 = 0.04;
@@ -93,13 +94,9 @@ impl ChunkGenerator {
         self.inner.is_queue_full()
     }
 
-    pub fn dispose(&mut self) {
-        // TODO: dispose
-    }
+    pub fn dispose(&mut self) {}
 }
 
-/// Génère des chunks de manière séquentielle (sans parallélisme).
-/// À utiliser UNIQUEMNT lorsque le nombre de chunks est faible (ex: 27 chunks server).
 pub fn generate_chunks_sequential(
     block_manager: Arc<RwLock<BlockManager>>,
     seed: u32,
@@ -120,7 +117,6 @@ pub fn generate_chunks_sequential(
     result_map
 }
 
-/// Génère des chunks de manière parallèle et bloquante.
 pub fn generate_chunks_parallel_blocking(
     block_manager: Arc<RwLock<BlockManager>>,
     seed: u32,

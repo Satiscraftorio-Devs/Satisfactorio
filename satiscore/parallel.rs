@@ -121,7 +121,8 @@ impl<P: Parallelizable> WorkerPool<P> {
 
 impl<P: Parallelizable> Drop for WorkerPool<P> {
     fn drop(&mut self) {
-        let _ = &mut self.request_tx;
+        let (tx, _) = mpsc::channel::<WorkItem<P::Input, P::Output>>();
+        let _ = std::mem::replace(&mut self.request_tx, tx);
 
         for worker in std::mem::take(&mut self.workers) {
             let _ = worker.join();

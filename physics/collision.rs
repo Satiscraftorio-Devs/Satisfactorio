@@ -2,7 +2,7 @@ use crate::aabb::AABB;
 use crate::body::PhysicsBody;
 use crate::collision_world::CollisionWorld;
 use cgmath::{Point3, Vector3};
-use satiscore::constants::{COLLISION_EPSILON, PLAYER_HEIGHT, PLAYER_WIDTH};
+use game::constants::{COLLISION_EPSILON, PLAYER_HEIGHT, PLAYER_WIDTH};
 
 fn aabb_at_feet(feet: &Point3<f32>) -> AABB {
     let half_width = PLAYER_WIDTH / 2.0;

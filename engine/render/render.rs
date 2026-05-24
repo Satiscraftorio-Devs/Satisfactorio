@@ -1,6 +1,8 @@
 use std::{iter, mem};
 
-use satiscore::{geometry::vertex::Vertex, world::data::chunk::CHUNK_SIZE_F};
+use game::world::data::chunk::CHUNK_SIZE_F;
+
+use crate::geometry::vertex::Vertex;
 use wgpu::{
     wgt::{CommandEncoderDescriptor, DrawIndirectArgs},
     Features, RenderPass,

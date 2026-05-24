@@ -1,11 +1,11 @@
 use cgmath::Point3;
+use game::world::data::block::BlockData;
+use game::world::data::block::{BlockInstance, BlockManager};
+use game::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE};
+use game::world::generation::chunk::ChunkWithChecksum;
+use game::world::generation::chunk_generator::{generate_chunks_parallel_blocking, generate_chunks_sequential};
+use game::world::modified_chunk::ModifiedWorld;
 use satiscore::log_warn_server;
-use satiscore::world::data::block::BlockData;
-use satiscore::world::data::block::{BlockInstance, BlockManager};
-use satiscore::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE};
-use satiscore::world::generation::chunk::ChunkWithChecksum;
-use satiscore::world::generation::chunk_generator::{generate_chunks_parallel_blocking, generate_chunks_sequential};
-use satiscore::world::modified_chunk::ModifiedWorld;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 

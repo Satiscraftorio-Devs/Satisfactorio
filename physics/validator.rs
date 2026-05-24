@@ -1,4 +1,4 @@
-use satiscore::constants::{MOVEMENT_PLAUSIBILITY_MULTIPLIER, WALK_SPEED};
+use game::constants::{MOVEMENT_PLAUSIBILITY_MULTIPLIER, WALK_SPEED};
 
 pub fn is_movement_plausible(old_x: f32, _old_y: f32, old_z: f32, new_x: f32, _new_y: f32, new_z: f32, dt_sec: f32) -> bool {
     let dx = new_x - old_x;

@@ -7,18 +7,18 @@ use crate::player::controllers::{CameraController, PlayerController};
 use crate::systems::inputs::InputState;
 use crate::world::world::World;
 use cgmath::Point3;
-use network::messages::{Paquet, PlayerGameMode, Position, Rotation};
-use physics::{body::PhysicsBody, collision::resolve_collision};
-use rustc_hash::FxHashSet;
-use satiscore::constants::{
+use game::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z,
     VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };
+use game::world::data::block::BlockInstance;
+use game::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F};
+use game::world::raycast::voxel_raycast;
+use network::messages::{Paquet, PlayerGameMode, Position, Rotation};
+use physics::{body::PhysicsBody, collision::resolve_collision};
+use rustc_hash::FxHashSet;
 use satiscore::log_client;
 use satiscore::utils::updatable::Updatable;
-use satiscore::world::data::block::BlockInstance;
-use satiscore::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F};
-use satiscore::world::raycast::voxel_raycast;
 use winit::keyboard::KeyCode;
 
 /// État pur du joueur : position, caméra, contrôleurs, distances de rendu.

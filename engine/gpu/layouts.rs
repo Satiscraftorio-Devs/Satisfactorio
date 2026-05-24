@@ -1,4 +1,4 @@
-use satiscore::geometry::vertex::Vertex;
+use crate::geometry::vertex::Vertex;
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode};
 
 pub struct BufferLayouts;

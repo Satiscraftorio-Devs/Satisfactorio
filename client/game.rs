@@ -13,11 +13,13 @@ use engine::audio::GameAudioManager;
 use engine::core::application::AppState;
 use engine::core::frame::EngineFrameData;
 use engine::core::frame::GameFrameData;
+use engine::geometry::vertex::generate_cube;
 use engine::render::render::Renderer;
+use game::constants::CHUNK_VECTOR;
+use game::world::data::chunk::CHUNK_SIZE_F;
 use network::messages::ContenuPaquet;
-use satiscore::constants::CHUNK_VECTOR;
-use satiscore::geometry::{plane::Plane, vertex::generate_cube};
-use satiscore::{log_client, log_err_client, world::data::chunk::CHUNK_SIZE_F};
+use satiscore::geometry::plane::Plane;
+use satiscore::{log_client, log_err_client};
 use std::time::Duration;
 use winit::keyboard::KeyCode;
 

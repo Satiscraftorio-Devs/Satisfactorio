@@ -34,26 +34,26 @@ impl BlockType {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockInstance {
     pub id: u32,
 }
 
 impl BlockInstance {
     pub fn new(id: u32) -> BlockInstance {
-        return BlockInstance { id: id };
+        BlockInstance { id }
     }
 
     pub const fn air() -> BlockInstance {
-        return BlockInstance { id: 0 };
+        BlockInstance { id: 0 }
     }
 
     pub const fn is_air(&self) -> bool {
-        return self.id == BlockInstance::air().id;
+        self.id == BlockInstance::air().id
     }
 
     pub const fn is_solid(&self) -> bool {
-        return self.id != BlockInstance::air().id;
+        self.id != BlockInstance::air().id
     }
 
     pub fn block_type(&self) -> BlockType {
@@ -71,9 +71,8 @@ impl BlockInstance {
 
 pub struct BlockData {
     pub id: Option<u32>,
-    pub id_str: String, // e.g.: "base:dirt"
+    pub id_str: String,
     pub texture_index: Option<u32>,
-    // properties: solid, hardness, resistance, ...
 }
 
 impl BlockData {

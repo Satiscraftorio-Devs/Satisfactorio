@@ -1,52 +1,8 @@
-//! Connexion réseau côté client.
-//!
-//! Ce module gère la connexion TCP côté client. Il encapsulate :
-//! - La connexion TCP au serveur
-//! - Le runtime Tokio pour les opérations async
-//! - Le codec chiffré pour la communication
-//! - Une file d'attente pour séquentialiser les envois
-//! - Une file d'attente pour recevoir les paquets (non-bloquant)
-//!
-//! ## Architecture de connexion
-//!
-//! ```text
-//! ClientConnection
-//! ├── runtime: Tokio runtime (pour les tâches async)
-//! ├── read_half: OwnedReadHalf (lecture TCP)
-//! ├── write_half: OwnedWriteHalf (écriture TCP)
-//! ├── codec: EncryptedCodec (chiffrement)
-//! ├── sender: mpsc::UnboundedSender<Paquet> (file d'attente d'envoi)
-//! ├── receiver: mpsc::UnboundedReceiver<Paquet> (file d'attente de réception)
-//! └── player_id: ID attribué par le serveur
-//! ```
-//!
-//! ## File d'attente d'envoi (Résolution du problème de perte de paquets)
-//!
-//! Le problème initial : plusieurs tâches concurrentes essayaient d'écrire
-//! sur le même TcpStream, causant des pertes de données.
-//!
-//! Solution : Utiliser un channel pour séquentialiser les envois.
-//! - `send_packet()` met le paquet dans le channel (non-bloquant)
-//! - Une seule tâche (`start_sender_task`) lit les paquets et les envoie
-//! - Cela garantit l'ordre FIFO et élimine les écritures concurrentes
-//!
-//! ## File d'attente de réception (Non-bloquante)
-//!
-//! Pour éviter que la réception ne bloque le thread principal :
-//! - Une tâche d'arrière-plan reçoit continuellement les paquets
-//! - Les paquets reçus sont placés dans un channel
-//! - `receive_packet()` récupère les paquets depuis ce channel (non-bloquant)
-//!
-//! ## Indépendance lecture/écriture
-//!
-//! Le TcpStream est splitté en deux moitiés (`into_split()`) après le handshake,
-//! permettant à la lecture et l'écriture de se faire simultanément sans mutex.
-
-use network::crypto::compute_shared_secret;
-use network::messages::{ContenuPaquet, Paquet, CURRENT_VERSION};
-use network::network_protocol::{create_codec, EncryptedCodec};
-use network::traits::PacketCodec;
-use satiscore::{log_client, log_err_client};
+use crate::crypto::compute_shared_secret;
+use crate::messages::{ContenuPaquet, Paquet, CURRENT_VERSION};
+use crate::network_protocol::{create_codec, EncryptedCodec};
+use crate::traits::PacketCodec;
+use log::{error, info};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
@@ -55,48 +11,19 @@ use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 
-/// Connexion au serveur.
-///
-/// Cette structure gère toute la communication réseau avec le serveur :
-/// - Connexion TCP
-/// - Handshake initial
-/// - Envoi de paquets (via file d'attente)
-/// - Réception de paquets (via file d'attente, non-bloquante)
-///
-/// # Utilisation
-///
-/// ```ignore
-/// let mut conn = ClientConnection::new()?;
-/// conn.connect("127.0.0.1:5000")?;
-/// let (player_id, seed) = conn.perform_handshake("MonJoueur")?;
-/// conn.send_packet(packet)?;
-/// if let Some(packet) = conn.receive_packet()? {
-///     // Traiter le paquet
-/// }
-/// ```
 pub struct ClientConnection {
-    /// Runtime Tokio pour exécuter les opérations async
     runtime: Option<Runtime>,
-    /// Moitié lecture du TcpStream (utilisée par le receiver task)
     read_half: Option<OwnedReadHalf>,
-    /// Moitié écriture du TcpStream (utilisée par le sender task)
     write_half: Option<OwnedWriteHalf>,
-    /// Codec chiffré pour la communication
     codec: Arc<EncryptedCodec>,
-    /// ID du joueur attribué par le serveur
     player_id: Option<u64>,
-    /// Indique si la connexion est établie
     connected: bool,
-    /// Channel pour l'envoi séquentialisé des paquets
     sender: Option<mpsc::UnboundedSender<Paquet>>,
-    /// Channel pour la réception des paquets (non-bloquante)
     receiver: Option<mpsc::UnboundedReceiver<Paquet>>,
-    /// Dernier instant de communication avec le serveur (pour ping)
     last_communication: Instant,
 }
 
 impl ClientConnection {
-    /// Crée une nouvelle connexion (non encore connectée).
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             runtime: None,
@@ -111,31 +38,18 @@ impl ClientConnection {
         })
     }
 
-    /// Retourne true si connecté au serveur.
     pub fn is_connected(&self) -> bool {
         self.connected
     }
 
-    /// Retourne l'ID du joueur attribué par le serveur.
     pub fn player_id(&self) -> Option<u64> {
         self.player_id
     }
 
-    /// Retourne l'instant du dernier échange.
     pub fn get_last_communication(&self) -> Instant {
         self.last_communication
     }
 
-    /// Connecte au serveur TCP.
-    ///
-    /// # Arguments
-    ///
-    /// * `server_addr` - Adresse du serveur (ex: "127.0.0.1:5000")
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` si la connexion a réussi
-    /// * `Err(String)` si la connexion a échoué
     pub fn connect(&mut self, server_addr: &str) -> Result<(), String> {
         let runtime = Runtime::new().map_err(|e| e.to_string())?;
 
@@ -144,17 +58,12 @@ impl ClientConnection {
         self.runtime = Some(runtime);
         self.codec = Arc::new(create_codec([0u8; 32]));
 
-        // Le stream sera splitté après le handshake
         let (read_half, write_half) = stream.into_split();
         self.read_half = Some(read_half);
         self.write_half = Some(write_half);
         Ok(())
     }
 
-    /// Effectue le handshake avec le serveur.
-    ///
-    /// Note : le TcpStream est splitté dans `connect()`, donc le handshake
-    /// utilise read_half et write_half séparément.
     pub fn perform_handshake(&mut self, username: &str) -> Result<(u64, u32), String> {
         let runtime = self.runtime.as_ref().ok_or("No runtime")?;
 
@@ -168,7 +77,7 @@ impl ClientConnection {
             let codec = Arc::new(create_codec(compute_shared_secret(&server_id_buf, b"server")));
 
             let packet = Paquet::new(
-                network::messages::TypePaquet::Handshake,
+                crate::messages::TypePaquet::Handshake,
                 ContenuPaquet::DonneesConnexion {
                     version: CURRENT_VERSION,
                     username: username.to_string(),
@@ -180,15 +89,15 @@ impl ClientConnection {
             let confirmation_packet = codec.receive_packet(read_half).await.map_err(|e| e.to_string())?;
             let player_id = match confirmation_packet.contenu {
                 ContenuPaquet::Confirmation { player_id, .. } => player_id,
-                _ => return Err("Échec de la réception du paquet de confirmation.".to_string()),
+                _ => return Err("Failed to receive confirmation packet.".to_string()),
             };
 
             let seed_packet = codec.receive_packet(read_half).await.map_err(|e| e.to_string())?;
             let server_seed = match seed_packet.contenu {
                 ContenuPaquet::ServerSeed { seed } => seed,
-                _ => return Err("Échec de la réception de la seed du serveur.".to_string()),
+                _ => return Err("Failed to receive server seed.".to_string()),
             };
-            log_client!("Seed du serveur reçue : {}.", server_seed);
+            info!("Server seed received: {}.", server_seed);
 
             Ok((player_id, server_seed as u32, codec))
         })?;
@@ -215,7 +124,7 @@ impl ClientConnection {
                 let mut write_half = write_half.expect("Write half already taken");
                 while let Some(packet) = rx.recv().await {
                     if let Err(e) = codec.send_packet(&mut write_half, &packet).await {
-                        log_err_client!("Échec de l'envoi du packet.\nErreur : {}", e);
+                        error!("Failed to send packet: {}", e);
                     }
                 }
             });
@@ -235,10 +144,6 @@ impl ClientConnection {
                 loop {
                     match codec.receive_packet(&mut read_half).await {
                         Ok(packet) => {
-                            match packet.contenu.clone() {
-                                ContenuPaquet::MultiplePlayerTransformation { data: _ } => {}
-                                _ => {}
-                            }
                             if tx.send(packet).is_err() {
                                 break;
                             }
@@ -252,7 +157,6 @@ impl ClientConnection {
         }
     }
 
-    /// Envoie un paquet au serveur (non-bloquant).
     pub fn send_packet(&mut self, packet: Paquet) -> Result<(), String> {
         if !self.connected {
             return Err("Not connected".to_string());
@@ -267,13 +171,6 @@ impl ClientConnection {
         Ok(())
     }
 
-    /// Reçoit un paquet du serveur (méthode non-bloquante).
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Some(Paquet))` si un paquet a été reçu
-    /// * `Ok(None)` si aucun paquet n'est disponible
-    /// * `Err(String)` en cas d'erreur
     pub fn receive_packet(&mut self) -> Result<Option<Paquet>, String> {
         if !self.connected {
             return Err("Not connected".to_string());
@@ -288,7 +185,7 @@ impl ClientConnection {
                 Err(mpsc::error::TryRecvError::Empty) => Ok(None),
                 Err(mpsc::error::TryRecvError::Disconnected) => {
                     self.connected = false;
-                    Err("Connexion fermée par le serveur".to_string())
+                    Err("Connection closed by server".to_string())
                 }
             }
         } else {

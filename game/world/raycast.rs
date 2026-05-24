@@ -5,7 +5,6 @@ pub struct RaycastHit {
     pub normal: (i32, i32, i32),
 }
 
-/// Voxel raycast - DDA, 1 test par bloc traversé
 pub fn voxel_raycast(
     origin: Point3<f32>,
     direction: Vector3<f32>,
@@ -16,7 +15,6 @@ pub fn voxel_raycast(
     let mut y = origin.y.floor() as i32;
     let mut z = origin.z.floor() as i32;
 
-    // step = ±1 selon la direction, 0 si parallèle
     let step_x = if direction.x > 0.0 {
         1
     } else if direction.x < 0.0 {
@@ -39,12 +37,10 @@ pub fn voxel_raycast(
         0
     };
 
-    // t pour traverser 1 unité sur chaque axe
     let t_delta_x = if step_x != 0 { 1.0 / direction.x.abs() } else { f32::INFINITY };
     let t_delta_y = if step_y != 0 { 1.0 / direction.y.abs() } else { f32::INFINITY };
     let t_delta_z = if step_z != 0 { 1.0 / direction.z.abs() } else { f32::INFINITY };
 
-    // t jusqu'à la prochaine face sur chaque axe
     let dist_to_next_face_x = if step_x > 0 {
         x as f32 + 1.0 - origin.x
     } else {
@@ -77,7 +73,6 @@ pub fn voxel_raycast(
         f32::INFINITY
     };
 
-    // t paramétrique : distance exacte parcourue depuis l'origine
     let mut t = 0.0;
     let mut prev_x = x;
     let mut prev_y = y;
@@ -98,7 +93,6 @@ pub fn voxel_raycast(
         prev_y = y;
         prev_z = z;
 
-        // Avance sur l'axe dont la face est la plus proche
         if step_x != 0 && t_max_x <= t_max_y && t_max_x <= t_max_z {
             t = t_max_x;
             x += step_x;
@@ -112,7 +106,6 @@ pub fn voxel_raycast(
             z += step_z;
             t_max_z += t_delta_z;
         } else {
-            // direction (0,0,0) ou NaN — aucun mouvement
             return None;
         }
     }

@@ -1,17 +1,13 @@
 use std::sync::{Arc, RwLock};
 
+use noise::NoiseFn;
+
 use crate::world::data::block::{BlockInstance, BlockManager};
 use crate::world::data::chunk::{Chunk, CHUNK_BLOCK_NUMBER, CHUNK_SIZE};
 use crate::world::generation::chunk_generator::ChunkGenContext;
-use noise::NoiseFn;
 
-/// Échelle du bruit Perlin pour la génération du terrain
 pub const TERRAIN_SCALE: f64 = 0.02;
-
-/// Hauteur de base du terrain (décalage vertical)
 pub const TERRAIN_BASE_HEIGHT: f64 = 0.0;
-
-/// Amplitude du relief (hauteur max du bruit)
 pub const TERRAIN_AMPLITUDE: f64 = 10.0;
 
 pub struct ChunkWithChecksum {
@@ -77,7 +73,6 @@ impl Chunk {
 
                     let is_cave = ctx.is_cave_block(wx, wy as f64, wz, depth);
 
-                    // "if is_cave" branch is not needed. Blocks are by default air.
                     if !is_cave {
                         let block_id = match wy {
                             y if y == terrain_y - 1 => grass_id,

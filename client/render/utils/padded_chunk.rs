@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::world::world::MeshSnapshot;
-use satiscore::world::data::{
+use game::world::data::{
     block::BlockInstance,
     chunk::{Chunk, CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX},
 };

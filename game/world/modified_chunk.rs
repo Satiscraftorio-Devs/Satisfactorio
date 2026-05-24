@@ -1,9 +1,8 @@
-use crate::world::data::block::BlockInstance;
-use crate::world::data::chunk::global_position_to_chunk_pos;
-use crate::world::data::chunk::IntraChunkCoords;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
+
+use crate::world::data::block::BlockInstance;
+use crate::world::data::chunk::{global_position_to_chunk_pos, IntraChunkCoords};
 
 #[derive(Debug)]
 pub enum ModifiedWorldError {
@@ -22,7 +21,7 @@ impl fmt::Display for ModifiedWorldError {
 
 pub struct ModifiedChunk {
     blocks: Vec<(IntraChunkCoords, BlockInstance)>,
-    index: HashMap<IntraChunkCoords, usize>, // Table de correspondance pour une recherche en quasiment O(1) (t'as vu ça @Strachy c'est giga smart)
+    index: HashMap<IntraChunkCoords, usize>,
 }
 
 impl ModifiedChunk {
@@ -76,7 +75,6 @@ impl ModifiedWorld {
         }
     }
 
-    // Inutile pour l'instant
     pub fn get_chunk_at_mut(&mut self, cx: i32, cy: i32, cz: i32) -> Result<&mut ModifiedChunk, String> {
         self.chunks
             .get_mut(&(cx, cy, cz))
@@ -89,16 +87,13 @@ impl ModifiedWorld {
         chunk.get_block_at(&intra_coords)
     }
 
-    /// Modifie ou ajoute le bloc
     pub fn set_block_at(&mut self, gx: i32, gy: i32, gz: i32, block: BlockInstance) {
         let (chunk_pos, intra_coords) = global_position_to_chunk_pos(gx, gy, gz);
 
-        // Crée le chunk de modif s'il n'existe pas
-        let chunk = self.chunks.entry(chunk_pos).or_insert_with(|| ModifiedChunk::new());
+        let chunk = self.chunks.entry(chunk_pos).or_insert_with(ModifiedChunk::new);
         chunk.set_block_at(intra_coords, block);
     }
 
-    // Supprime le bloc et renvoie Option<BlockInstance>
     pub fn remove_block_at(&mut self, gx: i32, gy: i32, gz: i32) -> Option<BlockInstance> {
         let (chunk_pos, intra_coords) = global_position_to_chunk_pos(gx, gy, gz);
         let chunk = self.chunks.get_mut(&chunk_pos)?;

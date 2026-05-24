@@ -11,5 +11,6 @@ server = []
 client = []
 
 [dependencies]
-cgmath = "0.18.0"
+cgmath = { workspace = true }
 satiscore = { path = "../satiscore" }
+game = { path = "../game" }

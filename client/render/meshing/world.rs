@@ -1,12 +1,10 @@
+use game::constants::MAX_MESHING_CHUNKS_IN_QUEUE;
+use game::world::data::chunk::ChunkState;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use satiscore::{
     buffer_pool::BufferPool,
-    utils::unique_queue::{FxUniqueQueue, UniqueQueue},
-    world::data::chunk::ChunkState,
-};
-use satiscore::{
-    constants::MAX_MESHING_CHUNKS_IN_QUEUE,
     parallel::{WorkResult, WorkerPool},
+    utils::unique_queue::{FxUniqueQueue, UniqueQueue},
 };
 use std::cmp::max;
 use std::sync::Arc;

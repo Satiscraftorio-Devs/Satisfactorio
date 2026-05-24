@@ -1,10 +1,10 @@
 use crate::render::utils::{face_mask::FaceMask, padded_chunk::*};
 use bytemuck::cast_slice;
+use engine::geometry::vertex::Vertex;
 use engine::render::mesh::manager::{AllocError, MeshId, MeshManager};
+use game::world::data::chunk::{CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX_USIZE};
 use satiscore::geometry::corner::SquareCorner;
 use satiscore::geometry::direction::Direction;
-use satiscore::geometry::vertex::Vertex;
-use satiscore::world::data::chunk::{CHUNK_SIZE, LAST_CHUNK_AXIS_INDEX_USIZE};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct ChunkMesh {

@@ -22,9 +22,9 @@
 //! Cela évite de saturer le réseau avec des mises à jour trop fréquentes.
 
 use crate::network::protocol::GameProtocol;
-use engine::network::ClientConnection;
+use log::{error, info};
+use network::client_connection::ClientConnection;
 use network::messages::{Paquet, PlayerGameMode};
-use satiscore::{log_client, log_err_client};
 use std::time::{Duration, Instant};
 
 /// Intervalle entre deux envois de position (50ms = 20 updates/sec)
@@ -86,39 +86,23 @@ impl NetworkManager {
     ///
     /// * `server_addr` - Adresse du serveur (ex: "127.0.0.1:5000")
     pub fn connect(&mut self, server_addr: &str) {
-        log_client!("NetworkManager: tentative de connexion...");
+        info!("NetworkManager: tentative de connexion...");
         if let Err(e) = self.connection.connect(server_addr) {
-            log_err_client!("NetworkManager: échec de la tentative de connexion au serveur.\nErreur : {}", e);
+            error!("NetworkManager: échec de la tentative de connexion au serveur.\nErreur : {}", e);
         }
     }
 
-    /// Effectue le handshake avec le serveur.
-    ///
-    /// Échange les informations initiales avec le serveur :
-    /// - Envoi du nom d'utilisateur
-    /// - Réception de l'ID de joueur
-    /// - Réception de la seed du serveur
-    ///
-    /// # Arguments
-    ///
-    /// * `username` - Nom d'utilisateur du joueur
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(player_id)` si le handshake a réussi
-    /// * `Err(String)` sinon
     pub fn perform_handshake(&mut self, username: &str) -> Result<u64, String> {
-        log_client!("NetworkManager: handshake...");
+        info!("NetworkManager: handshake...");
         match self.connection.perform_handshake(username) {
             Ok((id, seed)) => {
-                // Créer le protocole de jeu avec l'ID du joueur
                 self.protocol = Some(GameProtocol::new(id));
                 self.server_seed = Some(seed as u64);
-                log_client!("NetworkManager: connexion établie !");
+                info!("NetworkManager: connexion établie !");
                 Ok(id)
             }
             Err(e) => {
-                log_err_client!("NetworkManager: échec du handshake.\nErreur : {}", e);
+                error!("NetworkManager: échec du handshake.\nErreur : {}", e);
                 Err(e)
             }
         }

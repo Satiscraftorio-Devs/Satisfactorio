@@ -7,9 +7,6 @@ pub mod server;
 pub mod state;
 pub mod world;
 
-#[cfg(test)]
-mod tests;
-
 use anyhow::Result;
 use clap::Parser;
 use network::DEFAULT_SERVER_ADDRESS;

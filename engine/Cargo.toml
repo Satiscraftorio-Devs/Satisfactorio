@@ -11,22 +11,17 @@ server = []
 client = []
 
 [dependencies]
-serde = { workspace = true }
-tokio = { workspace = true, features = ["io-util"] }
-bincode = "1.3"
-sha2 = { workspace = true}
-getrandom = "0.2"
-noise = "0.9.0"
-num_cpus = "1.17.0"
-aes-gcm = "0.10.3"
-cgmath = "0.18.0"
-bytemuck = { version = "1.25.0", features = ["derive"] }
-rustc-hash = "2.1.2"
-wgpu = "28.0"
-anyhow = "1.0.102"
-wgpu_text = "28.0"
-pollster = "0.4.0"
-satiscore = { version = "0.1.0", path = "../satiscore" }
-winit = "0.30.13"
-kira = "0.12.0"
-network = { version = "0.1.0", path = "../network" }
+cgmath = { workspace = true }
+bytemuck = { workspace = true }
+rustc-hash = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
+kira = { workspace = true }
+wgpu_text = { workspace = true }
+pollster = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+satiscore = { path = "../satiscore" }
+network = { path = "../network" }
+game = { path = "../game" }
+image = { version = "0.24", default-features = false, features = ["png"] }

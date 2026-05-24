@@ -2,8 +2,8 @@ use crate::player::camera::Camera;
 use crate::player::controllers::PlayerController;
 use crate::systems::inputs::InputState;
 use cgmath::{InnerSpace, Vector3};
+use game::constants::DECEL_COEF;
 use physics::body::PhysicsBody;
-use satiscore::constants::DECEL_COEF;
 use winit::keyboard::KeyCode;
 
 /// Contrôleur de déplacement au sol avec physique (gravité, collision, saut).

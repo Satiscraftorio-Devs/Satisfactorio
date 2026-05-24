@@ -9,3 +9,12 @@ path = "lib.rs"
 [features]
 server = []
 client = []
+
+[dependencies]
+cgmath = { workspace = true }
+serde = { workspace = true }
+rustc-hash = { workspace = true }
+noise = { workspace = true }
+rayon = { workspace = true }
+num_cpus = { workspace = true }
+satiscore = { path = "../satiscore" }

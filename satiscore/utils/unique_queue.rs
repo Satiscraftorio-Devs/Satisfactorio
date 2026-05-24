@@ -1,5 +1,5 @@
 use std::{
-    collections::{vec_deque::Iter, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     hash::{BuildHasher, Hash, RandomState},
 };
 

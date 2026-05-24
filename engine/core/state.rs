@@ -21,7 +21,9 @@ use crate::{
     },
 };
 use bytemuck::cast_slice;
-use satiscore::{geometry::vertex::Vertex, world::data::chunk::CHUNK_SIZE_F};
+use game::world::data::chunk::CHUNK_SIZE_F;
+
+use crate::geometry::vertex::Vertex;
 use std::sync::Arc;
 use std::time::Instant;
 use wgpu::{

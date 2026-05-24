@@ -7,6 +7,9 @@ pub mod server;
 pub mod state;
 pub mod world;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use network::DEFAULT_SERVER_ADDRESS;
 use satiscore::log_server;
