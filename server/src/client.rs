@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::game::{HandlerContext, PacketHandler};
 use crate::network_server::ServerConnection;
+use crate::persistence::PersistenceService;
 use crate::state::AppState;
 use anyhow::Result;
 use network::messages::{self, new_server_seed_paquet, ContenuPaquet, Paquet, PlayerTransformation, TypePaquet};
@@ -16,6 +17,9 @@ use tokio::sync::mpsc;
 
 /// Taille du canal mpsc entre la boucle de lecture et la tâche d'écriture.
 const MAX_PACKETS_IN_MPSC_CHANNEL: usize = 32;
+
+/// Taille maximale d'un paquet WorldData (en nombre de chunks).
+const MAX_CHUNKS_PER_WORLD_DATA: usize = 16;
 
 /// Gère le cycle de vie complet d'un client connecté.
 /// 1. Handshake : envoi du server_id, réception du paquet de connexion, réponse ack + seed + sync.
@@ -34,6 +38,7 @@ pub struct ClientSession {
     state: Arc<AppState>,
     /// Canal broadcast pour diffuser les positions aux autres clients.
     broadcaster: TokioBroadcastSender<Paquet>,
+    persistence: Arc<PersistenceService>,
 }
 
 impl ClientSession {
@@ -43,6 +48,7 @@ impl ClientSession {
         handler: Box<dyn PacketHandler>,
         state: Arc<AppState>,
         broadcaster: TokioBroadcastSender<Paquet>,
+        persistence: Arc<PersistenceService>,
     ) -> Self {
         let conn = ServerConnection::new(player_id, server_id);
         Self {
@@ -52,6 +58,7 @@ impl ClientSession {
             handler,
             state,
             broadcaster,
+            persistence,
         }
     }
 
@@ -91,6 +98,7 @@ impl ClientSession {
             player_id,
             state: &*self.state,
             broadcaster: &self.broadcaster,
+            persistence: &self.persistence,
         };
         self.handler.handle(packet, &ctx);
 
@@ -108,6 +116,23 @@ impl ClientSession {
             return Ok(());
         }
         log_server!("Seed envoyée au joueur {} !", player_id);
+
+        let modified_chunks = self.state.get_modified_chunks_data();
+        if !modified_chunks.is_empty() {
+            // Découpage en plusieurs paquets si trop volumineux
+            for chunk_batch in modified_chunks.chunks(MAX_CHUNKS_PER_WORLD_DATA) {
+                let world_data_packet = Paquet::new(
+                    TypePaquet::WorldData,
+                    ContenuPaquet::DonneesMonde {
+                        chunks: chunk_batch.to_vec(),
+                    },
+                );
+                if let Err(e) = self.conn.send_packet(&mut stream, &world_data_packet).await {
+                    log_err_server!("Échec de l'envoi des données monde: {}", e);
+                    break;
+                }
+            }
+        }
 
         // Synchronisation INITIALE UNIQUEMENT : envoyer les positions des autres joueurs
         if let Some(players) = self.state.get_all_players_vec() {
@@ -182,6 +207,7 @@ impl ClientSession {
                         player_id,
                         state: self.state.as_ref(),
                         broadcaster: &self.broadcaster,
+                        persistence: &self.persistence,
                     };
                     if let Some(response) = self.handler.handle(packet, &ctx) {
                         if write_tx.send(response).await.is_err() {

@@ -37,3 +37,4 @@ game = { path = "../game" }
 engine = { path = "../engine" }
 network = { path = "../network" }
 physics = { path = "../physics", features = ["client"] }
+bincode.workspace = true

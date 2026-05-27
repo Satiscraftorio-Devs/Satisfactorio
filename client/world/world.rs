@@ -1,3 +1,4 @@
+use cgmath::num_traits::PrimInt;
 use engine::render::{mesh::manager::MeshManager, texture::RenderMode};
 use rustc_hash::{FxBuildHasher, FxHashMap};
 
@@ -189,6 +190,26 @@ impl World {
 
         if removed > 0 {
             missing_keys.drain(0..removed);
+        }
+    }
+
+    /// Reçoit un chunk complet depuis le serveur et remplace le chunk local.
+    pub fn apply_remote_chunk(&mut self, cx: i32, cy: i32, cz: i32, data: &[u8]) {
+        let blocks: Vec<BlockInstance> = bincode::deserialize(data).expect("Échec de désérialisation du chunk reçu");
+        println!("Test");
+        let chunk = Chunk {
+            blocks,
+            x: cx,
+            y: cy,
+            z: cz,
+        };
+        let chunk_data = ChunkData::new(chunk);
+        self.chunks.insert((cx, cy, cz), chunk_data);
+        self.ready_to_mesh.push_back((cx, cy, cz));
+        for (dx, dy, dz) in DIRECT_NORMALS_3D {
+            if self.chunks.contains_key(&(cx + dx, cy + dy, cz + dz)) {
+                self.ready_to_mesh.push_back((cx + dx, cy + dy, cz + dz));
+            }
         }
     }
 

@@ -150,6 +150,12 @@ impl AppState for GameState {
                                 }
                             }
                         }
+                        ContenuPaquet::DonneesMonde { chunks } => {
+                            log_client!("Paquet ContenuPaquet::DonneesMonde reçu !");
+                            for c in chunks {
+                                self.world.apply_remote_chunk(c.x, c.y, c.z, &c.data);
+                            }
+                        }
                         _ => {}
                     }
                 }

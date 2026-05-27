@@ -73,6 +73,7 @@ impl From<SaveChunk> for ModifiedChunk {
     }
 }
 
+#[derive(Clone)]
 pub struct PersistenceService {
     save_path: PathBuf,
 }

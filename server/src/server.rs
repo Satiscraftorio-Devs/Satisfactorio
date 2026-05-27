@@ -1,5 +1,6 @@
 use crate::client::ClientSession;
 use crate::game::{PacketHandler, ProductionHandler};
+use crate::persistence::PersistenceService;
 use crate::state::AppState;
 use anyhow::Result;
 use game::constants::GUARD_CYCLE_INTERVAL_MS;
@@ -16,18 +17,28 @@ use tokio::sync::broadcast;
 pub struct Server {
     listener: TcpListener,
     state: Arc<AppState>,
+    persistence: Arc<PersistenceService>,
     broadcaster: broadcast::Sender<Paquet>,
     next_player_id: AtomicU64,
 }
 
 impl Server {
-    pub async fn new(address: &str) -> Result<Self> {
+    pub async fn new(address: &str, save_path: &str) -> Result<Self> {
         let listener = TcpListener::bind(address).await?;
         let state = Arc::new(AppState::new());
+        let persistence = Arc::new(PersistenceService::new(save_path));
+        if let Ok(Some(data)) = persistence.load() {
+            log_server!("Sauvegarde trouvée, restauration du monde.");
+            state.import_save(data);
+        } else {
+            log_server!("Aucune sauvegarde trouvée, création d'un nouveau monde.");
+            state.init_random_seed();
+        }
         let (broadcaster, _) = crate::broadcast::channel();
         Ok(Self {
             listener,
             state,
+            persistence,
             broadcaster,
             next_player_id: AtomicU64::new(1),
         })
@@ -49,6 +60,20 @@ impl Server {
                 state.run_guard_cycle(&bc);
             }
         });
+        let state = Arc::clone(&self.state);
+        let persistence = self.persistence.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_mins(5)); // 5min
+            loop {
+                interval.tick().await;
+                let data = state.export_save();
+                if let Err(e) = persistence.save(&data) {
+                    log_err_server!("Auto-save échoué : {}", e);
+                } else {
+                    log_server!("Auto-save effectué.");
+                }
+            }
+        });
 
         loop {
             let (stream, addr) = self.listener.accept().await?;
@@ -59,7 +84,14 @@ impl Server {
             log_server!("Joueur {}: connexion (ID serveur: {:02x?}).", player_id, server_id);
 
             let handler: Box<dyn PacketHandler> = Box::new(ProductionHandler);
-            let session = ClientSession::new(player_id, server_id, handler, Arc::clone(&self.state), self.broadcaster.clone());
+            let session = ClientSession::new(
+                player_id,
+                server_id,
+                handler,
+                Arc::clone(&self.state),
+                self.broadcaster.clone(),
+                Arc::clone(&self.persistence),
+            );
 
             tokio::spawn(async move {
                 if let Err(e) = session.run(stream).await {

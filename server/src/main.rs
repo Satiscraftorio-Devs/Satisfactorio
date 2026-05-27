@@ -24,7 +24,6 @@ struct Args {
 async fn main() -> Result<()> {
     log_server!("Serveur: lancement.");
     let args = Args::parse();
-    let server = Server::new(&args.address).await?;
-    server.state().init_random_seed();
+    let server = Server::new(&args.address, "test.satis").await?;
     server.run().await
 }

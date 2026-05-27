@@ -1,10 +1,11 @@
 use cgmath::Point3;
 use game::world::data::block::BlockData;
 use game::world::data::block::{BlockInstance, BlockManager};
-use game::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE};
+use game::world::data::chunk::{global_position_to_chunk_pos, CHUNK_SIZE, CHUNK_SIZE_SQR_USIZE, CHUNK_SIZE_USIZE};
 use game::world::generation::chunk::ChunkWithChecksum;
 use game::world::generation::chunk_generator::{generate_chunks_parallel_blocking, generate_chunks_sequential};
 use game::world::modified_chunk::ModifiedWorld;
+use network::messages::ChunkData;
 use satiscore::log_warn_server;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -151,6 +152,28 @@ impl WorldState {
         }
 
         generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, coords)
+    }
+    pub fn collect_modified_chunks_data(&self) -> Vec<ChunkData> {
+        self.modifications
+            .chunks()
+            .keys()
+            .filter(|key| self.world_generated_chunks.contains_key(key))
+            .map(|&(cx, cy, cz)| {
+                let generated = &self.world_generated_chunks[&(cx, cy, cz)];
+                let chunk = &generated.chunk_data.chunk;
+                let mut blocks = chunk.blocks.clone();
+                // Appliquer les modifications par-dessus
+                if let Ok(modified) = self.modifications.get_chunk_at(cx, cy, cz) {
+                    for (coords, block) in modified.blocks() {
+                        let idx = coords.x as usize + coords.y as usize * CHUNK_SIZE_USIZE + coords.z as usize * CHUNK_SIZE_SQR_USIZE;
+                        blocks[idx] = *block;
+                    }
+                }
+                // Sérialiser avec bincode (déjà utilisé partout)
+                let data = bincode::serialize(&blocks).unwrap();
+                ChunkData { x: cx, y: cy, z: cz, data }
+            })
+            .collect()
     }
 }
 

@@ -1,14 +1,15 @@
 use std::time::SystemTime;
 
-use crate::state::AppState;
+use crate::{persistence::PersistenceService, state::AppState};
 use network::messages::*;
-use satiscore::log_server;
+use satiscore::{log_err_server, log_server};
 use tokio::sync::broadcast;
 
 pub struct HandlerContext<'a> {
     pub player_id: u64,
     pub state: &'a AppState,
     pub broadcaster: &'a broadcast::Sender<Paquet>,
+    pub persistence: &'a PersistenceService,
 }
 
 pub trait PacketHandler: Send + Sync {
@@ -84,7 +85,10 @@ impl PacketHandler for ProductionHandler {
 
             ContenuPaquet::SaveRequest => {
                 log_server!("Sauvegarde demandée par le joueur {}.", ctx.player_id);
-                // ctx.state.save_world();
+                let data = ctx.state.export_save();
+                if let Err(e) = ctx.persistence.save(&data) {
+                    log_err_server!("Échec de la sauvegarde : {}", e);
+                }
                 Some(packet)
             }
 

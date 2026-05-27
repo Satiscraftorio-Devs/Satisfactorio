@@ -2,7 +2,7 @@ use crate::persistence::{SaveData, SaveWorld};
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
-use network::messages::{ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
+use network::messages::{ChunkData, ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
 use physics::position::{find_safe_spawn_point, is_position_free};
 use physics::validator::is_movement_plausible;
 use std::sync::RwLock;
@@ -197,5 +197,8 @@ impl AppState {
             let packet = Paquet::new(TypePaquet::GuardCorrection, ContenuPaquet::GuardCorrection { data: corrections });
             let _ = broadcaster.send(packet);
         }
+    }
+    pub fn get_modified_chunks_data(&self) -> Vec<ChunkData> {
+        self.inner.read().unwrap().world.collect_modified_chunks_data()
     }
 }
