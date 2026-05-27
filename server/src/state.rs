@@ -5,6 +5,7 @@ use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
 use network::messages::{ChunkData, ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
 use physics::position::{find_safe_spawn_point, is_position_free};
 use physics::validator::is_movement_plausible;
+use satiscore::log_server;
 use std::sync::RwLock;
 use tokio::sync::broadcast;
 
@@ -122,10 +123,18 @@ impl AppState {
         let state = self.inner.read().unwrap();
         let world = SaveWorld::from(&state.world.modifications);
         let players = state.players.get_all().unwrap_or_default();
+        let modif_count = world.chunks.len();
+        log_server!(
+            "export_save: {} chunks modifiés sauvegardés (seed={})",
+            modif_count,
+            state.world.seed
+        );
         SaveData::new(state.world.seed, world, players)
     }
 
     pub fn import_save(&self, data: SaveData) {
+        let modif_count = data.world.chunks.len();
+        log_server!("import_save: {} chunks modifiés chargés (seed={})", modif_count, data.seed);
         let mut state = self.inner.write().unwrap();
         state.world.seed = data.seed;
         state.world.world_generated_chunks.clear();
@@ -199,6 +208,20 @@ impl AppState {
         }
     }
     pub fn get_modified_chunks_data(&self) -> Vec<ChunkData> {
-        self.inner.read().unwrap().world.collect_modified_chunks_data()
+        let mut state = self.inner.write().unwrap();
+
+        let missing: Vec<_> = state
+            .world
+            .modifications
+            .chunks()
+            .keys()
+            .filter(|key| !state.world.world_generated_chunks.contains_key(key))
+            .cloned()
+            .collect();
+        if !missing.is_empty() {
+            state.world.generate_missing(&missing);
+        }
+
+        state.world.collect_modified_chunks_data()
     }
 }

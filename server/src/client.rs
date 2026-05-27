@@ -118,19 +118,18 @@ impl ClientSession {
         log_server!("Seed envoyée au joueur {} !", player_id);
 
         let modified_chunks = self.state.get_modified_chunks_data();
-        if !modified_chunks.is_empty() {
-            // Découpage en plusieurs paquets si trop volumineux
-            for chunk_batch in modified_chunks.chunks(MAX_CHUNKS_PER_WORLD_DATA) {
-                let world_data_packet = Paquet::new(
-                    TypePaquet::WorldData,
-                    ContenuPaquet::DonneesMonde {
-                        chunks: chunk_batch.to_vec(),
-                    },
-                );
-                if let Err(e) = self.conn.send_packet(&mut stream, &world_data_packet).await {
-                    log_err_server!("Échec de l'envoi des données monde: {}", e);
-                    break;
-                }
+        log_server!("Envoi de {} chunks modifiés", modified_chunks.len());
+
+        for chunk_batch in modified_chunks.chunks(MAX_CHUNKS_PER_WORLD_DATA) {
+            let world_data_packet = Paquet::new(
+                TypePaquet::WorldData,
+                ContenuPaquet::DonneesMonde {
+                    chunks: chunk_batch.to_vec(),
+                },
+            );
+            if let Err(e) = self.conn.send_packet(&mut stream, &world_data_packet).await {
+                log_err_server!("Échec de l'envoi des données monde: {}", e);
+                break;
             }
         }
 

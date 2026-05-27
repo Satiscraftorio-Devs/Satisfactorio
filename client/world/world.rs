@@ -196,7 +196,6 @@ impl World {
     /// Reçoit un chunk complet depuis le serveur et remplace le chunk local.
     pub fn apply_remote_chunk(&mut self, cx: i32, cy: i32, cz: i32, data: &[u8]) {
         let blocks: Vec<BlockInstance> = bincode::deserialize(data).expect("Échec de désérialisation du chunk reçu");
-        println!("Test");
         let chunk = Chunk {
             blocks,
             x: cx,
@@ -217,6 +216,10 @@ impl World {
         while let Some(result) = self.chunk_generator.try_recv() {
             let (cx, cy, cz, chunk_with_checksum) = result.output;
             let key = (cx, cy, cz);
+
+            if self.chunks.contains_key(&key) {
+                continue;
+            }
 
             let mut chunk = chunk_with_checksum.chunk_data;
             chunk.is_dirty = false;

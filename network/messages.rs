@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const CURRENT_VERSION: u8 = 1;
-pub const MAX_PAQUET_SIZE: usize = 65536;
+pub const MAX_PAQUET_SIZE: usize = 4 * 1024 * 1024;
 
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]

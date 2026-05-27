@@ -19,6 +19,6 @@ use server::Server;
 pub async fn run_server() -> Result<()> {
     log_server!("Serveur: lancement.");
     let x = String::from(DEFAULT_SERVER_ADDRESS);
-    let server = Server::new(&x, "test.satis").await?;
+    let server = Server::new(&x, "world/test.satis").await?;
     server.run().await
 }
