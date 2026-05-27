@@ -1,3 +1,7 @@
+Abstraction de logique
+- Allocation mémoire/buffer GPU intelligente
+- Manager abstrait (créer, modifier, consulter, détruire, avec ids uniques)
+
 UI
 
 Ressources
