@@ -1,5 +1,6 @@
 /logs
 /target
+/world
 Cargo.lock
 commit.md
 plan.md
