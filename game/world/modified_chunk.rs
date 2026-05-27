@@ -57,10 +57,25 @@ impl ModifiedChunk {
 
         Some(removed_block)
     }
+    pub fn blocks(&self) -> &[(IntraChunkCoords, BlockInstance)] {
+        &self.blocks
+    }
+
+    pub fn into_blocks(self) -> Vec<(IntraChunkCoords, BlockInstance)> {
+        self.blocks
+    }
+
+    pub fn from_blocks(blocks: Vec<(IntraChunkCoords, BlockInstance)>) -> Self {
+        let mut index = HashMap::with_capacity(blocks.len());
+        for (i, (coords, _)) in blocks.iter().enumerate() {
+            index.insert(*coords, i);
+        }
+        Self { blocks, index }
+    }
 }
 
 pub struct ModifiedWorld {
-    chunks: HashMap<(i32, i32, i32), ModifiedChunk>,
+    pub chunks: HashMap<(i32, i32, i32), ModifiedChunk>,
 }
 
 impl ModifiedWorld {
@@ -102,5 +117,13 @@ impl ModifiedWorld {
 
     pub fn retain_chunks(&mut self, keep: &HashSet<(i32, i32, i32)>) {
         self.chunks.retain(|key, _| keep.contains(key));
+    }
+
+    pub fn chunks(&self) -> &HashMap<(i32, i32, i32), ModifiedChunk> {
+        &self.chunks
+    }
+
+    pub fn into_chunks(self) -> HashMap<(i32, i32, i32), ModifiedChunk> {
+        self.chunks
     }
 }

@@ -28,6 +28,14 @@ impl PlayerRegistry {
         }
     }
 
+    pub fn add_player(&mut self, player: Player) {
+        self.players.insert(player.id, player);
+    }
+
+    pub fn set_players(&mut self, players: Vec<Player>) {
+        self.players = players.into_iter().map(|p| (p.id, p)).collect();
+    }
+
     pub fn add(&mut self, id: u64, username: String) {
         let position = Position {
             x: SPAWN_POSITION_X,

@@ -82,6 +82,12 @@ impl PacketHandler for ProductionHandler {
                 Some(packet)
             }
 
+            ContenuPaquet::SaveRequest => {
+                log_server!("Sauvegarde demandée par le joueur {}.", ctx.player_id);
+                // ctx.state.save_world();
+                Some(packet)
+            }
+
             _ => {
                 log_server!("Joueur {}: paquet non géré, éjection.", ctx.player_id);
                 None

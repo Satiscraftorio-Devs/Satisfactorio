@@ -2,11 +2,11 @@ pub mod broadcast;
 pub mod client;
 pub mod game;
 pub mod network_server;
+pub mod persistence;
 pub mod player;
 pub mod server;
 pub mod state;
 pub mod world;
-
 use anyhow::Result;
 use clap::Parser;
 use network::DEFAULT_SERVER_ADDRESS;

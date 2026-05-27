@@ -29,3 +29,4 @@ satiscore = { path = "../satiscore" }
 game = { path = "../game" }
 network = { path = "../network" }
 physics = { path = "../physics", features = ["server"] }
+bincode.workspace = true

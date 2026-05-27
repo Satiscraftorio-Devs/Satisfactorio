@@ -28,6 +28,7 @@ pub enum TypePaquet {
     Pong,
     SetBlock,
     GamemodeChange,
+    SaveRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -43,6 +44,7 @@ pub enum ContenuPaquet {
     Pong { timestamp: u64 },
     SetBlock { x: i32, y: i32, z: i32, block_id: u32 },
     GamemodeChange { player_id: u64, gamemode: PlayerGameMode },
+    SaveRequest,
 }
 
 #[derive(Clone, Copy, Serialize, Debug, Deserialize, PartialEq)]
@@ -145,4 +147,8 @@ pub fn new_set_block_paquet(x: i32, y: i32, z: i32, block_id: u32) -> Paquet {
 
 pub fn new_gamemode_change_paquet(player_id: u64, gamemode: PlayerGameMode) -> Paquet {
     Paquet::new(TypePaquet::GamemodeChange, ContenuPaquet::GamemodeChange { player_id, gamemode })
+}
+
+pub fn new_save_request_paquet() -> Paquet {
+    Paquet::new(TypePaquet::SaveRequest, ContenuPaquet::SaveRequest)
 }

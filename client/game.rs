@@ -17,10 +17,12 @@ use engine::geometry::vertex::generate_cube;
 use engine::render::render::Renderer;
 use game::constants::CHUNK_VECTOR;
 use game::world::data::chunk::CHUNK_SIZE_F;
+use network::messages::new_save_request_paquet;
 use network::messages::ContenuPaquet;
 use satiscore::geometry::plane::Plane;
 use satiscore::{log_client, log_err_client};
 use std::time::Duration;
+use tokio::time::Instant;
 use winit::keyboard::KeyCode;
 
 const FPS_CAP: u32 = 60;
@@ -41,6 +43,7 @@ pub struct GameState {
     pub delay_s: f32,
     pub network: Option<NetworkManager>,
     inputs: InputState,
+    last_save_request: Instant,
 }
 
 impl GameState {
@@ -62,6 +65,7 @@ impl GameState {
             inputs: InputState::new(),
             delay_s: 0.0,
             network: Some(network),
+            last_save_request: Instant::now(),
         }
     }
 }
@@ -154,6 +158,19 @@ impl AppState for GameState {
                         Ok(_) => {}
                         Err(err) => {
                             log_err_client!("Failed to send command packet.\nError: {}", err);
+                        }
+                    }
+                }
+                // Envoyer une demande de sauvegarde
+                if self.inputs.is_key_pressed(KeyCode::Digit3) && self.last_save_request.elapsed() > Duration::from_secs(5) {
+                    self.last_save_request = Instant::now();
+                    let packet = new_save_request_paquet();
+                    if let Some(net) = self.network.as_mut() {
+                        match net.send_packet(packet) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                log_err_client!("Failed to send save request packet.\nError: {}", err);
+                            }
                         }
                     }
                 }

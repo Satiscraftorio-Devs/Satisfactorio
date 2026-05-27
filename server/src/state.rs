@@ -1,3 +1,4 @@
+use crate::persistence::{SaveData, SaveWorld};
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
@@ -11,7 +12,7 @@ pub struct AppState {
     inner: RwLock<ServerState>,
 }
 
-struct ServerState {
+pub struct ServerState {
     world: WorldState,
     players: PlayerRegistry,
 }
@@ -115,6 +116,21 @@ impl AppState {
                 player.last_valid_position = surface;
             }
         }
+    }
+
+    pub fn export_save(&self) -> SaveData {
+        let state = self.inner.read().unwrap();
+        let world = SaveWorld::from(&state.world.modifications);
+        let players = state.players.get_all().unwrap_or_default();
+        SaveData::new(state.world.seed, world, players)
+    }
+
+    pub fn import_save(&self, data: SaveData) {
+        let mut state = self.inner.write().unwrap();
+        state.world.seed = data.seed;
+        state.world.world_generated_chunks.clear();
+        state.world.modifications = data.world.into();
+        state.players.set_players(data.players);
     }
 
     // Le guard cycle permet de vérifier si les positions des joueurs sont valides et de les déplacer si nécessaire.

@@ -68,7 +68,7 @@ pub struct Chunk {
     pub z: i32,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct IntraChunkCoords {
     pub x: u8,
     pub y: u8,
