@@ -72,7 +72,7 @@ pub struct MeshManager {
     arena: Vec<u8>,
 }
 
-const LOG_ALLOCATOR: bool = false;
+const LOG_ALLOCATOR: bool = true;
 
 macro_rules! log_allocator {
     () => {

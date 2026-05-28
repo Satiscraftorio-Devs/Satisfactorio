@@ -2,6 +2,7 @@ use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue};
 
 pub const BUFFER_CAPACITY_MARGIN: f32 = 2.0;
 pub const BUFFER_MIN_CAPACITY: u32 = 1024 * 1024 * 32;
+pub const BUFFER_MAX_CAPACITY: u32 = 1024 * 1024 * 256; // 256mb
 
 pub struct SmartBuffer {
     buffer: Buffer,
@@ -14,7 +15,7 @@ pub struct SmartBuffer {
 impl SmartBuffer {
     pub fn from_data(data: &[u8], device: &Device, queue: &Queue, format: Option<IndexFormat>, usages: BufferUsages) -> Self {
         let length = data.len() as u32;
-        let capacity = BUFFER_MIN_CAPACITY.max((length as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
+        let capacity = ((length as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32).clamp(BUFFER_MIN_CAPACITY, BUFFER_MAX_CAPACITY);
 
         let buffer = device.create_buffer(&BufferDescriptor {
             label: Some(format!("SmartBuffer (c: {}, l: {})", capacity, length).as_str()),
@@ -23,7 +24,11 @@ impl SmartBuffer {
             mapped_at_creation: false,
         });
 
-        queue.write_buffer(&buffer, 0, data);
+        if length <= BUFFER_MAX_CAPACITY {
+            queue.write_buffer(&buffer, 0, data);
+        } else {
+            queue.write_buffer(&buffer, 0, &data[..BUFFER_MAX_CAPACITY as usize])
+        }
 
         SmartBuffer {
             buffer,
@@ -36,7 +41,7 @@ impl SmartBuffer {
 
     pub fn from_capacity(capacity_bytes: u32, device: &Device, format: Option<IndexFormat>, usages: BufferUsages) -> Self {
         let length = 0;
-        let capacity = BUFFER_MIN_CAPACITY.max((capacity_bytes as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32);
+        let capacity = ((capacity_bytes as f32 * BUFFER_CAPACITY_MARGIN).ceil() as u32).clamp(BUFFER_MIN_CAPACITY, BUFFER_MAX_CAPACITY);
 
         let buffer = device.create_buffer(&BufferDescriptor {
             label: Some(format!("SmartBuffer (c: {}, l: {})", capacity, length).as_str()),

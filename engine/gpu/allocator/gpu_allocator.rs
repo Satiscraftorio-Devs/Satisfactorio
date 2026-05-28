@@ -1,11 +1,21 @@
 use std::{
-    fmt::Display,
+    mem,
     sync::{Arc, RwLock},
 };
 
 use wgpu::{Buffer, BufferUsages, CommandEncoder};
 
-use crate::{gpu::tools::GpuTools, render::utils::smart_buffer::SmartBuffer};
+use crate::{
+    gpu::{
+        allocator::{
+            alloc_error::AllocError,
+            gap::Gap,
+            write_operation::{MeshId, WriteOperation},
+        },
+        tools::GpuTools,
+    },
+    render::utils::smart_buffer::SmartBuffer,
+};
 
 const BYTES_PER_FRAME_CAP: usize = 1024 * 1024 * 8;
 const MAX_MILLIS_PER_FRAME_CAP: u128 = 8;
@@ -13,24 +23,6 @@ const MAX_WRITE_OPERATIONS_PER_FRAME: usize = 5;
 const ARENA_MIN_SIZE: usize = 1024 * 1024; // 1mb
 const MESH_BUFFER_BASE_SIZE: usize = 1024 * 1024 * 32; // 32mb
 const MESH_BUFFER_EXPAND_COEF: f32 = 1.5;
-
-pub type MeshId = u32;
-
-#[repr(u8)]
-#[derive(Debug)]
-pub enum AllocError {
-    InvalidId = 0,
-    NotEnoughSpace = 1,
-}
-
-impl Display for AllocError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match *self {
-            Self::InvalidId => "InvalidId",
-            Self::NotEnoughSpace => "NotEnoughSpace",
-        })
-    }
-}
 
 pub struct MeshEntry {
     pub id: MeshId,
@@ -44,32 +36,21 @@ impl MeshEntry {
     }
 }
 
-#[derive(Clone)]
-struct Gap {
-    pub position: usize,
-    pub length: usize,
-}
-
-struct WriteOperation {
-    mesh_id: MeshId,
-    offset: usize,
-    len: usize,
-    arena_offset: usize,
-}
-
-pub struct MeshManager {
-    pub gpu_tools: Arc<GpuTools>,
-    pub frame_encoder: Arc<RwLock<CommandEncoder>>,
-
-    buffer: SmartBuffer,
+pub struct GpuAllocator {
     pub data: Vec<MeshEntry>,
-    gaps: Vec<Gap>,
-    pending_destruction: Vec<SmartBuffer>,
     next_id: MeshId,
     free_ids: Vec<MeshId>,
+
+    gaps: Vec<Gap>,
+    pending_destruction: Vec<SmartBuffer>,
     write_operations: Vec<WriteOperation>,
     schedule_batch: bool,
     arena: Vec<u8>,
+
+    // GPU
+    buffer: SmartBuffer,
+    gpu_tools: Arc<GpuTools>,
+    frame_encoder: Arc<RwLock<CommandEncoder>>,
 }
 
 const LOG_ALLOCATOR: bool = false;
@@ -88,21 +69,7 @@ macro_rules! log_allocator {
     };
 }
 
-impl Gap {
-    pub fn new(position: usize, length: usize) -> Self {
-        Self { position, length }
-    }
-}
-
-/// Convertit [b] en Mb et Kb.
-/// Retourne (Mb, Kb, b).
-pub fn bytes_conversion(b: u32) -> (u32, u32, u32) {
-    let kb = b / 1024;
-    let mb = kb / 1024;
-    return (mb, kb, b);
-}
-
-impl MeshManager {
+impl GpuAllocator {
     pub fn new(gpu_tools: Arc<GpuTools>, frame_encoder: Arc<RwLock<CommandEncoder>>) -> Self {
         let buffer = SmartBuffer::from_capacity(
             MESH_BUFFER_BASE_SIZE as u32,
@@ -127,6 +94,12 @@ impl MeshManager {
     }
 
     pub fn print_debug_infos(&self) {
+        let conversion = |b: u32| {
+            let kb = b / 1024;
+            let mb = kb / 1024;
+            return (mb, kb, b);
+        };
+
         let actual_data_length = self.total_data_length() as u32;
         let allocated_memory = (self.arena.capacity()
             + self.free_ids.capacity() * size_of::<u32>()
@@ -134,8 +107,8 @@ impl MeshManager {
             + self.pending_destruction.capacity() * size_of::<SmartBuffer>()
             + self.write_operations.capacity() * size_of::<WriteOperation>()) as u32
             + actual_data_length;
-        let (len_mb, len_kb, len_b) = bytes_conversion(actual_data_length);
-        let (cap_mb, cap_kb, cap_b) = bytes_conversion(allocated_memory);
+        let (len_mb, len_kb, len_b) = conversion(actual_data_length);
+        let (cap_mb, cap_kb, cap_b) = conversion(allocated_memory);
         let mesh_count = self.data.len();
         log_allocator!(
             "Mesh buffer\nMesh count: {}\nActual Data\n{:3}Mb | {:6}Kb | {:9}b\nAllocated Memory\n{:3}Mb | {:6}Kb | {:9}b",
@@ -394,7 +367,7 @@ impl MeshManager {
             self.total_data_length(),
             needed
         );
-        let needed = needed as f32 * MESH_BUFFER_EXPAND_COEF;
+        let needed = (needed as f32 * MESH_BUFFER_EXPAND_COEF) as u32;
 
         if !self.write_operations.is_empty() {
             self.flush();
@@ -404,7 +377,7 @@ impl MeshManager {
 
         // Reallocate
         let new_buffer = SmartBuffer::from_capacity(
-            needed as u32,
+            needed,
             device,
             None,
             BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::VERTEX,
@@ -439,7 +412,7 @@ impl MeshManager {
             .push(Gap::new(current_position, new_buffer.capacity() as usize - current_position));
 
         // Update buffer
-        self.pending_destruction.push(std::mem::replace(&mut self.buffer, new_buffer));
+        self.pending_destruction.push(mem::replace(&mut self.buffer, new_buffer));
 
         self.print_debug_infos();
     }
