@@ -18,15 +18,23 @@ server: build
 	RUSTFLAGS="-Awarnings" cargo run -p server --bin server
 
 client: build
-	RUSTFLAGS="-Awarnings" cargo run -p client --bin client
+	RUSTFLAGS="-Awarnings" cargo run -p client --bin Satisfactorio
+
+server-release:
+		RUSTFLAGS="-Awarnings" cargo run -r -p server --bin server
+
+client-release:
+		RUSTFLAGS="-Awarnings" cargo run -r -p client --bin Satisfactorio
 
 launcher: build
 	RUSTFLAGS="-Awarnings" cargo run -p launcher --bin launcher
 launcher-release:
 	RUSTFLAGS="-Awarnings" cargo run -r -p launcher --bin launcher
+launcher-profile:
+	RUSTFLAGS="-Awarnings" cargo run --profile flamegraph -p launcher --bin launcher
 
-profile:
-	RUSTFLAGS="-C force-frame-pointers=yes" cargo flamegraph --profile flamegraph -p client -F 49
+client-profile:
+	RUSTFLAGS="-C force-frame-pointers=yes" cargo run --profile flamegraph -p client
 
 doc:
 	cargo doc --no-deps --open --document-private-items
