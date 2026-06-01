@@ -354,7 +354,8 @@ impl GpuAllocator {
             entry.length
         );
         let position = entry.position + entry.length;
-        self.gaps.iter().position(|gap| gap.position == position)
+        // self.gaps.iter().position(|gap| gap.position == position)
+        self.gaps.binary_search_by_key(&position, |gap| gap.position).ok()
     }
 
     fn total_data_length(&self) -> usize {
@@ -403,16 +404,20 @@ impl GpuAllocator {
 
         // Update gaps
         self.gaps.clear();
-        log_allocator!(
-            "new realloc gap: {} {}",
-            current_position,
-            new_buffer.capacity() as usize - current_position
-        );
-        self.gaps
-            .push(Gap::new(current_position, new_buffer.capacity() as usize - current_position));
+        let gap_length = new_buffer.capacity() as usize - current_position;
+        if gap_length != 0 {
+            let gap = Gap::new(current_position, gap_length);
+            self.gaps.push(gap);
+        }
 
         // Update buffer
         self.pending_destruction.push(mem::replace(&mut self.buffer, new_buffer));
+
+        // log_allocator!(
+        //     "new realloc gap: {} {}",
+        //     current_position,
+        //     new_buffer.capacity() as usize - current_position
+        // );
 
         self.print_debug_infos();
     }
@@ -475,10 +480,10 @@ impl GpuAllocator {
 
     fn consume_gap_for(&mut self, gap_index: usize, id: u32, data: &[u8]) -> usize {
         log_allocator!("Consume Gap(index: {}) for DataEntry(id: {}, len: {}).", gap_index, id, data.len());
-        let position = self.gaps[gap_index].position;
+        let gap_pos = self.gaps[gap_index].position;
         let data_length = data.len();
 
-        self.write_at(position, data, id);
+        self.write_at(gap_pos, data, id);
 
         let gap = &mut self.gaps[gap_index];
         gap.position += data_length;
@@ -488,7 +493,7 @@ impl GpuAllocator {
             self.gaps.remove(gap_index);
         }
 
-        position
+        gap_pos
     }
 
     fn try_merge_gap(&mut self, position: usize) {
@@ -497,22 +502,28 @@ impl GpuAllocator {
             return;
         };
 
-        if current_index > 0 {
-            let prev = &self.gaps[current_index - 1];
-            let curr = &self.gaps[current_index];
+        self.try_merge_prev_gap(&mut current_index);
+        self.try_merge_next_gap(current_index);
+    }
+
+    fn try_merge_prev_gap(&mut self, current_index: &mut usize) {
+        let idx = *current_index;
+        if idx > 0 {
+            let prev = &self.gaps[idx - 1];
+            let curr = &self.gaps[idx];
             if prev.position + prev.length == curr.position {
-                self.gaps[current_index - 1].length += curr.length;
-                self.gaps.remove(current_index);
-                current_index -= 1;
+                self.gaps[idx - 1].length += curr.length;
+                self.gaps.remove(idx);
+                *current_index -= 1;
             }
         }
+    }
 
-        let current = &self.gaps[current_index];
-        let curr_end = current.position + current.length;
-
-        if current_index + 1 < self.gaps.len() {
+    fn try_merge_next_gap(&mut self, current_index: usize) {
+        if current_index <= self.gaps.len() {
+            let curr = &self.gaps[current_index];
             let next = &self.gaps[current_index + 1];
-            if next.position == curr_end {
+            if curr.position + curr.length == next.position {
                 self.gaps[current_index].length += next.length;
                 self.gaps.remove(current_index + 1);
             }
