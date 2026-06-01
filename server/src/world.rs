@@ -6,8 +6,9 @@ use game::world::generation::chunk::ChunkWithChecksum;
 use game::world::generation::chunk_generator::{generate_chunks_parallel_blocking, generate_chunks_sequential};
 use game::world::modified_chunk::ModifiedWorld;
 use network::messages::ChunkData;
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use satiscore::log_warn_server;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
 use physics::collision_world::CollisionWorld;
@@ -15,7 +16,7 @@ use physics::collision_world::CollisionWorld;
 pub struct WorldState {
     pub seed: u32,
     pub block_manager: Arc<RwLock<BlockManager>>,
-    pub world_generated_chunks: HashMap<(i32, i32, i32), ChunkWithChecksum>,
+    pub world_generated_chunks: FxHashMap<(i32, i32, i32), ChunkWithChecksum>,
     pub modifications: ModifiedWorld,
 }
 
@@ -26,7 +27,7 @@ impl WorldState {
         let mut instance = Self {
             seed: 0,
             block_manager,
-            world_generated_chunks: HashMap::new(),
+            world_generated_chunks: HashMap::with_hasher(FxBuildHasher),
             modifications: ModifiedWorld::new(),
         };
 
@@ -98,13 +99,13 @@ impl WorldState {
         self.world_generated_chunks.extend(generated);
     }
 
-    pub fn retain_chunks(&mut self, keep: &std::collections::HashSet<(i32, i32, i32)>) {
+    pub fn retain_chunks(&mut self, keep: &FxHashSet<(i32, i32, i32)>) {
         self.world_generated_chunks.retain(|key, _| keep.contains(key));
         self.modifications.retain_chunks(keep);
     }
 
-    pub fn get_required_chunks(cx: i32, cy: i32, cz: i32) -> std::collections::HashSet<(i32, i32, i32)> {
-        let mut chunks = std::collections::HashSet::new();
+    pub fn get_required_chunks(cx: i32, cy: i32, cz: i32) -> FxHashSet<(i32, i32, i32)> {
+        let mut chunks = HashSet::with_hasher(FxBuildHasher);
         for dx in -1..=1 {
             for dy in -1..=1 {
                 for dz in -1..=1 {
@@ -115,7 +116,7 @@ impl WorldState {
         chunks
     }
     /// /!\ Fonction UNIQUEMENT Itérative et bloquante
-    pub fn generate_chunks_between_2_pos(&mut self, p1: Point3<i32>, p2: Point3<i32>) -> HashMap<(i32, i32, i32), ChunkWithChecksum> {
+    pub fn generate_chunks_between_2_pos(&mut self, p1: Point3<i32>, p2: Point3<i32>) -> FxHashMap<(i32, i32, i32), ChunkWithChecksum> {
         let min_x = p1.x.min(p2.x);
         let max_x = p1.x.max(p2.x);
         let min_y = p1.y.min(p2.y);
@@ -135,7 +136,7 @@ impl WorldState {
         generate_chunks_sequential(Arc::clone(&self.block_manager), self.seed, coords)
     }
     /// /!\ Fonction UNIQUEMENT Itérative et bloquante
-    pub fn generate_chunks_in_radius(&mut self, center: Point3<i32>, radius: i32) -> HashMap<(i32, i32, i32), ChunkWithChecksum> {
+    pub fn generate_chunks_in_radius(&mut self, center: Point3<i32>, radius: i32) -> FxHashMap<(i32, i32, i32), ChunkWithChecksum> {
         let radius_sq = (radius as i64) * (radius as i64);
         let mut coords = Vec::new();
         for cx in (center.x - radius)..=(center.x + radius) {

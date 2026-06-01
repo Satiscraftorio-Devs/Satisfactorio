@@ -26,7 +26,7 @@ use std::time::Duration;
 use tokio::time::Instant;
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 0;
+const FPS_CAP: u32 = 60;
 const DT_CAP: f32 = {
     if FPS_CAP == 0 {
         0.0
@@ -192,44 +192,49 @@ impl AppState for GameState {
 
         // RENDER
         {
-            let view_proj = self.player.state.camera.get_view_proj();
-            let (cam_x, cam_y, cam_z) = {
-                let pos = self.player.state.camera.eye();
-                (pos.x, pos.y, pos.z)
+            // ATTENTION: dans le futur, trouver une alternative pour mieux mettre en cache les meshs ids
+            // Peut créer des bugs de rendus difficilement débuggables
+            if let Some(view_proj) = self.player.state.camera.view_proj().change() {
+                let (cam_x, cam_y, cam_z) = {
+                    let pos = self.player.state.camera.eye();
+                    (pos.x, pos.y, pos.z)
+                };
+                data.camera.update(cam_x, cam_y, cam_z, (*view_proj).into());
+
+                self.player.state.camera.aspect.update(renderer.render_options.aspect);
+                let cam_position = (*self.player.state.camera.eye()).to_vec();
+                let cam_forward = self.player.state.camera.forward();
+                let cam_frustum = self.player.state.camera.get_frustum_planes();
+
+                let chunks_to_render = self.player.get_rendered_chunk_keys_set();
+
+                data.visible_meshes.clear();
+
+                for (key, mesh) in self.world_mesh.meshes.iter() {
+                    if mesh.id.is_none() || !chunks_to_render.contains(key) {
+                        continue;
+                    }
+
+                    let min = Vector3::new((key.0) as f32, (key.1) as f32, (key.2) as f32) * CHUNK_SIZE_F;
+                    let max = min + CHUNK_VECTOR;
+
+                    // First, we check simply if the chunk to render is behind the camera.
+                    if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) {
+                        continue;
+                    }
+
+                    // Second, we check if the chunk is within the field of view of the camera.
+                    if !is_chunk_in_camera_frustum(&min, &max, &cam_frustum) {
+                        continue;
+                    }
+
+                    // If any of the above is true, we do not render the chunk.
+                    // We do the frustum check lately because it is more expansive,
+                    // on top of this, the first check would already eliminate ~50% of the candidates.
+
+                    data.visible_meshes.insert(mesh.id.unwrap());
+                }
             };
-            data.camera.update(cam_x, cam_y, cam_z, (*view_proj).into());
-
-            self.player.state.camera.aspect.update(renderer.render_options.aspect);
-            let cam_position = (*self.player.state.camera.eye()).to_vec();
-            let cam_forward = self.player.state.camera.forward();
-            let cam_frustum = self.player.state.camera.get_frustum_planes();
-
-            let chunks_to_render = self.player.get_rendered_chunk_keys_set();
-
-            for (key, mesh) in self.world_mesh.meshes.iter() {
-                if mesh.id.is_none() || !chunks_to_render.contains(key) {
-                    continue;
-                }
-
-                let min = Vector3::new((key.0) as f32, (key.1) as f32, (key.2) as f32) * CHUNK_SIZE_F;
-                let max = min + CHUNK_VECTOR;
-
-                // First, we check simply if the chunk to render is behind the camera.
-                if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_position) {
-                    continue;
-                }
-
-                // Second, we check if the chunk is within the field of view of the camera.
-                if !is_chunk_in_camera_frustum(&min, &max, &cam_frustum) {
-                    continue;
-                }
-
-                // If any of the above is true, we do not render the chunk.
-                // We do the frustum check lately because it is more expansive,
-                // on top of this, the first check would already eliminate ~50% of the candidates.
-
-                data.visible_meshes.insert(mesh.id.unwrap());
-            }
 
             // Update renderer with remote player positions
             for p in self.remote_players.get_all_mut().iter_mut() {
@@ -244,7 +249,7 @@ impl AppState for GameState {
                         p.mesh_id = mesh_manager.add(raw_data).ok();
                     }
                 }
-                data.visible_meshes.insert(p.mesh_id.unwrap());
+                data.visible_meshes.replace(p.mesh_id.unwrap());
             }
         }
     }

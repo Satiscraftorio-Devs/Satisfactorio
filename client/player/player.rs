@@ -230,7 +230,7 @@ impl Player {
         match player_game_mode {
             PlayerGameMode::Spectator => {
                 let pos = self.state.pos.current_mut();
-                *pos += self.physics_body.velocity * dt;
+                *pos += self.physics_body.velocity.current() * dt;
             }
             PlayerGameMode::Survival => {
                 resolve_collision(world, &mut self.physics_body, dt, self.state.pos.current_mut());

@@ -1,6 +1,6 @@
 use game::constants::MAX_MESHING_CHUNKS_IN_QUEUE;
 use game::world::data::chunk::ChunkState;
-use rustc_hash::{FxBuildHasher, FxHashMap};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use satiscore::{
     buffer_pool::BufferPool,
     parallel::{WorkResult, WorkerPool},
@@ -23,8 +23,8 @@ use {
 pub struct WorldMesh {
     pub meshes: FxHashMap<(i32, i32, i32), ChunkMesh>,
     mesh_worker: WorkerPool<GreedyMeshingProcessor>,
-    pending: HashMap<usize, (i32, i32, i32)>,
-    pending_keys: HashSet<(i32, i32, i32)>,
+    pending: FxHashMap<usize, (i32, i32, i32)>,
+    pending_keys: FxHashSet<(i32, i32, i32)>,
     queued: FxUniqueQueue<(i32, i32, i32)>,
 }
 
@@ -35,8 +35,8 @@ impl WorldMesh {
         WorldMesh {
             meshes: HashMap::with_hasher(FxBuildHasher),
             mesh_worker: WorkerPool::with_max_pending(worker_count, buffer_pool, Some(MAX_MESHING_CHUNKS_IN_QUEUE as usize)),
-            pending: HashMap::new(),
-            pending_keys: HashSet::new(),
+            pending: HashMap::with_hasher(FxBuildHasher),
+            pending_keys: HashSet::with_hasher(FxBuildHasher),
             queued: FxUniqueQueue::new(),
         }
     }

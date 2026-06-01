@@ -27,7 +27,8 @@ pub fn get_colliding_blocks(world: &impl CollisionWorld, aabb: &AABB) -> Vec<(i3
         return Vec::new();
     }
 
-    let mut blocks = Vec::new();
+    let capacity = ((max_x - min_x) * (max_y - min_y) * (max_z - min_z)) as usize;
+    let mut blocks = Vec::with_capacity(capacity);
     for x in min_x..=max_x {
         for y in min_y..=max_y {
             for z in min_z..=max_z {
@@ -41,10 +42,11 @@ pub fn get_colliding_blocks(world: &impl CollisionWorld, aabb: &AABB) -> Vec<(i3
 }
 
 pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt: f32, position: &mut Point3<f32>) {
-    body.velocity.y += body.gravity * dt;
+    let mut velocity = *body.velocity_mut().current();
+    velocity.y += body.gravity * dt;
 
-    position.y += body.velocity.y * dt;
-    if body.velocity.y > 0.0 {
+    position.y += velocity.y * dt;
+    if velocity.y > 0.0 {
         let aabb = aabb_at_feet(position);
         let nearest = get_colliding_blocks(world, &aabb)
             .iter()
@@ -53,9 +55,9 @@ pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt
             .min();
         if let Some(by) = nearest {
             position.y = by as f32 - PLAYER_HEIGHT - COLLISION_EPSILON;
-            body.velocity.y = 0.0;
+            velocity.y = 0.0;
         }
-    } else if body.velocity.y < 0.0 {
+    } else if velocity.y < 0.0 {
         let aabb = aabb_at_feet(position);
         let nearest = get_colliding_blocks(world, &aabb)
             .iter()
@@ -65,15 +67,15 @@ pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt
         if let Some(by) = nearest {
             position.y = by as f32 + 1.0 + COLLISION_EPSILON;
             body.on_ground = true;
-            body.velocity.y = 0.0;
+            velocity.y = 0.0;
         }
     }
 
-    position.x += body.velocity.x * dt;
+    position.x += velocity.x * dt;
     {
         let aabb = aabb_at_feet(position);
         let blocks = get_colliding_blocks(world, &aabb);
-        if body.velocity.x > 0.0 {
+        if velocity.x > 0.0 {
             if let Some(bx) = blocks
                 .iter()
                 .filter(|&&(bx, _, _)| (bx as f32) >= position.x)
@@ -81,9 +83,9 @@ pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt
                 .max()
             {
                 position.x = bx as f32 - PLAYER_WIDTH / 2.0 - COLLISION_EPSILON;
-                body.velocity.x = 0.0;
+                velocity.x = 0.0;
             }
-        } else if body.velocity.x < 0.0 {
+        } else if velocity.x < 0.0 {
             if let Some(bx) = blocks
                 .iter()
                 .filter(|&&(bx, _, _)| (bx as f32) + 1.0 <= position.x)
@@ -91,16 +93,16 @@ pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt
                 .min()
             {
                 position.x = bx as f32 + 1.0 + PLAYER_WIDTH / 2.0 + COLLISION_EPSILON;
-                body.velocity.x = 0.0;
+                velocity.x = 0.0;
             }
         }
     }
 
-    position.z += body.velocity.z * dt;
+    position.z += velocity.z * dt;
     {
         let aabb = aabb_at_feet(position);
         let blocks = get_colliding_blocks(world, &aabb);
-        if body.velocity.z > 0.0 {
+        if velocity.z > 0.0 {
             if let Some(bz) = blocks
                 .iter()
                 .filter(|&&(_, _, bz)| (bz as f32) >= position.z)
@@ -108,9 +110,9 @@ pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt
                 .max()
             {
                 position.z = bz as f32 - PLAYER_WIDTH / 2.0 - COLLISION_EPSILON;
-                body.velocity.z = 0.0;
+                velocity.z = 0.0;
             }
-        } else if body.velocity.z < 0.0 {
+        } else if velocity.z < 0.0 {
             if let Some(bz) = blocks
                 .iter()
                 .filter(|&&(_, _, bz)| (bz as f32) + 1.0 <= position.z)
@@ -118,8 +120,10 @@ pub fn resolve_collision(world: &impl CollisionWorld, body: &mut PhysicsBody, dt
                 .min()
             {
                 position.z = bz as f32 + 1.0 + PLAYER_WIDTH / 2.0 + COLLISION_EPSILON;
-                body.velocity.z = 0.0;
+                velocity.z = 0.0;
             }
         }
     }
+
+    body.velocity.update(velocity);
 }

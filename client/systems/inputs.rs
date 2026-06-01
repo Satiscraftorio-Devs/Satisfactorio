@@ -1,10 +1,11 @@
 use std::{collections::HashMap, mem};
 
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use winit::keyboard::KeyCode;
 
 pub struct InputState {
     mouse_delta: (f64, f64),
-    pressed_keys: HashMap<KeyCode, bool>,
+    pressed_keys: FxHashMap<KeyCode, bool>,
 }
 
 #[allow(unused)]
@@ -13,7 +14,7 @@ impl InputState {
     pub fn new() -> Self {
         Self {
             mouse_delta: (0.0, 0.0),
-            pressed_keys: HashMap::new(),
+            pressed_keys: HashMap::with_hasher(FxBuildHasher),
         }
     }
 

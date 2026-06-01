@@ -46,9 +46,11 @@ impl PlayerController for SpectatorPlayerController {
 
         if direction.magnitude2() > 0.0 {
             let dir = direction.normalize();
-            body.velocity = dir * (self.speed);
+            body.velocity.update(dir * (self.speed));
         } else {
-            body.velocity.set_zero();
+            let mut v = *body.velocity.current();
+            v.set_zero();
+            body.velocity.update(v);
         }
     }
 }

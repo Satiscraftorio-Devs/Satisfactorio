@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 use game::world::data::block::BlockInstance;
@@ -20,7 +20,7 @@ pub struct SaveChunk {
 
 #[derive(Serialize, Deserialize)]
 pub struct SaveWorld {
-    pub chunks: HashMap<(i32, i32, i32), SaveChunk>,
+    pub chunks: FxHashMap<(i32, i32, i32), SaveChunk>,
 }
 
 #[derive(Serialize, Deserialize)]

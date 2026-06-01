@@ -94,6 +94,10 @@ impl GpuAllocator {
     }
 
     pub fn print_debug_infos(&self) {
+        if !LOG_ALLOCATOR {
+            return;
+        }
+
         let conversion = |b: u32| {
             let kb = b / 1024;
             let mb = kb / 1024;

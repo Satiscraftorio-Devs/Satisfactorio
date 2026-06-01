@@ -1,8 +1,9 @@
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
 use game::world::data::chunk::CHUNK_SIZE_F;
 use network::messages::{PlayerGameMode, Position, Rotation};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Player {
@@ -16,15 +17,15 @@ pub struct Player {
 }
 
 pub struct PlayerRegistry {
-    players: HashMap<u64, Player>,
-    player_chunks: HashMap<u64, HashSet<(i32, i32, i32)>>,
+    players: FxHashMap<u64, Player>,
+    player_chunks: FxHashMap<u64, FxHashSet<(i32, i32, i32)>>,
 }
 
 impl PlayerRegistry {
     pub fn new() -> Self {
         Self {
-            players: HashMap::new(),
-            player_chunks: HashMap::new(),
+            players: HashMap::with_hasher(FxBuildHasher),
+            player_chunks: HashMap::with_hasher(FxBuildHasher),
         }
     }
 
@@ -82,11 +83,11 @@ impl PlayerRegistry {
         (cx, cy, cz)
     }
 
-    pub fn set_player_chunks(&mut self, id: u64, chunks: HashSet<(i32, i32, i32)>) {
+    pub fn set_player_chunks(&mut self, id: u64, chunks: FxHashSet<(i32, i32, i32)>) {
         self.player_chunks.insert(id, chunks);
     }
 
-    pub fn all_required_chunks(&self) -> HashSet<(i32, i32, i32)> {
+    pub fn all_required_chunks(&self) -> FxHashSet<(i32, i32, i32)> {
         self.player_chunks.values().flat_map(|chunks| chunks.iter()).cloned().collect()
     }
 

@@ -1,6 +1,8 @@
 use noise::{NoiseFn, Seedable, SuperSimplex};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use satiscore::parallel::{Parallelizable, QueueFull, WorkResult, WorkerPool};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::world::data::block::BlockManager;
@@ -105,10 +107,8 @@ pub fn generate_chunks_sequential(
     block_manager: Arc<RwLock<BlockManager>>,
     seed: u32,
     coords: Vec<(i32, i32, i32)>,
-) -> std::collections::HashMap<(i32, i32, i32), ChunkWithChecksum> {
-    use std::collections::HashMap;
-
-    let mut result_map = HashMap::new();
+) -> FxHashMap<(i32, i32, i32), ChunkWithChecksum> {
+    let mut result_map = HashMap::with_hasher(FxBuildHasher);
     let ctx = ChunkGenContext::new(seed, block_manager);
 
     for (cx, cy, cz) in coords {
@@ -125,7 +125,7 @@ pub fn generate_chunks_parallel_blocking(
     block_manager: Arc<RwLock<BlockManager>>,
     seed: u32,
     coords: Vec<(i32, i32, i32)>,
-) -> std::collections::HashMap<(i32, i32, i32), ChunkWithChecksum> {
+) -> FxHashMap<(i32, i32, i32), ChunkWithChecksum> {
     let ctx = ChunkGenContext::new(seed, block_manager);
 
     coords

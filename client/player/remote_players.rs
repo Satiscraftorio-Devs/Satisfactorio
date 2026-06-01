@@ -1,6 +1,6 @@
 use network::messages::PlayerTransformation;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use satiscore::utils::updatable::Updatable;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 pub struct RemotePlayer {
@@ -12,12 +12,14 @@ pub struct RemotePlayer {
 }
 
 pub struct RemotePlayersManager {
-    players: HashMap<u64, RemotePlayer>,
+    players: FxHashMap<u64, RemotePlayer>,
 }
 
 impl RemotePlayersManager {
     pub fn new() -> Self {
-        Self { players: HashMap::new() }
+        Self {
+            players: FxHashMap::with_hasher(FxBuildHasher),
+        }
     }
 
     pub fn update(&mut self, transforms: Vec<PlayerTransformation>, my_id: u64) {

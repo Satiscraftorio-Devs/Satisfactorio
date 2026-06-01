@@ -73,8 +73,8 @@ impl Camera {
         self.view_proj.update(OPENGL_TO_WGPU_MATRIX * proj * view);
     }
 
-    pub fn get_view_proj(&self) -> &Matrix4<f32> {
-        self.view_proj.current()
+    pub fn view_proj(&self) -> &Updatable<Matrix4<f32>> {
+        &self.view_proj
     }
 
     pub fn set_position(&mut self, position: cgmath::Point3<f32>) {

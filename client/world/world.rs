@@ -1,4 +1,3 @@
-use cgmath::num_traits::PrimInt;
 use engine::render::{mesh::manager::MeshManager, texture::RenderMode};
 use rustc_hash::{FxBuildHasher, FxHashMap};
 

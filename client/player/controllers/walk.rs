@@ -37,21 +37,24 @@ impl PlayerController for WalkPlayerController {
         }
 
         // Appliquer la vélocité horizontale (walk_speed)
+        let mut v = *body.velocity.current();
         if direction.magnitude2() > 0.0 {
             let dir = direction.normalize();
-            body.velocity.x = dir.x * body.walk_speed;
-            body.velocity.z = dir.z * body.walk_speed;
+            v.x = dir.x * body.walk_speed;
+            v.z = dir.z * body.walk_speed;
         } else {
             // La vitesse du joueur s'estompe au lieu de se réinitialiser nette (impression réaliste de s'arrêter)
             let decel = DECEL_COEF.powf(dt);
-            body.velocity.x *= decel;
-            body.velocity.z *= decel;
+            v.x *= decel;
+            v.z *= decel;
         }
 
         // Saut : seulement si au sol
         if inputs.is_key_pressed(KeyCode::Space) && body.on_ground {
-            body.velocity.y = body.jump_speed;
+            v.y = body.jump_speed;
             body.on_ground = false;
         }
+
+        body.velocity.update(v);
     }
 }

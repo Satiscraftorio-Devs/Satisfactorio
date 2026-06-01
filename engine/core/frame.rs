@@ -1,5 +1,7 @@
 use std::{collections::HashSet, time::Instant};
 
+use rustc_hash::{FxBuildHasher, FxHashSet};
+
 use crate::render::{camera::RenderCamera, mesh::manager::MeshId};
 
 pub struct EngineFrameData {
@@ -12,14 +14,14 @@ pub struct EngineFrameData {
 
 pub struct GameFrameData {
     pub camera: RenderCamera,
-    pub visible_meshes: HashSet<MeshId>,
+    pub visible_meshes: FxHashSet<MeshId>,
 }
 
 impl GameFrameData {
     pub fn blank() -> Self {
         Self {
             camera: RenderCamera::new(),
-            visible_meshes: HashSet::new(),
+            visible_meshes: HashSet::with_hasher(FxBuildHasher),
         }
     }
 

@@ -86,7 +86,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         };
 
         state.update();
-        state.game_frame_data.reset();
+        // state.game_frame_data.reset();
 
         self.app_state
             .update(&state.engine_frame_data, &mut state.game_frame_data, &mut state.renderer);

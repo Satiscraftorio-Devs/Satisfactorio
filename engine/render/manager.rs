@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::geometry::vertex::Vertex;
+use rustc_hash::{FxBuildHasher, FxHashSet};
 use wgpu::{wgt::DrawIndirectArgs, BufferUsages, CommandEncoder};
 
 use crate::{
@@ -20,7 +21,7 @@ pub struct RenderManager {
     pub indirect_buffer: SmartBuffer,
     pub indirect_commands: Vec<DrawIndirectArgs>,
     pub count_buffer: SmartBuffer,
-    pub ids_to_render: HashSet<MeshId>,
+    pub ids_to_render: FxHashSet<MeshId>,
 }
 
 impl RenderManager {
@@ -32,7 +33,7 @@ impl RenderManager {
 
         let mesh_manager = MeshManager::new(Arc::clone(&gpu_tools), frame_encoder);
         let indirect_commands = Vec::with_capacity(64);
-        let ids_to_render = HashSet::with_capacity(128);
+        let ids_to_render = HashSet::with_capacity_and_hasher(128, FxBuildHasher);
 
         Self {
             gpu_tools,
@@ -56,11 +57,11 @@ impl RenderManager {
         self.ids_to_render.insert(id);
     }
 
-    pub fn mark_meshes_for_rendering(&mut self, ids: &HashSet<MeshId>) {
+    pub fn mark_meshes_for_rendering(&mut self, ids: &FxHashSet<MeshId>) {
         self.ids_to_render.extend(ids);
     }
 
-    pub fn replace_rendering_queue(&mut self, ids: HashSet<MeshId>) {
+    pub fn replace_rendering_queue(&mut self, ids: FxHashSet<MeshId>) {
         self.ids_to_render = ids;
     }
 

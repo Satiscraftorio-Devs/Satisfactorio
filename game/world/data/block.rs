@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rustc_hash::{FxBuildHasher, FxHashMap};
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum BlockType {
     Air = 0,
@@ -96,13 +98,13 @@ impl BlockData {
 
 pub struct BlockManager {
     blocks: Vec<BlockData>,
-    mapped_blocks: HashMap<String, u32>,
+    mapped_blocks: FxHashMap<String, u32>,
 }
 
 impl BlockManager {
     pub fn new() -> Self {
         let blocks = Vec::with_capacity(256);
-        let mapped_blocks = HashMap::with_capacity(256);
+        let mapped_blocks = HashMap::with_capacity_and_hasher(256, FxBuildHasher);
         Self { blocks, mapped_blocks }
     }
 

@@ -1,5 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
+
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
 use crate::world::data::block::BlockInstance;
 use crate::world::data::chunk::{global_position_to_chunk_pos, IntraChunkCoords};
@@ -21,14 +23,14 @@ impl fmt::Display for ModifiedWorldError {
 
 pub struct ModifiedChunk {
     blocks: Vec<(IntraChunkCoords, BlockInstance)>,
-    index: HashMap<IntraChunkCoords, usize>,
+    index: FxHashMap<IntraChunkCoords, usize>,
 }
 
 impl ModifiedChunk {
     pub fn new() -> Self {
         Self {
             blocks: vec![],
-            index: HashMap::new(),
+            index: HashMap::with_hasher(FxBuildHasher),
         }
     }
 
@@ -66,7 +68,7 @@ impl ModifiedChunk {
     }
 
     pub fn from_blocks(blocks: Vec<(IntraChunkCoords, BlockInstance)>) -> Self {
-        let mut index = HashMap::with_capacity(blocks.len());
+        let mut index = HashMap::with_capacity_and_hasher(blocks.len(), FxBuildHasher);
         for (i, (coords, _)) in blocks.iter().enumerate() {
             index.insert(*coords, i);
         }
@@ -75,12 +77,14 @@ impl ModifiedChunk {
 }
 
 pub struct ModifiedWorld {
-    pub chunks: HashMap<(i32, i32, i32), ModifiedChunk>,
+    pub chunks: FxHashMap<(i32, i32, i32), ModifiedChunk>,
 }
 
 impl ModifiedWorld {
     pub fn new() -> Self {
-        Self { chunks: HashMap::new() }
+        Self {
+            chunks: HashMap::with_hasher(FxBuildHasher),
+        }
     }
 
     pub fn get_chunk_at(&self, cx: i32, cy: i32, cz: i32) -> Result<&ModifiedChunk, ModifiedWorldError> {
@@ -115,15 +119,15 @@ impl ModifiedWorld {
         chunk.remove_block_at(&intra_coords)
     }
 
-    pub fn retain_chunks(&mut self, keep: &HashSet<(i32, i32, i32)>) {
+    pub fn retain_chunks(&mut self, keep: &FxHashSet<(i32, i32, i32)>) {
         self.chunks.retain(|key, _| keep.contains(key));
     }
 
-    pub fn chunks(&self) -> &HashMap<(i32, i32, i32), ModifiedChunk> {
+    pub fn chunks(&self) -> &FxHashMap<(i32, i32, i32), ModifiedChunk> {
         &self.chunks
     }
 
-    pub fn into_chunks(self) -> HashMap<(i32, i32, i32), ModifiedChunk> {
+    pub fn into_chunks(self) -> FxHashMap<(i32, i32, i32), ModifiedChunk> {
         self.chunks
     }
 }
