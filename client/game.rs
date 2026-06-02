@@ -287,7 +287,7 @@ impl AppState for GameState {
 impl GameState {
     fn update_debug_commands(&mut self, alloc: &Arc<RwLock<GpuAllocator>>) {
         // MESH MEMORY TRACKER (CPU & GPU)
-        if self.inputs.take_key_pressed(KeyCode::KeyM) {
+        if self.inputs.take_key_pressed(KeyCode::KeyV) {
             println!("==== Mesh Memory Tracker ====");
             println!("CPU:");
             self.world_mesh.print_memory();
