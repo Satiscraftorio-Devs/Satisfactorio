@@ -286,58 +286,63 @@ impl AppState for GameState {
 
 impl GameState {
     fn update_debug_commands(&mut self, alloc: &Arc<RwLock<GpuAllocator>>) {
-        // GPU VRAM ALLOCATOR MEM DUMP
-        let alloc = &alloc.read().unwrap();
-        if self.inputs.take_key_pressed(KeyCode::KeyV) {
+        // MESH MEMORY TRACKER (CPU & GPU)
+        if self.inputs.take_key_pressed(KeyCode::KeyM) {
+            println!("==== Mesh Memory Tracker ====");
+            println!("CPU:");
+            self.world_mesh.print_memory();
+            println!("-----------------------------");
+            println!("GPU:");
+            alloc.read().unwrap().force_print_debug_infos();
+            println!("=============================");
+        }
+        // MESH MEMORY DUMP (CPU)
+        if self.inputs.is_key_pressed(KeyCode::ControlLeft) && self.inputs.is_key_pressed(KeyCode::KeyD) {
+            self.inputs.take_key_pressed(KeyCode::ControlLeft);
+            self.inputs.take_key_pressed(KeyCode::KeyD);
+            let alloc = &alloc.read().unwrap();
             let meshes = &self.world_mesh.meshes;
-            println!("==== CACHED MESHES ====");
+            println!("==== Mesh CPU Memory Dump ====");
             for (pos, mesh) in meshes.iter() {
+                println!("- Chunk {:?}", *pos);
                 let Some(id) = mesh.id else {
                     continue;
                 };
-                let data = alloc.get_mesh_entry(id);
-                println!("Chunk: {:?}", *pos);
-                println!("Has data?: {:?}", data.is_some());
-                let Some(data) = data else {
+                let Some(data) = alloc.get_mesh_entry(id) else {
                     continue;
                 };
-                println!("Mesh (id: {:?}, position: {:?}, length: {:?})", data.id, data.position, data.length);
+                println!("  └─ Mesh (id: {:?}, pos: {:?}, len: {:?})", data.id, data.position, data.length);
             }
-            println!("TOTAL: {} meshes.", meshes.len());
-            println!("==== BAD MESHES ====");
-            let diff = meshes.values().filter_map(|mesh| mesh.id).collect();
-            for diff_mesh in alloc.get_entries_difference_by_ids(diff) {
-                println!(
-                    "Unknown chunk found: Mesh (id: {:?}, position: {:?}, length: {:?})",
-                    diff_mesh.id, diff_mesh.position, diff_mesh.length
-                );
-            }
-            println!("==== MEM INFOS ====");
-            alloc.force_print_debug_infos();
-            println!("===================")
+            println!("==============================")
         }
         // CURRENT CHUNK DEBUG
         if self.inputs.take_key_pressed(KeyCode::KeyC) {
             let cpos = self.player.state.cpos.current();
             let key = (cpos[0], cpos[1], cpos[2]);
-            println!("---------\nDEBUG: Chunk x={} y={} z={}\n---------", key.0, key.1, key.2);
+            println!("==== Chunk {:?} ====", key);
             if let Some((state, dirty)) = self.world.chunk_infos_at(&key) {
-                println!("General:\n- State: {}\n- Is dirty?: {}", state, dirty);
+                println!("- Data (CPU):\n  └─ {}", state);
+                if dirty {
+                    println!("  └─ Dirty")
+                }
             }
             if let Some((id, dirty)) = self.world_mesh.mesh_infos_at(&key) {
                 let id = match id {
                     Some(id) => &id.to_string(),
                     None => "None",
                 };
-                println!("Mesh:\n- Id: {}\n- Is dirty?: {}", id, dirty);
+                println!("- Mesh (GPU):\n  └─ Id: {}", id);
+                if dirty {
+                    println!("  └─ Dirty")
+                }
             };
-            println!("---------")
+            println!("========================")
         }
 
         // SWITCH GAMEMODE
         if self.inputs.take_key_pressed(KeyCode::KeyG) {
-            println!("Switch gamemode");
             self.player.state.switch_player_game_mode();
+            println!("Switching gamemode to {}", self.player.state.game_mode);
             if let Some(ref mut net) = self.network {
                 let result = net.send_gamemode_change(self.player.state.game_mode);
                 match result {

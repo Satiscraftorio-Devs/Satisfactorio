@@ -165,7 +165,11 @@ impl WorldMesh {
 
             // On récupère les données, et si elles n'existent pas, on passe à la mesh suivante
             let Some(vertices) = vertices_opt else {
+                // Nettoyage
                 self.delete_mesh_with_alloc(alloc, &key.coords);
+                if let Some(vertices) = vertices_opt {
+                    self.mesh_worker.context().release_buffer(vertices);
+                }
                 continue;
             };
 
@@ -177,6 +181,11 @@ impl WorldMesh {
                         if let Some(err) = mesh.update(&vertices, alloc).err() {
                             println!("Could not update mesh: {:?}", err);
                         }
+                        // Le mesh GPU a été libéré car ses données sont à présent vides.
+                        // On libère également le mesh CPU.
+                        if mesh.id.is_none() {
+                            self.meshes.remove(&key.coords);
+                        }
                     }
                     // Le mesh n'existe pas encore, on le crée
                     None => {
@@ -184,11 +193,27 @@ impl WorldMesh {
                         match mesh.update(&vertices, alloc) {
                             Ok(_) => {
                                 // Le mesh a correctement été configuré, donc on peut l'insérer
-                                self.meshes.insert(key.coords, mesh);
+                                if mesh.id.is_some() {
+                                    self.meshes.insert(key.coords, mesh);
+                                } else {
+                                    // Si le mesh est vide, il est normal qu'on ne l'insère pas (l'id n'a pas été attribué donc on arrive ici).
+                                    // En revanche, s'il contient des données, on l'affiche dans la console.
+                                    if !vertices.is_empty() {
+                                        println!("WorldMesh compute_generated_meshes: Could not insert mesh, for unknown reason.");
+                                    }
+                                    self.mesh_worker.context().release_buffer(vertices);
+                                    continue;
+                                }
                             }
                             Err(e) => {
-                                // Le mesh a eu un problème de configuration, on ne fait rien
-                                println!("Could not insert mesh: {:?}", e as u8);
+                                // Le mesh a eu un problème, on le retire
+                                println!(
+                                    "WorldMesh compute_generated_meshes: Could not update to-insert-mesh.\nError: {:?}",
+                                    e
+                                );
+                                // Nettoyage
+                                self.mesh_worker.context().release_buffer(vertices);
+                                continue;
                             }
                         }
                     }
@@ -217,12 +242,40 @@ impl WorldMesh {
         self.meshes.get_mut(&cpos)
     }
 
-    // pub fn set_dirty(&mut self, cpos: &(i32, i32, i32)) {
-    //     if let Some(chunk) = self.meshes.get_mut(&cpos) {
-    //         chunk.set_dirty();
-    //         self.queued.push_back(*cpos);
-    //     }
-    // }
+    pub fn print_memory(&self) {
+        let conversion = |b: u32| {
+            let kb = b / 1024;
+            return (kb, b);
+        };
+
+        // Does not include mesh_worker buffers
+        let alloc = (
+            self.chunk_meshes.capacity() * size_of::<(i32, i32, i32)>()
+                + self.meshes.capacity() * size_of::<((i32, i32, i32), ChunkMesh)>()
+                + self.pending.capacity() * size_of::<(usize, MeshRequestAdd)>()
+                + self.pending_keys.capacity() * size_of::<((i32, i32, i32), MeshSnapshot)>()
+                + self.queued.capacity() * 2 * size_of::<MeshRequestAdd>()
+            // * 2 because UniqueQueue has a HashSet and a VecDeque with the same value
+        ) as u32;
+
+        let used = (
+            self.chunk_meshes.len() * size_of::<(i32, i32, i32)>()
+                + self.meshes.len() * size_of::<((i32, i32, i32), ChunkMesh)>()
+                + self.pending.len() * size_of::<(usize, MeshRequestAdd)>()
+                + self.pending_keys.len() * size_of::<((i32, i32, i32), MeshSnapshot)>()
+                + self.queued.len() * 2 * size_of::<MeshRequestAdd>()
+            // * 2 because UniqueQueue has a HashSet and a VecDeque with the same value
+        ) as u32;
+
+        let (alloc_kb, alloc_b) = conversion(alloc);
+        let (used_kb, used_b) = conversion(used);
+        let (free_kb, free_b) = (alloc_kb - used_kb, alloc_b - used_b);
+
+        println!("Mesh count: {}", self.meshes.len());
+        println!("Allocated Memory (CPU) {:3}Kb | {:6}b", alloc_kb, alloc_b);
+        println!("└─ Free                {:3}Kb | {:6}b", free_kb, free_b);
+        println!("└─ Used                {:3}Kb | {:6}b", used_kb, used_b);
+    }
 
     pub fn dispose(&mut self, mesh_manager: &mut Arc<RwLock<GpuAllocator>>) {
         let alloc = &mut mesh_manager.write().unwrap();

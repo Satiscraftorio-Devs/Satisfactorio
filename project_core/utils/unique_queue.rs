@@ -89,6 +89,10 @@ impl<T: Hash + Eq + Clone, S: BuildHasher + Default> UniqueQueue<T, S> {
         self.set.len()
     }
 
+    pub fn capacity(&self) -> usize {
+        self.set.capacity()
+    }
+
     pub fn clear(&mut self) {
         self.queue.clear();
         self.set.clear();

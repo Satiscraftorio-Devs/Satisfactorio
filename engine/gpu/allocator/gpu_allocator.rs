@@ -13,12 +13,12 @@ use crate::{
     render::utils::smart_buffer::SmartBuffer,
 };
 
-const BYTES_PER_FRAME_CAP: usize = 1024 * 1024 * 8;
-const MAX_MILLIS_PER_FRAME_CAP: u128 = 8;
-const MAX_WRITE_OPERATIONS_PER_FRAME: usize = 5;
-const ARENA_MIN_SIZE: usize = 1024 * 1024; // 1mb
-const MESH_BUFFER_BASE_SIZE: usize = 1024 * 1024 * 32; // 32mb
-const MESH_BUFFER_EXPAND_COEF: f32 = 1.5;
+// const BYTES_PER_FRAME_CAP: usize = 1024 * 1024 * 8;
+// const MAX_MILLIS_PER_FRAME_CAP: u128 = 8;
+// const MAX_WRITE_OPERATIONS_PER_FRAME: usize = 5;
+const ARENA_MIN_SIZE: usize = 1024 * 1024 * 4; // 4Mb
+const MESH_BUFFER_BASE_SIZE: usize = 1024 * 1024 * 4; // 4Mb
+const MESH_BUFFER_EXPAND_COEF: f32 = 1.25; // allocates 1.25x more than needed to prevent quick reallocates.
 
 pub type MeshId = u32;
 
@@ -51,7 +51,7 @@ pub struct GpuAllocator {
     frame_encoder: Arc<RwLock<CommandEncoder>>,
 }
 
-const LOG_ALLOCATOR: bool = true;
+const LOG_ALLOCATOR: bool = false;
 
 macro_rules! log_allocator {
     () => {
@@ -80,11 +80,11 @@ impl GpuAllocator {
             gpu_tools,
             frame_encoder,
             buffer,
-            data: Vec::with_capacity(512),
-            gaps: Vec::with_capacity(64),
-            pending_destruction: Vec::with_capacity(8),
+            data: Vec::with_capacity(256),
+            gaps: Vec::with_capacity(32),
+            pending_destruction: Vec::with_capacity(1),
             next_id: 0,
-            free_ids: Vec::with_capacity(64),
+            free_ids: Vec::with_capacity(8),
             write_operations: vec![],
             schedule_batch: false,
             arena: Vec::with_capacity(ARENA_MIN_SIZE),
@@ -92,7 +92,7 @@ impl GpuAllocator {
     }
 
     pub fn get_mesh_entry(&self, id: MeshId) -> Option<&MeshEntry> {
-        if let Ok(i) = self.data.binary_search_by_key(&id, |entry| entry.id) {
+        if let Some(i) = self.data.iter().position(|entry| entry.id == id) {
             return self.data.get(i);
         }
         None
@@ -103,30 +103,9 @@ impl GpuAllocator {
     }
 
     pub fn print_debug_infos(&self) {
-        if !LOG_ALLOCATOR {
-            return;
+        if LOG_ALLOCATOR {
+            self.force_print_debug_infos();
         }
-
-        let conversion = |b: u32| {
-            let kb = b / 1024;
-            let mb = kb / 1024;
-            return (mb, kb, b);
-        };
-
-        let actual_data_length = self.total_data_length() as u32;
-        let allocated_memory = (self.arena.capacity()
-            + self.free_ids.capacity() * size_of::<u32>()
-            + self.gaps.capacity() * size_of::<Gap>()
-            + self.pending_destruction.capacity() * size_of::<SmartBuffer>()
-            + self.write_operations.capacity() * size_of::<WriteOperation>()) as u32
-            + actual_data_length;
-        let (len_mb, len_kb, len_b) = conversion(actual_data_length);
-        let (cap_mb, cap_kb, cap_b) = conversion(allocated_memory);
-        let mesh_count = self.data.len();
-        println!(
-            "Mesh buffer\nMesh count: {}\nActual Data\n{:3}Mb | {:6}Kb | {:9}b\nAllocated Memory\n{:3}Mb | {:6}Kb | {:9}b",
-            mesh_count, len_mb, len_kb, len_b, cap_mb, cap_kb, cap_b,
-        );
     }
 
     pub fn force_print_debug_infos(&self) {
@@ -136,20 +115,56 @@ impl GpuAllocator {
             return (mb, kb, b);
         };
 
-        let actual_data_length = self.total_data_length() as u32;
-        let allocated_memory = (self.arena.capacity()
+        let mesh_count = self.data.len();
+
+        let used_cpu = (self.arena.len()
+            + self.free_ids.len() * size_of::<u32>()
+            + self.gaps.len() * size_of::<Gap>()
+            + self.pending_destruction.len() * size_of::<SmartBuffer>()
+            + self.write_operations.len() * size_of::<WriteOperation>()
+            + self.data.len() * size_of::<MeshEntry>()) as u32;
+        let (used_cpu_mb, used_cpu_kb, used_cpu_b) = conversion(used_cpu);
+
+        let alloc_cpu = (self.arena.capacity()
             + self.free_ids.capacity() * size_of::<u32>()
             + self.gaps.capacity() * size_of::<Gap>()
             + self.pending_destruction.capacity() * size_of::<SmartBuffer>()
-            + self.write_operations.capacity() * size_of::<WriteOperation>()) as u32
-            + actual_data_length;
-        let (len_mb, len_kb, len_b) = conversion(actual_data_length);
-        let (cap_mb, cap_kb, cap_b) = conversion(allocated_memory);
-        let mesh_count = self.data.len();
+            + self.write_operations.capacity() * size_of::<WriteOperation>()
+            + self.data.capacity() * size_of::<MeshEntry>()) as u32;
+        let (alloc_cpu_mb, alloc_cpu_kb, alloc_cpu_b) = conversion(alloc_cpu);
+
+        let data_length = self.total_data_length() as u32;
+        let (data_mb, data_kb, data_b) = conversion(data_length);
+
+        let alloc_gpu = self.buffer.capacity();
+        let (alloc_gpu_mb, alloc_gpu_kb, alloc_gpu_b) = conversion(alloc_gpu);
+
+        println!("Mesh count: {}", mesh_count);
         println!(
-            "Mesh buffer\nMesh count: {}\nActual Data\n{:3}Mb | {:6}Kb | {:9}b\nAllocated Memory\n{:3}Mb | {:6}Kb | {:9}b",
-            mesh_count, len_mb, len_kb, len_b, cap_mb, cap_kb, cap_b,
+            "Allocated Memory (CPU) {:3}Mb | {:6}Kb | {:9}b",
+            alloc_cpu_mb, alloc_cpu_kb, alloc_cpu_b
         );
+        println!(
+            "└─ Free                {:3}Mb | {:6}Kb | {:9}b",
+            alloc_cpu_mb - used_cpu_mb,
+            alloc_cpu_kb - used_cpu_kb,
+            alloc_cpu_b - used_cpu_b
+        );
+        println!(
+            "└─ Used                {:3}Mb | {:6}Kb | {:9}b",
+            used_cpu_mb, used_cpu_kb, used_cpu_b
+        );
+        println!(
+            "Allocated Memory (GPU) {:3}Mb | {:6}Kb | {:9}b",
+            alloc_gpu_mb, alloc_gpu_kb, alloc_gpu_b
+        );
+        println!(
+            "└─ Free                {:3}Mb | {:6}Kb | {:9}b",
+            alloc_gpu_mb - data_mb,
+            alloc_gpu_kb - data_kb,
+            alloc_gpu_b - data_b
+        );
+        println!("└─ Used                {:3}Mb | {:6}Kb | {:9}b", data_mb, data_kb, data_b);
     }
 
     pub fn get_buffer(&self) -> &Buffer {

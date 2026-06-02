@@ -1,7 +1,7 @@
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue};
 
-pub const BUFFER_CAPACITY_MARGIN: f32 = 2.0;
-pub const BUFFER_MIN_CAPACITY: u32 = 1024 * 1024 * 32;
+pub const BUFFER_CAPACITY_MARGIN: f32 = 1.0; // allocates only necessary space, nothing more, nothing less.
+pub const BUFFER_MIN_CAPACITY: u32 = 1024 * 256; // 256kb
 pub const BUFFER_MAX_CAPACITY: u32 = 1024 * 1024 * 256; // 256mb
 
 pub struct SmartBuffer {
