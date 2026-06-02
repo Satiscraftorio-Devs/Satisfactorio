@@ -18,6 +18,7 @@ use engine::geometry::vertex::generate_cube;
 use engine::gpu::allocator::gpu_allocator::GpuAllocator;
 use engine::render::render::Renderer;
 use game::constants::CHUNK_VECTOR;
+use game::world::data::block::BlockInstance;
 use game::world::data::chunk::CHUNK_SIZE_F;
 use network::messages::new_save_request_paquet;
 use network::messages::ContenuPaquet;
@@ -160,6 +161,10 @@ impl AppState for GameState {
                             for c in chunks {
                                 self.world.apply_remote_chunk(c.x, c.y, c.z, &c.data);
                             }
+                        }
+                        ContenuPaquet::SetBlock { x, y, z, block_id } => {
+                            let block = BlockInstance::new(block_id);
+                            self.world.set_block(x, y, z, block);
                         }
                         _ => {}
                     }
