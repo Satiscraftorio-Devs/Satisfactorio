@@ -51,7 +51,7 @@ pub struct GpuAllocator {
     frame_encoder: Arc<RwLock<CommandEncoder>>,
 }
 
-const LOG_ALLOCATOR: bool = true;
+const LOG_ALLOCATOR: bool = false;
 
 macro_rules! log_allocator {
     () => {

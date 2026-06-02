@@ -29,7 +29,7 @@ use std::time::Duration;
 use tokio::time::Instant;
 use winit::keyboard::KeyCode;
 
-const FPS_CAP: u32 = 60;
+const FPS_CAP: u32 = u32::MAX;
 const DT_CAP: f32 = {
     if FPS_CAP == 0 {
         0.0
