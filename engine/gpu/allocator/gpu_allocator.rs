@@ -5,12 +5,10 @@ use std::{
 
 use wgpu::{Buffer, BufferUsages, CommandEncoder};
 
-use crate::{
-    gpu::{
-        allocator::{alloc_error::AllocError, gap::Gap, write_operation::WriteOperation},
-        tools::GpuTools,
-    },
-    render::utils::smart_buffer::SmartBuffer,
+use crate::gpu::{
+    allocator::data_structures::{AllocError, Gap, WriteOperation},
+    smart_buffer::SmartBuffer,
+    tools::GpuTools,
 };
 
 // const BYTES_PER_FRAME_CAP: usize = 1024 * 1024 * 8;
@@ -462,25 +460,20 @@ impl GpuAllocator {
         // Update buffer
         self.pending_destruction.push(mem::replace(&mut self.buffer, new_buffer));
 
-        // log_allocator!(
-        //     "new realloc gap: {} {}",
-        //     current_position,
-        //     new_buffer.capacity() as usize - current_position
-        // );
-
         self.print_debug_infos();
     }
 
-    fn write_at(&mut self, position: usize, data: &[u8], mesh_id: MeshId) {
-        log_allocator!("Writing at {} data of len {} and of Mesh(id: {})", position, data.len(), mesh_id);
+    fn write_at(&mut self, offset: usize, data: &[u8], mesh_id: MeshId) {
+        log_allocator!("Writing at {} data of len {} and of Mesh(id: {})", offset, data.len(), mesh_id);
+
+        let len = data.len();
         let arena_offset = self.arena.len();
+
         self.arena.extend_from_slice(data);
-        self.write_operations.push(WriteOperation {
-            mesh_id,
-            offset: position,
-            len: data.len(),
-            arena_offset: arena_offset,
-        });
+
+        let operation = WriteOperation::new(mesh_id, offset, len, arena_offset);
+        self.write_operations.push(operation);
+
         self.schedule_batch = true;
     }
 

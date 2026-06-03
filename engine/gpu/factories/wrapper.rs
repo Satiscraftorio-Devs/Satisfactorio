@@ -1,6 +1,6 @@
 use crate::gpu::{
     context::GpuContext,
-    resources::{
+    factories::{
         bind_group::{BindGroupFactory, BindGroupLayoutFactory},
         pipeline::{PipelineFactory, PipelineLayoutFactory},
     },

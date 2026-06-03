@@ -1,5 +1,5 @@
 use engine::gpu::allocator::gpu_allocator::GpuAllocator;
-use engine::render::texture::RenderMode;
+use engine::render::modes::RenderMode;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use std::hash::{Hash, Hasher};
 

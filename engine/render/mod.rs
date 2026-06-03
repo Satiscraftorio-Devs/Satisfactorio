@@ -1,10 +1,8 @@
 pub mod camera;
 pub mod debug;
 pub mod manager;
+pub mod modes;
 pub mod options;
 pub mod render;
 pub mod text;
-pub mod texture;
-pub mod textures;
 pub mod ui;
-pub mod utils;

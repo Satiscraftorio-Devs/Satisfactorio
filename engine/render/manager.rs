@@ -7,12 +7,10 @@ use crate::geometry::vertex::Vertex;
 use rustc_hash::{FxBuildHasher, FxHashSet};
 use wgpu::{wgt::DrawIndirectArgs, BufferUsages, CommandEncoder};
 
-use crate::{
-    gpu::{
-        allocator::gpu_allocator::{GpuAllocator, MeshId},
-        tools::GpuTools,
-    },
-    render::utils::smart_buffer::SmartBuffer,
+use crate::gpu::{
+    allocator::gpu_allocator::{GpuAllocator, MeshId},
+    smart_buffer::SmartBuffer,
+    tools::GpuTools,
 };
 
 pub struct RenderManager {

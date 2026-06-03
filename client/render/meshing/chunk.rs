@@ -3,7 +3,7 @@ use bytemuck::cast_slice;
 use engine::{
     geometry::vertex::Vertex,
     gpu::allocator::{
-        alloc_error::AllocError,
+        data_structures::AllocError,
         gpu_allocator::{GpuAllocator, MeshId},
     },
 };

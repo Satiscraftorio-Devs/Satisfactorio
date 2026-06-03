@@ -1,9 +1,8 @@
 use anyhow::Error;
 
 use crate::systems::texture_registry::TextureRegistry;
-use engine::render::texture::RenderMode;
-use engine::render::texture::TextureID;
-use engine::render::texture::TextureManager;
+use engine::gpu::textures::{id::TextureID, manager::TextureManager};
+use engine::render::modes::RenderMode;
 
 pub struct TextureLoader<'a> {
     texture_manager: &'a mut TextureManager,

@@ -6,18 +6,19 @@ use crate::{
     },
     gpu::{
         context::GpuContext,
-        factory::GpuFactory,
+        factories::wrapper::GpuFactory,
         layouts::BufferLayouts,
-        resources::{pipeline::Pipelines, resources::GpuResources},
+        resources::{pipeline::Pipelines, wrapper::GpuResources},
+        textures::manager::TextureManager,
     },
     render::{
         camera::RenderCamera,
         debug::DebugRenderResources,
         manager::RenderManager,
+        modes::RenderMode,
         options::RenderOptions,
         render::Renderer,
         text::{text_renderer::FPS_UPDATE_DELAY, TextRenderer},
-        texture::{RenderMode, TextureManager},
     },
 };
 use bytemuck::cast_slice;

@@ -9,11 +9,8 @@ use wgpu::{
 };
 
 use crate::{
-    gpu::{context::GpuContext, resources::resources::GpuResources},
-    render::{
-        camera::RenderCamera, debug::DebugRenderResources, manager::RenderManager, options::RenderOptions, text::TextRenderer,
-        texture::TextureManager,
-    },
+    gpu::{context::GpuContext, resources::wrapper::GpuResources, textures::manager::TextureManager},
+    render::{camera::RenderCamera, debug::DebugRenderResources, manager::RenderManager, options::RenderOptions, text::TextRenderer},
 };
 
 pub struct Renderer {

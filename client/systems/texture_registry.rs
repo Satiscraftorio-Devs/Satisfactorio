@@ -1,6 +1,9 @@
 use anyhow::Error;
 
-use engine::render::texture::{RenderMode, TextureID, TextureManager};
+use engine::{
+    gpu::textures::{id::TextureID, manager::TextureManager},
+    render::modes::RenderMode,
+};
 
 pub struct TextureRegistry;
 

@@ -1,49 +1,20 @@
 use std::sync::Arc;
 
-use anyhow::*;
+use anyhow::Error;
 
-use crate::{gpu::tools::GpuTools, render::textures::array::Texture2DArray};
+use crate::{
+    gpu::{
+        textures::{array::Texture2DArray, id::TextureID},
+        tools::GpuTools,
+    },
+    render::modes::RenderMode,
+};
 
 pub struct TextureManager {
     gpu_resources: Arc<GpuTools>,
     textures_arrays: Vec<Texture2DArray>,
     max_texture_size: u32,
     max_array_depth: u32,
-}
-
-#[repr(C)]
-#[allow(unused)]
-pub enum RenderMode {
-    Opaque = 0,
-    AlphaCutout = 1,
-    Translucent = 2,
-    Billboard = 3,
-    UI = 4,
-}
-
-impl RenderMode {
-    pub fn to_usize(self) -> usize {
-        self as usize
-    }
-}
-
-pub struct TextureID {
-    array: usize,
-    depth: u16,
-}
-
-impl TextureID {
-    pub fn new(array: usize, depth: u16) -> Self {
-        Self { array, depth }
-    }
-
-    pub fn array(&self) -> usize {
-        self.array
-    }
-
-    pub fn depth(&self) -> u16 {
-        self.depth
-    }
 }
 
 impl TextureManager {
@@ -59,16 +30,6 @@ impl TextureManager {
 
         let texture_array = instance.make_new_array("Textures".to_string(), size, size);
         assert!(texture_array == RenderMode::Opaque.to_usize());
-
-        // let opaque = instance.make_new_array("Opaque".to_string(), size, size);
-        // let alpha_cutout = instance.make_new_array("Alpha Cutout".to_string(), size, size);
-        // let translucent = instance.make_new_array("Translucent".to_string(), size, size);
-        // let billboard = instance.make_new_array("Billboard".to_string(), size, size);
-
-        // assert!(opaque == TextureArrayIndex::Opaque.to_usize());
-        // assert!(alpha_cutout == TextureArrayIndex::AlphaCutout.to_usize());
-        // assert!(translucent == TextureArrayIndex::Translucent.to_usize());
-        // assert!(billboard == TextureArrayIndex::Billboard.to_usize());
 
         instance
     }
@@ -123,11 +84,11 @@ impl TextureManager {
     }
 
     pub fn write(&mut self, texture: &[u8], id: &TextureID) {
-        let Some(array) = self.textures_arrays.get_mut(id.array) else {
+        let Some(array) = self.textures_arrays.get_mut(id.array()) else {
             return;
         };
 
-        array.write_at(self.gpu_resources.queue(), id.depth, texture);
+        array.write_at(self.gpu_resources.queue(), id.depth(), texture);
     }
 
     pub fn get_array(&self, index: RenderMode) -> &Texture2DArray {
