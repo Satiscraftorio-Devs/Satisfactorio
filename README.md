@@ -4,9 +4,14 @@ Jeu voxel multijoueur en Rust avec rendu wgpu.
 
 ```
 Ascendustry/
-├── shared/    -- Bibliothèque partagée (réseau, monde, blocs, chiffrement)
-├── client/    -- Client de jeu (rendu wgpu, audio, physique, joueur)
-└── server/    -- Serveur multijoueur (monde, connexions, génération)
+├── project_core/  -- Types fondamentaux et structures partagées
+├── game/          -- Monde, blocs, génération procédurale de terrain (noise)
+├── engine/        -- Rendu GPU (wgpu), audio (kira), fenêtrage (winit)
+├── network/       -- Réseau asynchrone (tokio), chiffrement AES-256-GCM
+├── physics/       -- Physique et collisions (client & serveur)
+├── client/        -- Client de jeu (rendu, audio, joueur)
+├── server/        -- Serveur multijoueur (monde, connexions, logique)
+└── launcher/      -- Lanceur graphique (eframe/egui)
 ```
 
 ## Dépendances principales
@@ -17,10 +22,12 @@ Ascendustry/
 - **tokio** — réseau asynchrone
 - **kira** 0.12 — audio
 - **serde** + **bincode** — sérialisation binaire
-- **aes-gcm** — chiffrement AES-256-GCM
+- **aes-gcm** + **sha2** — chiffrement AES-256-GCM
 - **noise** 0.9 — génération procédurale de terrain
-- **cgmath** — mathématiques 3D
+- **cgmath** + **bytemuck** — mathématiques 3D
 - **rayon** — maillage parallèle des chunks
+- **eframe** 0.27 — lanceur graphique
+- **clap** — arguments en ligne de commande
 
 ## Utilisation
 
@@ -31,14 +38,27 @@ make server
 # Lancer le client
 make client
 
+# Lancer le lanceur graphique
+make launcher
+
 # Tout lancer d'un coup (serveur arrière-plan + client)
 make run
 
 # Construire
 make build
+
+# Documentation
+make doc
 ```
 
 Les binaires acceptent `--address` / `-a` pour l'adresse de connexion (défaut : `127.0.0.1:42677`).
+
+## Profiling
+
+```bash
+make client-profile     # Client avec flamegraph
+make launcher-profile   # Lanceur avec flamegraph
+```
 
 ## Contrôles
 
