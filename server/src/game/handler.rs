@@ -1,14 +1,14 @@
 use std::time::SystemTime;
 
 use crate::{persistence::PersistenceService, state::AppState};
-use network::messages::*;
+use network::messages::{BroadcastMessage, *};
 use project_core::{log_err_server, log_server};
 use tokio::sync::broadcast;
 
 pub struct HandlerContext<'a> {
     pub player_id: u64,
     pub state: &'a AppState,
-    pub broadcaster: &'a broadcast::Sender<Paquet>,
+    pub broadcaster: &'a broadcast::Sender<BroadcastMessage>,
     pub persistence: &'a PersistenceService,
 }
 
@@ -40,7 +40,7 @@ impl PacketHandler for ProductionHandler {
                         }],
                     },
                 );
-                let _ = ctx.broadcaster.send(broadcast_packet);
+                let _ = ctx.broadcaster.send(BroadcastMessage::All(broadcast_packet));
 
                 Some(packet)
             }
@@ -57,7 +57,10 @@ impl PacketHandler for ProductionHandler {
                         block_id: *block_id,
                     },
                 );
-                let _ = ctx.broadcaster.send(broadcast_packet);
+                let _ = ctx.broadcaster.send(BroadcastMessage::AllExcept {
+                    player_id: ctx.player_id,
+                    paquet: broadcast_packet,
+                });
 
                 Some(packet)
             }

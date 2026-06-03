@@ -5,7 +5,7 @@ use crate::state::AppState;
 use anyhow::Result;
 use game::constants::GUARD_CYCLE_INTERVAL_MS;
 use network::crypto::generate_server_id;
-use network::messages::Paquet;
+use network::messages::BroadcastMessage;
 use project_core::log_err_server;
 use project_core::log_server;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -18,7 +18,7 @@ pub struct Server {
     listener: TcpListener,
     state: Arc<AppState>,
     persistence: Arc<PersistenceService>,
-    broadcaster: broadcast::Sender<Paquet>,
+    broadcaster: broadcast::Sender<BroadcastMessage>,
     next_player_id: AtomicU64,
 }
 

@@ -5,7 +5,7 @@ use crate::network_server::ServerConnection;
 use crate::persistence::PersistenceService;
 use crate::state::AppState;
 use anyhow::Result;
-use network::messages::{self, new_server_seed_paquet, ContenuPaquet, Paquet, PlayerTransformation, TypePaquet};
+use network::messages::{self, new_server_seed_paquet, BroadcastMessage, ContenuPaquet, Paquet, PlayerTransformation, TypePaquet};
 use network::traits::PacketCodec;
 use project_core::log_err_server;
 use project_core::log_server;
@@ -37,7 +37,7 @@ pub struct ClientSession {
     /// État partagé du serveur (joueurs, monde).
     state: Arc<AppState>,
     /// Canal broadcast pour diffuser les positions aux autres clients.
-    broadcaster: TokioBroadcastSender<Paquet>,
+    broadcaster: TokioBroadcastSender<BroadcastMessage>,
     persistence: Arc<PersistenceService>,
 }
 
@@ -47,7 +47,7 @@ impl ClientSession {
         server_id: [u8; 16],
         handler: Box<dyn PacketHandler>,
         state: Arc<AppState>,
-        broadcaster: TokioBroadcastSender<Paquet>,
+        broadcaster: TokioBroadcastSender<BroadcastMessage>,
         persistence: Arc<PersistenceService>,
     ) -> Self {
         let conn = ServerConnection::new(player_id, server_id);
@@ -179,10 +179,18 @@ impl ClientSession {
                     }
                     result = broadcast_rx.recv() => {
                         match result {
-                            Ok(packet) => {
+                            Ok(BroadcastMessage::All(packet)) => {
                                 if let Err(e) = codec.send_packet(&mut write_half, &packet).await {
                                     log_err_server!("Erreur envoi broadcast: {}", e);
                                     break;
+                                }
+                            }
+                            Ok(BroadcastMessage::AllExcept { player_id: source_id, paquet }) => {
+                                if source_id != player_id {
+                                    if let Err(e) = codec.send_packet(&mut write_half, &paquet).await {
+                                        log_err_server!("Erreur envoi broadcast: {}", e);
+                                        break;
+                                    }
                                 }
                             }
                             Err(RecvError::Lagged(n)) => {

@@ -2,7 +2,9 @@ use crate::persistence::{SaveData, SaveWorld};
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
-use network::messages::{ChunkData, ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet};
+use network::messages::{
+    BroadcastMessage, ChunkData, ContenuPaquet, Paquet, PlayerGameMode, PlayerTransformation, Position, Rotation, TypePaquet,
+};
 use physics::position::{find_safe_spawn_point, is_position_free};
 use physics::validator::is_movement_plausible;
 use project_core::log_server;
@@ -143,7 +145,7 @@ impl AppState {
     }
 
     // Le guard cycle permet de vérifier si les positions des joueurs sont valides et de les déplacer si nécessaire.
-    pub fn run_guard_cycle(&self, broadcaster: &broadcast::Sender<Paquet>) {
+    pub fn run_guard_cycle(&self, broadcaster: &broadcast::Sender<BroadcastMessage>) {
         // Phase 1 : évaluation sous read lock
         let evaluations = {
             let state = self.inner.read().unwrap();
@@ -204,7 +206,7 @@ impl AppState {
 
         if !corrections.is_empty() {
             let packet = Paquet::new(TypePaquet::GuardCorrection, ContenuPaquet::GuardCorrection { data: corrections });
-            let _ = broadcaster.send(packet);
+            let _ = broadcaster.send(BroadcastMessage::All(packet));
         }
     }
     pub fn get_modified_chunks_data(&self) -> Vec<ChunkData> {

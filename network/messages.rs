@@ -14,6 +14,12 @@ struct PublicPlayerData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PrivatePlayerData {}
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum BroadcastMessage {
+    All(Paquet),
+    AllExcept { player_id: u64, paquet: Paquet },
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypePaquet {
     Handshake,
