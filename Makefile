@@ -55,9 +55,6 @@ launcher-release: fmt client-release-build server-release-build
 launcher-release-build: fmt
 	cargo build -r -p launcher --bin launcher
 
-server: fmt
-	RUSTFLAGS="-Awarnings" cargo run -p server --bin server
-
 server-release: fmt
 	RUSTFLAGS="-Awarnings" cargo run -r -p server --bin server
 
