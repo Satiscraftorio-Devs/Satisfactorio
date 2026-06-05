@@ -2,6 +2,13 @@ use crate::client::ClientSession;
 use crate::game::{PacketHandler, ProductionHandler};
 use crate::persistence::PersistenceService;
 use crate::state::AppState;
+#[cfg(feature = "tui")]
+use crate::tui::bridge::TuiBridge;
+
+#[cfg(feature = "tui")]
+pub type BridgeOption = Option<TuiBridge>;
+#[cfg(not(feature = "tui"))]
+pub type BridgeOption = Option<()>;
 use anyhow::Result;
 use game::constants::GUARD_CYCLE_INTERVAL_MS;
 use network::crypto::generate_server_id;
@@ -16,14 +23,16 @@ use tokio::sync::broadcast;
 
 pub struct Server {
     listener: TcpListener,
-    state: Arc<AppState>,
+    pub state: Arc<AppState>,
     persistence: Arc<PersistenceService>,
     broadcaster: broadcast::Sender<BroadcastMessage>,
     next_player_id: AtomicU64,
+    #[cfg(feature = "tui")]
+    bridge: Option<TuiBridge>,
 }
 
 impl Server {
-    pub async fn new(address: &str, save_path: &str) -> Result<Self> {
+    pub async fn new(address: &str, save_path: &str, bridge: BridgeOption) -> Result<Self> {
         let listener = TcpListener::bind(address).await?;
         let state = Arc::new(AppState::new());
         let persistence = Arc::new(PersistenceService::new(save_path));
@@ -41,11 +50,18 @@ impl Server {
             persistence,
             broadcaster,
             next_player_id: AtomicU64::new(1),
+            #[cfg(feature = "tui")]
+            bridge: bridge,
         })
     }
 
     pub fn state(&self) -> Arc<AppState> {
         Arc::clone(&self.state)
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let data = self.state.export_save();
+        self.persistence.save(&data)
     }
 
     pub async fn run(&self) -> Result<()> {

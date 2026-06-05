@@ -6,6 +6,27 @@ pub mod utils;
 #[cfg(test)]
 mod tests;
 
+use std::sync::OnceLock;
+
+type LogTui = dyn Fn(&str) + Send + Sync;
+
+static LOG_TUI: OnceLock<Box<LogTui>> = OnceLock::new();
+
+pub fn set_log_tui(tui: Box<LogTui>) {
+    LOG_TUI.set(tui).ok();
+}
+
+/// Retourne `true` si un tui était enregistré (mode TUI).
+/// Si vrai, l'appelant doit sauter l'impression stdout/stderr.
+pub fn log_to_tui(msg: &str) -> bool {
+    if let Some(tui) = LOG_TUI.get() {
+        tui(msg);
+        true
+    } else {
+        false
+    }
+}
+
 #[macro_export]
 macro_rules! time {
     ($label:expr, $block:block) => {{
@@ -32,63 +53,72 @@ macro_rules! time_noprint {
 
 #[macro_export]
 macro_rules! log {
-    ($($args:tt)*) => {
-        println!("i> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("i> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { println!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_warn {
-    ($($args:tt)*) => {
-        println!("W> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("W> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { println!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_err {
-    ($($args:tt)*) => {
-        eprintln!("E> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("E> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { eprintln!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_server {
-    ($($args:tt)*) => {
-        println!("[iSRV]$> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("[iSRV]$> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { println!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_warn_server {
-    ($($args:tt)*) => {
-        eprintln!("[WSRV]$> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("[WSRV]$> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { eprintln!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_err_server {
-    ($($args:tt)*) => {
-        eprintln!("[ESRV]$> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("[ESRV]$> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { eprintln!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_client {
-    ($($args:tt)*) => {
-        println!("[iCLI]$> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("[iCLI]$> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { println!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_warn_client {
-    ($($args:tt)*) => {
-        println!("[WCLI]$> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("[WCLI]$> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { println!("{}", msg); }
+    }};
 }
 
 #[macro_export]
 macro_rules! log_err_client {
-    ($($args:tt)*) => {
-        eprintln!("[ECLI]$> {}", format_args!($($args)*));
-    };
+    ($($args:tt)*) => {{
+        let msg = format!("[ECLI]$> {}", format_args!($($args)*));
+        if !$crate::log_to_tui(&msg) { eprintln!("{}", msg); }
+    }};
 }
