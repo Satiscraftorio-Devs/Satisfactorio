@@ -56,7 +56,7 @@ impl Renderer {
 
     fn world_pass(&self, render_pass: &mut RenderPass) {
         // World & Player meshes (other than local player)
-        let mesh_count = self.render_manager.get_meshes_to_render().len() as u32;
+        let mesh_count = self.render_manager.ids_to_render.len() as u32;
         let alloc = &self.render_manager.mesh_manager.read().unwrap();
         if mesh_count > 0 {
             render_pass.set_vertex_buffer(0, alloc.get_buffer().slice(..));
@@ -118,10 +118,8 @@ impl Renderer {
         }
 
         if let Some(cw) = camera.cw().change() {
-            let chunk_borders_vertices: Vec<Vertex> = CHUNK_BORDERS
-                .iter()
-                .map(|v| v.copy_with_pos(v.position[0] + cw[0], v.position[1] + cw[1], v.position[2] + cw[2]))
-                .collect();
+            let chunk_borders_vertices =
+                CHUNK_BORDERS.map(|v| v.copy_with_pos(v.position[0] + cw[0], v.position[1] + cw[1], v.position[2] + cw[2]));
 
             queue.write_buffer(&self.debug.chunk_borders_buffer, 0, bytemuck::cast_slice(&chunk_borders_vertices));
         };

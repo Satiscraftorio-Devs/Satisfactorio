@@ -143,11 +143,12 @@ impl TextureManager {
     }
 
     fn write_to_array(&mut self, texture: &[u8], id: &TextureID) {
-        let gpu = self.gpu_resources.clone();
+        let gpu = Arc::clone(&self.gpu_resources);
         let queue = gpu.queue();
         let array = self.get_array_mut(id.render_mode());
         let depth = id.id();
         array.write_at(queue, depth, texture);
+        drop(gpu);
     }
 
     fn write_to_ui_atlas(&mut self, x: u32, y: u32, width: u32, height: u32, texture: &[u8]) {
