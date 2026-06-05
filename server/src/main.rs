@@ -3,8 +3,6 @@ use clap::Parser;
 use network::DEFAULT_SERVER_ADDRESS;
 use project_core::log_server;
 use server::server::Server;
-use server::tui::TuiCommand;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
@@ -14,14 +12,34 @@ struct Args {
     address: String,
     #[arg(short = 'p', long, default_value = "world/world_1.stf")]
     save_path: String,
+    #[arg(long)]
+    no_tui: bool,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let args = Args::parse();
+
+    if args.no_tui {
+        run_headless(&args).await
+    } else {
+        run_with_tui(&args).await
+    }
+}
+
+async fn run_headless(args: &Args) -> Result<()> {
+    log_server!("Serveur: lancement (mode headless).");
+
+    let server = Server::new(&args.address, &args.save_path, None).await?;
+    server.run().await
 }
 
 #[cfg(feature = "tui")]
-#[tokio::main]
-async fn main() -> Result<()> {
-    log_server!("Serveur: lancement.");
+async fn run_with_tui(args: &Args) -> Result<()> {
+    use server::tui::TuiCommand;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
-    let args = Args::parse();
+    log_server!("Serveur: lancement.");
 
     let state = Arc::new(std::sync::Mutex::new(server::tui::bridge::TuiState::default()));
     let (command_tx, mut command_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -100,4 +118,9 @@ async fn main() -> Result<()> {
     stop.store(true, Ordering::Relaxed);
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     Ok(())
+}
+
+#[cfg(not(feature = "tui"))]
+async fn run_with_tui(_args: &Args) -> Result<()> {
+    anyhow::bail!("Le binaire a été compilé sans le support TUI.");
 }
