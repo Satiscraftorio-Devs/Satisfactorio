@@ -101,7 +101,6 @@ impl WorldState {
 
     pub fn retain_chunks(&mut self, keep: &FxHashSet<(i32, i32, i32)>) {
         self.world_generated_chunks.retain(|key, _| keep.contains(key));
-        self.modifications.retain_chunks(keep);
     }
 
     pub fn get_required_chunks(cx: i32, cy: i32, cz: i32) -> FxHashSet<(i32, i32, i32)> {

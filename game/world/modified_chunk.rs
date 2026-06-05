@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use crate::world::data::block::BlockInstance;
 use crate::world::data::chunk::{global_position_to_chunk_pos, IntraChunkCoords};
@@ -117,10 +117,6 @@ impl ModifiedWorld {
         let (chunk_pos, intra_coords) = global_position_to_chunk_pos(gx, gy, gz);
         let chunk = self.chunks.get_mut(&chunk_pos)?;
         chunk.remove_block_at(&intra_coords)
-    }
-
-    pub fn retain_chunks(&mut self, keep: &FxHashSet<(i32, i32, i32)>) {
-        self.chunks.retain(|key, _| keep.contains(key));
     }
 
     pub fn chunks(&self) -> &FxHashMap<(i32, i32, i32), ModifiedChunk> {

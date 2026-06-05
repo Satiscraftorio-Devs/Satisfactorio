@@ -3,6 +3,7 @@ use clap::Parser;
 use network::DEFAULT_SERVER_ADDRESS;
 use project_core::log_server;
 use server::server::Server;
+use server::tui::TuiCommand;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -67,32 +68,32 @@ async fn main() -> Result<()> {
         crossterm::execute!(std::io::stdout(), LeaveAlternateScreen).unwrap();
     });
 
-    let server = Server::new(&args.address, &args.save_path, Some(bridge)).await?;
+    let server = Arc::new(Server::new(&args.address, &args.save_path, Some(bridge)).await?);
 
-    loop {
-        tokio::select! {
-            _ = server.run() => break,
-            Some(cmd) = command_rx.recv() => {
-                match cmd {
-                    server::tui::bridge::TuiCommand::Shutdown => {
-                        log_server!("Arrêt demandé par la TUI.");
-                        break;
-                    },
-                    server::tui::bridge::TuiCommand::Save => {
-                        log_server!("Sauvegarde demandée par la TUI.");
-                        if let Err(e) = server.save() {
-                            log_server!("Échec de la sauvegarde : {}", e);
-                        }
-                    },
-                    server::tui::bridge::TuiCommand::Kick(id) => {
-                        log_server!("Kick du joueur {} demandé par la TUI (non implémenté).", id);
-                        if let Some(player) = server.state.get_player(id) {
-                            // player.kick();
-                        }
-                    },
-                    _ => {},
+    let srv = Arc::clone(&server);
+    tokio::spawn(async move {
+        if let Err(e) = srv.run().await {
+            log_server!("Serveur arrêté avec erreur : {}", e);
+        }
+    });
+
+    while let Some(cmd) = command_rx.recv().await {
+        match cmd {
+            TuiCommand::Shutdown => {
+                log_server!("Arrêt demandé par la TUI.");
+                break;
+            }
+            TuiCommand::Save => {
+                log_server!("Sauvegarde demandée par la TUI.");
+                if let Err(e) = server.save() {
+                    log_server!("Échec de la sauvegarde : {}", e);
                 }
             }
+            TuiCommand::Kick(id) => {
+                log_server!("Kick du joueur {} demandé par la TUI (non implémenté).", id);
+                let _ = server.state.get_player(id);
+            }
+            _ => {}
         }
     }
 
