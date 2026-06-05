@@ -5,8 +5,6 @@ use app::LauncherApp;
 use eframe::egui;
 use launch::LaunchMode;
 use std::sync::mpsc;
-use tokio::runtime::Runtime;
-
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -22,8 +20,7 @@ fn main() -> eframe::Result<()> {
 
     drop(tx);
     if let Ok(mode) = rx.recv() {
-        let runtime = Runtime::new().expect("Failed to create Tokio runtime");
-        launch::set_play_mode(&runtime, mode);
+        launch::set_play_mode(mode);
     }
 
     Ok(())

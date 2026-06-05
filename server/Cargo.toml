@@ -12,8 +12,9 @@ name = "server"
 path = "src/lib.rs"
 
 [features]
-default = ["server"]
+default = ["server", "tui"]
 server = []
+tui = ["ratatui", "crossterm"]
 
 [dependencies]
 cgmath = { workspace = true }
@@ -29,6 +30,5 @@ network = { path = "../network" }
 physics = { path = "../physics", features = ["server"] }
 bincode.workspace = true
 rustc-hash.workspace = true
-
-# log = { workspace = true }
-# env_logger = { workspace = true }
+ratatui = { version = "0.30", optional = true }
+crossterm = { version = "0.29", optional = true }

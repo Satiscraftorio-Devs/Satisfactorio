@@ -8,6 +8,9 @@ pub mod server;
 pub mod state;
 pub mod world;
 
+pub mod tui;
+
+#[cfg(feature = "tui")]
 #[cfg(test)]
 mod tests;
 
@@ -19,6 +22,6 @@ use server::Server;
 pub async fn run_server(save_path: &str) -> Result<()> {
     log_server!("Serveur: lancement.");
     let x = String::from(DEFAULT_SERVER_ADDRESS);
-    let server = Server::new(&x, save_path).await?;
+    let server = Server::new(&x, save_path, None).await?;
     server.run().await
 }
