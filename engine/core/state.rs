@@ -195,7 +195,14 @@ impl State {
                 self.renderer
                     .render(surface_texture, &self.game_frame_data.camera, Some(&mut self.text_renderer));
             }
-            CurrentSurfaceTexture::Suboptimal(_) | CurrentSurfaceTexture::Outdated => {
+            CurrentSurfaceTexture::Suboptimal(old) => {
+                drop(old);
+                let (width, height) = self.window.inner_size().into();
+                self.resize(width, height);
+                // reconfigure
+                return;
+            }
+            CurrentSurfaceTexture::Outdated => {
                 let (width, height) = self.window.inner_size().into();
                 self.resize(width, height);
                 // reconfigure
