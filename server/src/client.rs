@@ -13,7 +13,7 @@ use tokio::io::split;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::Sender as TokioBroadcastSender;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 /// Taille du canal mpsc entre la boucle de lecture et la tâche d'écriture.
 const MAX_PACKETS_IN_MPSC_CHANNEL: usize = 32;
@@ -38,7 +38,10 @@ pub struct ClientSession {
     state: Arc<AppState>,
     /// Canal broadcast pour diffuser les positions aux autres clients.
     broadcaster: TokioBroadcastSender<BroadcastMessage>,
+    /// Service de persistance pour sauvegarder les données du joueur.
     persistence: Arc<PersistenceService>,
+    /// Récepteur pour les notifications de kick.
+    kick_rx: oneshot::Receiver<()>,
 }
 
 impl ClientSession {
@@ -49,6 +52,7 @@ impl ClientSession {
         state: Arc<AppState>,
         broadcaster: TokioBroadcastSender<BroadcastMessage>,
         persistence: Arc<PersistenceService>,
+        kick_rx: oneshot::Receiver<()>,
     ) -> Self {
         let conn = ServerConnection::new(player_id, server_id);
         Self {
@@ -59,6 +63,7 @@ impl ClientSession {
             state,
             broadcaster,
             persistence,
+            kick_rx,
         }
     }
 
@@ -207,26 +212,40 @@ impl ClientSession {
         // Chaque paquet reçu est passé au handler. Si le handler retourne une
         // réponse, elle est envoyée via le canal mpsc. S'il retourne None,
         // le client est éjecté (paquet non géré ou déconnexion volontaire).
+        // Le canal kick_rx est écouté en parallèle pour gérer les kicks distants.
+        let mut kick_rx = self.kick_rx;
         loop {
-            match self.conn.receive_packet(&mut read_half).await {
-                Ok(packet) => {
-                    let ctx = HandlerContext {
-                        player_id,
-                        state: self.state.as_ref(),
-                        broadcaster: &self.broadcaster,
-                        persistence: &self.persistence,
-                    };
-                    if let Some(response) = self.handler.handle(packet, &ctx) {
-                        if write_tx.send(response).await.is_err() {
+            tokio::select! {
+                result = self.conn.receive_packet(&mut read_half) => {
+                    match result {
+                        Ok(packet) => {
+                            let ctx = HandlerContext {
+                                player_id,
+                                state: self.state.as_ref(),
+                                broadcaster: &self.broadcaster,
+                                persistence: &self.persistence,
+                            };
+                            if let Some(response) = self.handler.handle(packet, &ctx) {
+                                if write_tx.send(response).await.is_err() {
+                                    break;
+                                }
+                            } else {
+                                log_server!("Joueur {}: éjection.", player_id);
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            log_err_server!("Échec de la réception du paquet.\nErreur : {}", e);
                             break;
                         }
-                    } else {
-                        log_server!("Joueur {}: éjection.", player_id);
-                        break;
                     }
                 }
-                Err(e) => {
-                    log_err_server!("Échec de la réception du paquet.\nErreur : {}", e);
+                _ = &mut kick_rx => {
+                    log_server!("Joueur {}: kické par le serveur.", player_id);
+                    let kick_packet = messages::new_kick_paquet("Kické par un opérateur".to_string());
+                    if write_tx.send(kick_packet).await.is_err() {
+                        log_err_server!("Impossible d'envoyer le paquet de kick au joueur {}.", player_id);
+                    }
                     break;
                 }
             }

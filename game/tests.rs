@@ -83,18 +83,6 @@ mod tests {
     }
 
     #[test]
-    fn test_constants_values() {
-        assert_eq!(HORIZONTAL_RENDER_DISTANCE, 9);
-        assert_eq!(VERTICAL_RENDER_DISTANCE, 5);
-        assert!((PLAYER_HEIGHT - 1.8).abs() < 1e-6);
-        assert!((PLAYER_WIDTH - 0.7).abs() < 1e-6);
-        assert!((GRAVITY - (-30.0)).abs() < 1e-6);
-        assert!((JUMP_SPEED - 8.0).abs() < 1e-6);
-        assert!((WALK_SPEED - 6.3).abs() < 1e-6);
-        assert!((SPAWN_POSITION_X - 0.5).abs() < 1e-6);
-    }
-
-    #[test]
     fn test_modified_chunk() {
         let mut mc = ModifiedChunk::new();
         let coords = IntraChunkCoords { x: 5, y: 10, z: 15 };

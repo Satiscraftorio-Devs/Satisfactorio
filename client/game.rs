@@ -170,6 +170,10 @@ impl AppState for GameState {
                         let block = BlockInstance::new(block_id);
                         self.world.set_block(x, y, z, block);
                     }
+                    ContenuPaquet::Kick { reason } => {
+                        log_client!("Kicked by server: {}", reason);
+                        exit(0);
+                    }
                     _ => {}
                 }
             }

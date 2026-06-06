@@ -10,7 +10,7 @@ use std::sync::Arc;
 struct Args {
     #[arg(short, long, default_value_t = String::from(DEFAULT_SERVER_ADDRESS))]
     address: String,
-    #[arg(short = 'p', long, default_value = "world/world_1.stf")]
+    #[arg(short = 'p', long, default_value = "world/world_multi.stf")]
     save_path: String,
     #[arg(long)]
     no_tui: bool,
@@ -108,8 +108,12 @@ async fn run_with_tui(args: &Args) -> Result<()> {
                 }
             }
             TuiCommand::Kick(id) => {
-                log_server!("Kick du joueur {} demandé par la TUI (non implémenté).", id);
-                let _ = server.state.get_player(id);
+                if let Some(player) = server.state.get_player(id) {
+                    log_server!("Kick du joueur {} ({}) demandé par le Serveur.", player.username, id);
+                    server.kick_player(&id, "Kické par le Serveur");
+                } else {
+                    log_server!("Joueur {} non trouvé.", id);
+                }
             }
             _ => {}
         }

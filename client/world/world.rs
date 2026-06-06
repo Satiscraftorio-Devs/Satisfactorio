@@ -259,13 +259,13 @@ impl World {
         let chunk_data = ChunkData::new(chunk);
         self.chunks.insert((cx, cy, cz), chunk_data);
         let data = MeshRequestAdd::new((cx, cy, cz), self.get_mesh_snapshot(cx, cy, cz));
-        self.mesh_request.add.insert(data);
+        self.mesh_request.add.replace(data);
         for (dx, dy, dz) in DIRECT_NORMALS_3D {
             let (cx, cy, cz) = (cx + dx, cy + dy, cz + dz);
             let coords = (cx, cy, cz);
             if self.chunks.contains_key(&coords) {
                 let data = MeshRequestAdd::new(coords, self.get_mesh_snapshot(cx, cy, cz));
-                self.mesh_request.add.insert(data);
+                self.mesh_request.add.replace(data);
             }
         }
     }

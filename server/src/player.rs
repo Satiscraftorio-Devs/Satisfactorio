@@ -55,6 +55,14 @@ impl PlayerRegistry {
         };
         self.players.insert(id, player);
     }
+    pub fn kick(&mut self, id: &u64, _reason: &str) -> bool {
+        if self.players.contains_key(id) {
+            self.remove(id);
+            true
+        } else {
+            false
+        }
+    }
 
     pub fn remove(&mut self, id: &u64) -> Option<Player> {
         self.player_chunks.remove(id);
