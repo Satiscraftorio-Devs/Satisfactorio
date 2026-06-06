@@ -10,7 +10,7 @@ use std::sync::Arc;
 struct Args {
     #[arg(short, long, default_value_t = String::from(DEFAULT_SERVER_ADDRESS))]
     address: String,
-    #[arg(short = 'p', long, default_value = "world/world_1.stf")]
+    #[arg(short = 'p', long, default_value = "world/world_multi.stf")]
     save_path: String,
     #[arg(long)]
     no_tui: bool,

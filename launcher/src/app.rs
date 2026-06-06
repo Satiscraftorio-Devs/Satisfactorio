@@ -16,7 +16,7 @@ impl LauncherApp {
             tx,
             address: DEFAULT_SERVER_ADDRESS.to_string(),
             show_multi: false,
-            save_path: "world/world_1.stf".to_string(),
+            save_path: "world/world_solo.stf".to_string(),
         }
     }
 }
@@ -96,7 +96,7 @@ fn address_or_default(addr: &str) -> String {
 
 fn save_path_or_default(path: &str) -> String {
     if path.trim().is_empty() {
-        "world/world_1.stf".to_string()
+        "world/world_solo.stf".to_string()
     } else {
         path.trim().to_string()
     }
