@@ -4,6 +4,7 @@ use crate::persistence::PersistenceService;
 use crate::state::AppState;
 #[cfg(feature = "tui")]
 use crate::tui::bridge::TuiBridge;
+use crate::tui::TuiCommand::Kick;
 
 #[cfg(feature = "tui")]
 pub type BridgeOption = Option<TuiBridge>;
@@ -15,11 +16,13 @@ use network::crypto::generate_server_id;
 use network::messages::BroadcastMessage;
 use project_core::log_err_server;
 use project_core::log_server;
+use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, oneshot};
 
 pub struct Server {
     listener: TcpListener,
@@ -29,6 +32,7 @@ pub struct Server {
     next_player_id: AtomicU64,
     #[cfg(feature = "tui")]
     bridge: Option<TuiBridge>,
+    active_sessions: Arc<Mutex<HashMap<u64, oneshot::Sender<()>>>>,
 }
 
 impl Server {
@@ -52,6 +56,7 @@ impl Server {
             next_player_id: AtomicU64::new(1),
             #[cfg(feature = "tui")]
             bridge: bridge,
+            active_sessions: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -113,6 +118,9 @@ impl Server {
             log_server!("Joueur {}: connexion (ID serveur: {:02x?}).", player_id, server_id);
 
             let handler: Box<dyn PacketHandler> = Box::new(ProductionHandler);
+
+            let (kick_tx, kick_rx) = oneshot::channel();
+            self.active_sessions.lock().unwrap().insert(player_id, kick_tx);
             let session = ClientSession::new(
                 player_id,
                 server_id,
@@ -120,13 +128,27 @@ impl Server {
                 Arc::clone(&self.state),
                 self.broadcaster.clone(),
                 Arc::clone(&self.persistence),
+                kick_rx,
             );
+            let sessions = Arc::clone(&self.active_sessions);
 
             tokio::spawn(async move {
                 if let Err(e) = session.run(stream).await {
                     log_err_server!("Échec du traitement du client.\nErreur : {}", e);
                 }
+                sessions.lock().unwrap().remove(&player_id);
             });
+        }
+    }
+    pub fn kick_player(&self, id: &u64, reason: &str) -> bool {
+        let mut sessions = self.active_sessions.lock().unwrap();
+        if let Some(tx) = sessions.remove(id) {
+            let _ = tx.send(());
+            self.state.kick_player(id, reason);
+            true
+        } else {
+            log_server!("Joueur {} non trouvé dans les sessions actives.", id);
+            false
         }
     }
 }

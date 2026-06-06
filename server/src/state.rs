@@ -43,6 +43,10 @@ impl AppState {
         self.inner.read().unwrap().world.get_seed()
     }
 
+    pub fn kick_player(&self, id: &u64, reason: &str) -> bool {
+        self.inner.write().unwrap().players.kick(id, reason)
+    }
+
     pub fn add_player(&self, id: u64, username: String) {
         let mut state = self.inner.write().unwrap();
         state.players.add(id, username);

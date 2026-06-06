@@ -13,7 +13,7 @@ use tokio::io::split;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::Sender as TokioBroadcastSender;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 /// Taille du canal mpsc entre la boucle de lecture et la tâche d'écriture.
 const MAX_PACKETS_IN_MPSC_CHANNEL: usize = 32;
@@ -38,7 +38,10 @@ pub struct ClientSession {
     state: Arc<AppState>,
     /// Canal broadcast pour diffuser les positions aux autres clients.
     broadcaster: TokioBroadcastSender<BroadcastMessage>,
+    /// Service de persistance pour sauvegarder les données du joueur.
     persistence: Arc<PersistenceService>,
+    /// Récepteur pour les notifications de kick.
+    kick_rx: oneshot::Receiver<()>,
 }
 
 impl ClientSession {
@@ -49,6 +52,7 @@ impl ClientSession {
         state: Arc<AppState>,
         broadcaster: TokioBroadcastSender<BroadcastMessage>,
         persistence: Arc<PersistenceService>,
+        kick_rx: oneshot::Receiver<()>,
     ) -> Self {
         let conn = ServerConnection::new(player_id, server_id);
         Self {
@@ -59,6 +63,7 @@ impl ClientSession {
             state,
             broadcaster,
             persistence,
+            kick_rx,
         }
     }
 

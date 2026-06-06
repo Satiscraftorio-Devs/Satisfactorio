@@ -55,6 +55,14 @@ impl PlayerRegistry {
         };
         self.players.insert(id, player);
     }
+    pub fn kick(&mut self, id: &u64, reason: &str) -> bool {
+        if let Some(player) = self.players.get_mut(id) {
+            self.remove(id);
+            true
+        } else {
+            false
+        }
+    }
 
     pub fn remove(&mut self, id: &u64) -> Option<Player> {
         self.player_chunks.remove(id);
