@@ -55,8 +55,8 @@ impl PlayerRegistry {
         };
         self.players.insert(id, player);
     }
-    pub fn kick(&mut self, id: &u64, reason: &str) -> bool {
-        if let Some(player) = self.players.get_mut(id) {
+    pub fn kick(&mut self, id: &u64, _reason: &str) -> bool {
+        if self.players.contains_key(id) {
             self.remove(id);
             true
         } else {

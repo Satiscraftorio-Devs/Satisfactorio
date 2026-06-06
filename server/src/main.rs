@@ -108,8 +108,12 @@ async fn run_with_tui(args: &Args) -> Result<()> {
                 }
             }
             TuiCommand::Kick(id) => {
-                log_server!("Kick du joueur {} demandé par la TUI (non implémenté).", id);
-                let _ = server.state.get_player(id);
+                if let Some(player) = server.state.get_player(id) {
+                    log_server!("Kick du joueur {} ({}) demandé par le Serveur.", player.username, id);
+                    server.kick_player(&id, "Kické par le Serveur");
+                } else {
+                    log_server!("Joueur {} non trouvé.", id);
+                }
             }
             _ => {}
         }

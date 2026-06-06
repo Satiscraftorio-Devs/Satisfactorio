@@ -4,7 +4,6 @@ use crate::persistence::PersistenceService;
 use crate::state::AppState;
 #[cfg(feature = "tui")]
 use crate::tui::bridge::TuiBridge;
-use crate::tui::TuiCommand::Kick;
 
 #[cfg(feature = "tui")]
 pub type BridgeOption = Option<TuiBridge>;
@@ -16,7 +15,6 @@ use network::crypto::generate_server_id;
 use network::messages::BroadcastMessage;
 use project_core::log_err_server;
 use project_core::log_server;
-use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};

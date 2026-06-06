@@ -10,14 +10,14 @@ use ratatui::{
 
 pub struct TuiApp {
     pub scroll: u16,
-    pub selected_player: usize,
+    pub selected_player_idx: usize,
 }
 
 impl TuiApp {
     pub fn new() -> Self {
         Self {
             scroll: 0,
-            selected_player: 0,
+            selected_player_idx: 0,
         }
     }
 
@@ -46,7 +46,7 @@ impl TuiApp {
             .iter()
             .enumerate()
             .map(|(i, p)| {
-                let prefix = if i == app.selected_player { "► " } else { "  " };
+                let prefix = if i == app.selected_player_idx { "► " } else { "  " };
                 ListItem::new(format!("{}{}", prefix, p.username))
             })
             .collect();
@@ -61,7 +61,7 @@ impl TuiApp {
         frame.render_widget(log_widget, body_chunks[1]);
 
         let help =
-            Paragraph::new(" Ctrl+S: Save  Ctrl+Q: Quit  ↑↓: Scroll logs  k: Kick selected ").style(Style::default().fg(Color::DarkGray));
+            Paragraph::new(" Ctrl+S: Save  Q: Quit  ↑↓: Select player  k: Kick selected ").style(Style::default().fg(Color::DarkGray));
         frame.render_widget(help, chunks[2]);
     }
 
@@ -71,15 +71,15 @@ impl TuiApp {
             KeyCode::Char('q') | KeyCode::Char('Q') => Some(TuiCommand::Shutdown),
             KeyCode::Char('s') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => Some(TuiCommand::Save),
             KeyCode::Char('k') | KeyCode::Char('K') => {
-                let id = app.selected_player as u64;
-                Some(TuiCommand::Kick(id))
+                let id = app.selected_player_idx as u64;
+                Some(TuiCommand::Kick(id + 1))
             }
             KeyCode::Up => {
-                app.selected_player = app.selected_player.saturating_sub(1);
+                app.selected_player_idx = app.selected_player_idx.saturating_sub(1);
                 None
             }
             KeyCode::Down => {
-                app.selected_player = app.selected_player.saturating_add(1);
+                app.selected_player_idx = app.selected_player_idx.saturating_add(1);
                 None
             }
             _ => None,
