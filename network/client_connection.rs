@@ -3,6 +3,7 @@ use crate::messages::{ContenuPaquet, Paquet, CURRENT_VERSION};
 use crate::network_protocol::{create_codec, EncryptedCodec};
 use crate::traits::PacketCodec;
 use log::{error, info};
+use std::process::exit;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
@@ -16,7 +17,7 @@ pub struct ClientConnection {
     read_half: Option<OwnedReadHalf>,
     write_half: Option<OwnedWriteHalf>,
     codec: Arc<EncryptedCodec>,
-    player_id: Option<u64>,
+    player_unique_id: u64,
     connected: bool,
     sender: Option<mpsc::UnboundedSender<Paquet>>,
     receiver: Option<mpsc::UnboundedReceiver<Paquet>>,
@@ -30,7 +31,7 @@ impl ClientConnection {
             read_half: None,
             write_half: None,
             codec: Arc::new(create_codec([0u8; 32])),
-            player_id: None,
+            player_unique_id: 0,
             connected: false,
             sender: None,
             receiver: None,
@@ -42,8 +43,8 @@ impl ClientConnection {
         self.connected
     }
 
-    pub fn player_id(&self) -> Option<u64> {
-        self.player_id
+    pub fn player_id(&self) -> u64 {
+        self.player_unique_id
     }
 
     pub fn get_last_communication(&self) -> Instant {
@@ -64,10 +65,12 @@ impl ClientConnection {
         Ok(())
     }
 
-    pub fn perform_handshake(&mut self, username: &str) -> Result<(u64, u32), String> {
+    pub fn perform_handshake(&mut self, username: &str, player_unique_id: u64) -> Result<u32, String> {
         let runtime = self.runtime.as_ref().ok_or("No runtime")?;
 
-        let (player_id, server_seed, codec) = runtime.block_on(async {
+        let (is_player_id_correct, server_seed, codec) = runtime.block_on(async {
+            self.player_unique_id = player_unique_id;
+
             let read_half = self.read_half.as_mut().ok_or("No read half")?;
             let write_half = self.write_half.as_mut().ok_or("No write half")?;
 
@@ -81,14 +84,15 @@ impl ClientConnection {
                 ContenuPaquet::DonneesConnexion {
                     version: CURRENT_VERSION,
                     username: username.to_string(),
+                    player_unique_id: self.player_unique_id,
                 },
             );
 
             codec.send_packet(write_half, &packet).await.map_err(|e| e.to_string())?;
 
             let confirmation_packet = codec.receive_packet(read_half).await.map_err(|e| e.to_string())?;
-            let player_id = match confirmation_packet.contenu {
-                ContenuPaquet::Confirmation { player_id, .. } => player_id,
+            let is_player_id_correct = match confirmation_packet.contenu {
+                ContenuPaquet::Confirmation { is_player_id_correct, .. } => is_player_id_correct,
                 _ => return Err("Failed to receive confirmation packet.".to_string()),
             };
 
@@ -99,17 +103,21 @@ impl ClientConnection {
             };
             info!("Server seed received: {}.", server_seed);
 
-            Ok((player_id, server_seed as u32, codec))
+            Ok((is_player_id_correct, server_seed as u32, codec))
         })?;
 
+        if !is_player_id_correct {
+            error!("Le player ID n'est pas légitime.");
+            exit(0);
+        }
+
         self.codec = codec;
-        self.player_id = Some(player_id);
         self.connected = true;
 
         self.start_sender_task();
         self.start_receiver_task();
 
-        Ok((player_id, server_seed))
+        Ok(server_seed)
     }
 
     fn start_sender_task(&mut self) {

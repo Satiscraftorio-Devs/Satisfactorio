@@ -15,6 +15,7 @@ mod tests {
             ContenuPaquet::DonneesConnexion {
                 version: 1,
                 username: "test".to_string(),
+                player_unique_id: 0,
             },
         );
         assert_eq!(packet.type_paquet, TypePaquet::Handshake);

@@ -1,3 +1,4 @@
+use crate::identity::IdentityRegistry;
 use crate::persistence::{SaveData, SaveWorld};
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
@@ -18,6 +19,7 @@ pub struct AppState {
 pub struct ServerState {
     world: WorldState,
     players: PlayerRegistry,
+    identity: IdentityRegistry,
 }
 
 impl AppState {
@@ -26,6 +28,7 @@ impl AppState {
             inner: RwLock::new(ServerState {
                 world: WorldState::new(),
                 players: PlayerRegistry::new(),
+                identity: IdentityRegistry::new(),
             }),
         }
     }
@@ -129,13 +132,14 @@ impl AppState {
         let state = self.inner.read().unwrap();
         let world = SaveWorld::from(&state.world.modifications);
         let players = state.players.get_all().unwrap_or_default();
+        let identity = state.identity.clone();
         let modif_count = world.chunks.len();
         log_server!(
             "export_save: {} chunks modifiés sauvegardés (seed={})",
             modif_count,
             state.world.seed
         );
-        SaveData::new(state.world.seed, world, players)
+        SaveData::new(state.world.seed, world, players, identity)
     }
 
     pub fn import_save(&self, data: SaveData) {
@@ -146,6 +150,7 @@ impl AppState {
         state.world.world_generated_chunks.clear();
         state.world.modifications = data.world.into();
         state.players.set_players(data.players);
+        state.identity = data.identity;
     }
 
     // Le guard cycle permet de vérifier si les positions des joueurs sont valides et de les déplacer si nécessaire.
@@ -237,5 +242,14 @@ impl AppState {
         }
 
         state.world.collect_modified_chunks_data()
+    }
+
+    pub fn check_identity(&self, player_id: u64, identity: &str) -> bool {
+        let state = self.inner.read().unwrap();
+        state.identity.check(player_id, identity)
+    }
+    pub fn register_identity(&self, player_id: u64, identity: String) {
+        let mut state = self.inner.write().unwrap();
+        state.identity.register(player_id, identity);
     }
 }

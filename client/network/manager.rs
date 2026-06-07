@@ -69,7 +69,7 @@ impl NetworkManager {
     }
 
     /// Retourne l'ID du joueur.
-    pub fn player_id(&self) -> Option<u64> {
+    pub fn player_id(&self) -> u64 {
         self.connection.player_id()
     }
 
@@ -92,18 +92,16 @@ impl NetworkManager {
         }
     }
 
-    pub fn perform_handshake(&mut self, username: &str) -> Result<u64, String> {
+    pub fn perform_handshake(&mut self, username: &str, player_unique_id: u64) {
         info!("NetworkManager: handshake...");
-        match self.connection.perform_handshake(username) {
-            Ok((id, seed)) => {
-                self.protocol = Some(GameProtocol::new(id));
+        match self.connection.perform_handshake(username, player_unique_id) {
+            Ok(seed) => {
+                self.protocol = Some(GameProtocol::new(player_unique_id));
                 self.server_seed = Some(seed as u64);
                 info!("NetworkManager: connexion établie !");
-                Ok(id)
             }
             Err(e) => {
                 error!("NetworkManager: échec du handshake.\nErreur : {}", e);
-                Err(e)
             }
         }
     }

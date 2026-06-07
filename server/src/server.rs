@@ -27,7 +27,7 @@ pub struct Server {
     pub state: Arc<AppState>,
     persistence: Arc<PersistenceService>,
     broadcaster: broadcast::Sender<BroadcastMessage>,
-    next_player_id: AtomicU64,
+    next_id: AtomicU64,
     #[cfg(feature = "tui")]
     bridge: Option<TuiBridge>,
     active_sessions: Arc<Mutex<HashMap<u64, oneshot::Sender<()>>>>,
@@ -51,7 +51,7 @@ impl Server {
             state,
             persistence,
             broadcaster,
-            next_player_id: AtomicU64::new(1),
+            next_id: AtomicU64::new(0),
             #[cfg(feature = "tui")]
             bridge: bridge,
             active_sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -111,7 +111,7 @@ impl Server {
             let (stream, addr) = self.listener.accept().await?;
             log_server!("Serveur: connexion de l'adresse {}.", addr);
 
-            let player_id = self.next_player_id.fetch_add(1, Ordering::SeqCst);
+            let player_id = self.next_id.fetch_add(1, Ordering::SeqCst);
             let server_id = generate_server_id();
             log_server!("Joueur {}: connexion (ID serveur: {:02x?}).", player_id, server_id);
 

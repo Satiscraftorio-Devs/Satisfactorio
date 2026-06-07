@@ -9,6 +9,7 @@ use game::world::data::chunk::IntraChunkCoords;
 use game::world::modified_chunk::ModifiedChunk;
 use game::world::modified_chunk::ModifiedWorld;
 
+use crate::identity::IdentityRegistry;
 use crate::player::Player;
 
 const SAVE_VERSION: u32 = 1;
@@ -29,15 +30,17 @@ pub struct SaveData {
     pub seed: u32,
     pub world: SaveWorld,
     pub players: Vec<Player>,
+    pub identity: IdentityRegistry,
 }
 
 impl SaveData {
-    pub fn new(seed: u32, world: SaveWorld, players: Vec<Player>) -> Self {
+    pub fn new(seed: u32, world: SaveWorld, players: Vec<Player>, identity: IdentityRegistry) -> Self {
         Self {
             version: SAVE_VERSION,
             seed,
             world,
             players,
+            identity,
         }
     }
 }

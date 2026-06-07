@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::game::{HandlerContext, PacketHandler};
 use crate::network_server::ServerConnection;
@@ -88,11 +89,27 @@ impl ClientSession {
             }
         };
 
-        // Extraction du nom d'utilisateur
-        self.username = match &packet.contenu {
-            ContenuPaquet::DonneesConnexion { username, .. } => username.clone(),
-            _ => format!("Player{}", player_id),
-        };
+        match packet.contenu {
+            ContenuPaquet::DonneesConnexion {
+                ref username,
+                player_unique_id,
+                version: _,
+            } => {
+                // Vérification d'identité (sera complétée avec IdentityRegistry)
+                if self.state.check_identity(player_unique_id, &username) {
+                    self.state.register_identity(player_unique_id, username.clone());
+                } else {
+                    let kick = messages::new_kick_paquet("Identité invalide : ce pseudo ne correspond pas à l'ID enregistré".to_string());
+                    let _ = self.conn.send_packet(&mut stream, &kick).await;
+                    return Ok(());
+                }
+
+                self.username = username.clone();
+            }
+            _ => {
+                self.username = format!("Player{}", player_id);
+            }
+        }
 
         // Ajout du joueur à l'état partagé
         self.state.add_player(player_id, self.username.clone());
@@ -107,8 +124,7 @@ impl ClientSession {
         };
         self.handler.handle(packet, &ctx);
 
-        // Réponse : Fermeture du handshake
-        let ack = messages::create_handshake_ack(player_id, 0);
+        let ack = messages::create_handshake_ack(player_id, 0, true);
         if let Err(e) = self.conn.send_packet(&mut stream, &ack).await {
             log_err_server!("Échec de l'envoi du handshake ack.\nErreur : {}", e);
             return Ok(());

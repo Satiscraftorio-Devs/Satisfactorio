@@ -38,23 +38,60 @@ pub enum TypePaquet {
     GamemodeChange,
     SaveRequest,
     Kick,
+    ClientIdentity,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ContenuPaquet {
-    DonneesConnexion { version: u8, username: String },
-    Confirmation { player_id: u64, server_time: u64 },
-    PlayerTransformation { data: PlayerTransformation },
-    MultiplePlayerTransformation { data: Vec<PlayerTransformation> },
-    GuardCorrection { data: Vec<PlayerTransformation> },
-    DonneesMonde { chunks: Vec<ChunkData> },
-    ServerSeed { seed: u32 },
-    Ping { timestamp: u64 },
-    Pong { timestamp: u64 },
-    SetBlock { x: i32, y: i32, z: i32, block_id: u32 },
-    GamemodeChange { player_id: u64, gamemode: PlayerGameMode },
+    DonneesConnexion {
+        version: u8,
+        username: String,
+        player_unique_id: u64,
+    },
+    Confirmation {
+        player_id: u64,
+        is_player_id_correct: bool,
+        server_time: u64,
+    },
+    PlayerTransformation {
+        data: PlayerTransformation,
+    },
+    MultiplePlayerTransformation {
+        data: Vec<PlayerTransformation>,
+    },
+    GuardCorrection {
+        data: Vec<PlayerTransformation>,
+    },
+    DonneesMonde {
+        chunks: Vec<ChunkData>,
+    },
+    ServerSeed {
+        seed: u32,
+    },
+    Ping {
+        timestamp: u64,
+    },
+    Pong {
+        timestamp: u64,
+    },
+    SetBlock {
+        x: i32,
+        y: i32,
+        z: i32,
+        block_id: u32,
+    },
+    GamemodeChange {
+        player_id: u64,
+        gamemode: PlayerGameMode,
+    },
     SaveRequest,
-    Kick { reason: String },
+    Kick {
+        reason: String,
+    },
+    ClientIdentity {
+        player_id: u64,
+        username: String,
+    },
 }
 
 #[derive(Clone, Copy, Serialize, Debug, Deserialize, PartialEq)]
@@ -121,18 +158,26 @@ impl Paquet {
     }
 }
 
-pub fn create_handshake(username: String) -> Paquet {
+pub fn create_handshake(username: String, player_unique_id: u64) -> Paquet {
     Paquet::new(
         TypePaquet::Handshake,
         ContenuPaquet::DonneesConnexion {
             version: CURRENT_VERSION,
             username,
+            player_unique_id,
         },
     )
 }
 
-pub fn create_handshake_ack(player_id: u64, server_time: u64) -> Paquet {
-    Paquet::new(TypePaquet::HandshakeAck, ContenuPaquet::Confirmation { player_id, server_time })
+pub fn create_handshake_ack(player_id: u64, server_time: u64, is_player_id_correct: bool) -> Paquet {
+    Paquet::new(
+        TypePaquet::HandshakeAck,
+        ContenuPaquet::Confirmation {
+            player_id,
+            server_time,
+            is_player_id_correct,
+        },
+    )
 }
 
 pub fn create_player_update(player_id: u64, x: f32, y: f32, z: f32, rx: f32, ry: f32) -> Paquet {
@@ -174,4 +219,8 @@ pub fn new_save_request_paquet() -> Paquet {
 
 pub fn new_kick_paquet(reason: String) -> Paquet {
     Paquet::new(TypePaquet::Kick, ContenuPaquet::Kick { reason })
+}
+
+pub fn new_client_identity_paquet(player_id: u64, username: String) -> Paquet {
+    Paquet::new(TypePaquet::ClientIdentity, ContenuPaquet::ClientIdentity { player_id, username })
 }

@@ -21,7 +21,7 @@ pub struct ProductionHandler;
 impl PacketHandler for ProductionHandler {
     fn handle(&self, packet: Paquet, ctx: &HandlerContext) -> Option<Paquet> {
         match &packet.contenu {
-            ContenuPaquet::DonneesConnexion { version, username } => {
+            ContenuPaquet::DonneesConnexion { version, username, .. } => {
                 log_server!("Joueur {}: connexion avec la version {}.", username, version);
                 Some(packet)
             }

@@ -53,14 +53,13 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(addr: String) -> Self {
+    pub fn new(addr: String, name: &str, player_id: u64) -> Self {
         let mut network = NetworkManager::new();
 
         network.connect(&addr);
+        network.perform_handshake(name, player_id);
         let server_seed = network
-            .perform_handshake("Player")
-            .ok()
-            .and_then(|_| network.get_server_seed())
+            .get_server_seed()
             .expect("La seed n'existe pas ou est vide (serveur non lancé ? connexion échouée ? mauvaise adresse IP ?)");
 
         Self {
@@ -147,16 +146,14 @@ impl AppState for GameState {
                 use ContenuPaquet;
                 match packet.contenu {
                     ContenuPaquet::MultiplePlayerTransformation { data } => {
-                        if let Some(my_id) = net.player_id() {
-                            self.remote_players.update(data, my_id);
-                        }
+                        let my_id = net.player_id();
+                        self.remote_players.update(data, my_id);
                     }
                     ContenuPaquet::GuardCorrection { data } => {
-                        if let Some(my_id) = net.player_id() {
-                            for t in &data {
-                                if t.player_id == my_id {
-                                    self.player.state.set_position_and_rotation(t.position, t.rotation);
-                                }
+                        let my_id = net.player_id();
+                        for t in &data {
+                            if t.player_id == my_id {
+                                self.player.state.set_position_and_rotation(t.position, t.rotation);
                             }
                         }
                     }

@@ -1,6 +1,7 @@
 pub mod broadcast;
 pub mod client;
 pub mod game;
+pub mod identity;
 pub mod network_server;
 pub mod persistence;
 pub mod player;
