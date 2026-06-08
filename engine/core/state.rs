@@ -302,7 +302,7 @@ fn fun_name(
         gpu_context.limits.max_texture_array_layers,
     );
 
-    let atlas = image::open("/assets/ui/texture_atlas.png").unwrap();
+    let atlas = image::open("assets/ui/texture_atlas.png").unwrap();
     let id = texture_manager
         .register_atlas(atlas.as_bytes(), 0, 0, atlas.width(), atlas.height())
         .unwrap();
