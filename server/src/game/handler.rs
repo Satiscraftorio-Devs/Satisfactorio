@@ -13,7 +13,7 @@ pub struct HandlerContext<'a> {
 }
 
 pub trait PacketHandler: Send + Sync {
-    async fn handle(&self, packet: Paquet, ctx: &HandlerContext<'_>) -> Option<Paquet>;
+    fn handle(&self, packet: Paquet, ctx: &HandlerContext<'_>) -> impl std::future::Future<Output = Option<Paquet>> + Send;
 }
 
 pub struct ProductionHandler;

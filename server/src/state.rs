@@ -109,11 +109,10 @@ impl AppState {
         let mut players = self.players.write().await;
         players.update_gamemode(id, gamemode.clone());
         if gamemode != PlayerGameMode::Spectator {
-            let (x, y, z) = players.get(&id).map(|p| (p.position.x, p.position.y, p.position.z)).unwrap_or((
-                SPAWN_POSITION_X,
-                SPAWN_POSITION_Y,
-                SPAWN_POSITION_Z,
-            ));
+            let (x, y, z) = players
+                .get(&id)
+                .map(|p| (p.position.x, p.position.y, p.position.z))
+                .unwrap_or((SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z));
             let world = self.world.write().await;
             let (sx, sy, sz) = find_safe_spawn_point(&*world, x, y, z);
             let surface = Position { x: sx, y: sy, z: sz };
@@ -158,7 +157,12 @@ impl AppState {
                     continue;
                 }
 
-                let valid = is_position_free(&*self.world.read().await, player.position.x, player.position.y, player.position.z);
+                let valid = is_position_free(
+                    &*self.world.read().await,
+                    player.position.x,
+                    player.position.y,
+                    player.position.z,
+                );
 
                 let plausible = is_movement_plausible(
                     player.last_valid_position.x,
@@ -206,7 +210,10 @@ impl AppState {
         }
 
         if !corrections.is_empty() {
-            let packet = Paquet::new(TypePaquet::GuardCorrection, ContenuPaquet::GuardCorrection { data: corrections });
+            let packet = Paquet::new(
+                TypePaquet::GuardCorrection,
+                ContenuPaquet::GuardCorrection { data: corrections },
+            );
             let _ = broadcaster.send(BroadcastMessage::All(packet));
         }
     }
@@ -241,7 +248,13 @@ impl AppState {
         self.identity.write().await.register(player_id, identity);
     }
 
-    pub async fn save_player_data(&self, player_unique_id: u64, position: Position, rotation: Rotation, gamemode: PlayerGameMode) {
+    pub async fn save_player_data(
+        &self,
+        player_unique_id: u64,
+        position: Position,
+        rotation: Rotation,
+        gamemode: PlayerGameMode,
+    ) {
         self.identity.write().await.save_player_data(
             player_unique_id,
             PlayerSave {
