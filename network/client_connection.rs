@@ -18,6 +18,7 @@ pub struct ClientConnection {
     write_half: Option<OwnedWriteHalf>,
     codec: Arc<EncryptedCodec>,
     player_unique_id: u64,
+    server_player_id: u64,
     connected: bool,
     sender: Option<mpsc::UnboundedSender<Paquet>>,
     receiver: Option<mpsc::UnboundedReceiver<Paquet>>,
@@ -32,6 +33,7 @@ impl ClientConnection {
             write_half: None,
             codec: Arc::new(create_codec([0u8; 32])),
             player_unique_id: 0,
+            server_player_id: 0,
             connected: false,
             sender: None,
             receiver: None,
@@ -44,6 +46,10 @@ impl ClientConnection {
     }
 
     pub fn player_id(&self) -> u64 {
+        self.server_player_id
+    }
+
+    pub fn player_unique_id(&self) -> u64 {
         self.player_unique_id
     }
 
@@ -92,7 +98,14 @@ impl ClientConnection {
 
             let confirmation_packet = codec.receive_packet(read_half).await.map_err(|e| e.to_string())?;
             let is_player_id_correct = match confirmation_packet.contenu {
-                ContenuPaquet::Confirmation { is_player_id_correct, .. } => is_player_id_correct,
+                ContenuPaquet::Confirmation {
+                    player_id,
+                    is_player_id_correct,
+                    ..
+                } => {
+                    self.server_player_id = player_id;
+                    is_player_id_correct
+                }
                 _ => return Err("Failed to receive confirmation packet.".to_string()),
             };
 

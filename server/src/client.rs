@@ -7,6 +7,7 @@ use crate::state::AppState;
 use anyhow::Result;
 use network::messages::{self, new_server_seed_paquet, BroadcastMessage, ContenuPaquet, Paquet, PlayerTransformation, TypePaquet};
 use network::traits::PacketCodec;
+use project_core::geometry::plane;
 use project_core::log_err_server;
 use project_core::log_server;
 use tokio::io::split;
@@ -28,6 +29,8 @@ const MAX_CHUNKS_PER_WORLD_DATA: usize = 16;
 pub struct ClientSession {
     /// Identifiant unique attribué par le serveur.
     player_id: u64,
+    /// Identifiant unique du joueur (sert de clé dans le state).
+    player_unique_id: u64,
     /// Nom d'utilisateur extrait du paquet DonneesConnexion.
     username: String,
     /// Connexion chiffrée avec le client.
@@ -47,6 +50,7 @@ pub struct ClientSession {
 impl ClientSession {
     pub fn new(
         player_id: u64,
+        player_unique_id: u64,
         server_id: [u8; 16],
         handler: Box<dyn PacketHandler>,
         state: Arc<AppState>,
@@ -57,6 +61,7 @@ impl ClientSession {
         let conn = ServerConnection::new(player_id, server_id);
         Self {
             player_id,
+            player_unique_id,
             username: String::new(),
             conn,
             handler,
@@ -102,8 +107,8 @@ impl ClientSession {
                     let _ = self.conn.send_packet(&mut stream, &kick).await;
                     return Ok(());
                 }
-
                 self.username = username.clone();
+                self.player_unique_id = player_unique_id;
             }
             _ => {
                 self.username = format!("Player{}", player_id);
@@ -136,6 +141,26 @@ impl ClientSession {
             return Ok(());
         }
         log_server!("Seed envoyée au joueur {} !", player_id);
+
+        // Restauration de la position sauvegardée pour un joueur qui se reconnecte
+        if self.player_unique_id != 0 {
+            if let Some(saved) = self.state.take_saved_player_data(self.player_unique_id) {
+                self.state.restore_player(player_id, saved.position, saved.rotation, saved.gamemode);
+                let correction = Paquet::new(
+                    TypePaquet::GuardCorrection,
+                    ContenuPaquet::GuardCorrection {
+                        data: vec![PlayerTransformation {
+                            player_id,
+                            position: saved.position,
+                            rotation: saved.rotation,
+                        }],
+                    },
+                );
+                if let Err(e) = self.conn.send_packet(&mut stream, &correction).await {
+                    log_err_server!("Échec de l'envoi de la position restaurée.\nErreur : {}", e);
+                }
+            }
+        }
 
         let modified_chunks = self.state.get_modified_chunks_data();
         log_server!("Envoi de {} chunks modifiés", modified_chunks.len());
@@ -269,6 +294,14 @@ impl ClientSession {
         // Nettoyage
         drop(write_tx);
         write_task.abort();
+
+        if self.player_unique_id != 0 {
+            if let Some(player) = self.state.get_player(self.player_id) {
+                self.state
+                    .save_player_data(self.player_unique_id, player.position, player.rotation, player.gamemode);
+            }
+        }
+
         self.state.remove_player(&player_id);
         log_server!("Joueur {}: déconnexion.", player_id);
         Ok(())

@@ -1,6 +1,10 @@
+use core::str;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use network::messages::PlayerGameMode;
+use network::messages::Position;
+use network::messages::Rotation;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +26,12 @@ pub struct SaveChunk {
 #[derive(Serialize, Deserialize)]
 pub struct SaveWorld {
     pub chunks: FxHashMap<(i32, i32, i32), SaveChunk>,
+}
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PlayerSave {
+    pub rotation: Rotation,
+    pub position: Position,
+    pub gamemode: PlayerGameMode,
 }
 
 #[derive(Serialize, Deserialize)]

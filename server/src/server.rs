@@ -121,6 +121,7 @@ impl Server {
             self.active_sessions.lock().unwrap().insert(player_id, kick_tx);
             let session = ClientSession::new(
                 player_id,
+                0,
                 server_id,
                 handler,
                 Arc::clone(&self.state),

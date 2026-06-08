@@ -1,5 +1,5 @@
 use crate::identity::IdentityRegistry;
-use crate::persistence::{SaveData, SaveWorld};
+use crate::persistence::{PlayerSave, SaveData, SaveWorld};
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
@@ -251,5 +251,29 @@ impl AppState {
     pub fn register_identity(&self, player_id: u64, identity: String) {
         let mut state = self.inner.write().unwrap();
         state.identity.register(player_id, identity);
+    }
+
+    pub fn save_player_data(&self, player_unique_id: u64, position: Position, rotation: Rotation, gamemode: PlayerGameMode) {
+        let mut state = self.inner.write().unwrap();
+        state.identity.save_player_data(
+            player_unique_id,
+            PlayerSave {
+                position,
+                rotation,
+                gamemode,
+            },
+        );
+    }
+
+    pub fn take_saved_player_data(&self, player_unique_id: u64) -> Option<PlayerSave> {
+        let mut state = self.inner.write().unwrap();
+        state.identity.take_player_data(player_unique_id)
+    }
+
+    pub fn restore_player(&self, id: u64, position: Position, rotation: Rotation, gamemode: PlayerGameMode) {
+        let mut state = self.inner.write().unwrap();
+        state.players.update_position(id, position.clone(), rotation.clone());
+        state.players.set_last_valid_transformation(id, position, rotation);
+        state.players.update_gamemode(id, gamemode);
     }
 }

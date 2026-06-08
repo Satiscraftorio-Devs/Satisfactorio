@@ -96,7 +96,7 @@ impl NetworkManager {
         info!("NetworkManager: handshake...");
         match self.connection.perform_handshake(username, player_unique_id) {
             Ok(seed) => {
-                self.protocol = Some(GameProtocol::new(player_unique_id));
+                self.protocol = Some(GameProtocol::new(self.connection.player_id()));
                 self.server_seed = Some(seed as u64);
                 info!("NetworkManager: connexion établie !");
             }
