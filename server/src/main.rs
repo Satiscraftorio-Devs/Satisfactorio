@@ -99,6 +99,10 @@ async fn run_with_tui(args: &Args) -> Result<()> {
     while let Some(cmd) = command_rx.recv().await {
         match cmd {
             TuiCommand::Shutdown => {
+                log_server!("Arrêt du serveur: Sauvegarde en cours...");
+                if let Err(e) = server.save().await {
+                    log_server!("Échec de la sauvegarde : {}", e);
+                }
                 log_server!("Arrêt demandé par la TUI.");
                 break;
             }
