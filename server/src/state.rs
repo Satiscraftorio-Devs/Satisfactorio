@@ -188,15 +188,15 @@ impl AppState {
 
         // Phase 2 : mutations sous write lock
         let mut corrections = Vec::new();
-
+        let mut players = self.players.write().await;
         for (id, cur_pos, last_pos, last_rot, ok) in evaluations {
             if ok {
-                if let Some(player) = self.players.write().await.get_mut(&id) {
+                if let Some(player) = players.get_mut(&id) {
                     player.last_valid_position = cur_pos;
                     player.last_valid_rotation = player.rotation;
                 }
             } else {
-                if let Some(player) = self.players.write().await.get_mut(&id) {
+                if let Some(player) = players.get_mut(&id) {
                     player.position = last_pos.clone();
                     player.rotation = last_rot;
                 }
