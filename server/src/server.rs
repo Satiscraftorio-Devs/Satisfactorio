@@ -79,6 +79,8 @@ impl Server {
                 state.run_guard_cycle(&bc).await;
             }
         });
+
+        // Sauvegarde automatique
         let state = Arc::clone(&self.state);
         let persistence = self.persistence.clone();
         tokio::spawn(async move {
@@ -94,12 +96,13 @@ impl Server {
             }
         });
 
+        // Synchronisation TUI
         #[cfg(feature = "tui")]
         if let Some(bridge) = self.bridge.as_ref() {
             let state = Arc::clone(&self.state);
             let b = bridge.clone();
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(3));
+                let mut interval = tokio::time::interval(Duration::from_secs(3)); // 3s
                 loop {
                     interval.tick().await;
                     b.sync_from_appstate(&state).await;
