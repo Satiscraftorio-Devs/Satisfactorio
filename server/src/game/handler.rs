@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::{persistence::PersistenceService, state::AppState};
@@ -5,21 +6,21 @@ use network::messages::{BroadcastMessage, *};
 use project_core::{log_err_server, log_server};
 use tokio::sync::broadcast;
 
-pub struct HandlerContext<'a> {
+pub struct HandlerContext {
     pub player_id: u64,
-    pub state: &'a AppState,
-    pub broadcaster: &'a broadcast::Sender<BroadcastMessage>,
-    pub persistence: &'a PersistenceService,
+    pub state: Arc<AppState>,
+    pub broadcaster: broadcast::Sender<BroadcastMessage>,
+    pub persistence: Arc<PersistenceService>,
 }
 
 pub trait PacketHandler: Send + Sync {
-    fn handle(&self, packet: Paquet, ctx: &HandlerContext<'_>) -> impl std::future::Future<Output = Option<Paquet>> + Send;
+    fn handle(&self, packet: Paquet, ctx: &HandlerContext) -> impl std::future::Future<Output = Option<Paquet>> + Send;
 }
 
 pub struct ProductionHandler;
 
 impl PacketHandler for ProductionHandler {
-    async fn handle(&self, packet: Paquet, ctx: &HandlerContext<'_>) -> Option<Paquet> {
+    async fn handle(&self, packet: Paquet, ctx: &HandlerContext) -> Option<Paquet> {
         match &packet.contenu {
             ContenuPaquet::DonneesConnexion { version, username, .. } => {
                 log_server!("Joueur {}: connexion avec la version {}.", username, version);
@@ -89,10 +90,14 @@ impl PacketHandler for ProductionHandler {
 
             ContenuPaquet::SaveRequest => {
                 log_server!("Sauvegarde demandée par le joueur {}.", ctx.player_id);
-                let data = ctx.state.export_save().await;
-                if let Err(e) = ctx.persistence.save(&data).await {
-                    log_err_server!("Échec de la sauvegarde : {}", e);
-                }
+                let state = Arc::clone(&ctx.state);
+                let persistence = Arc::clone(&ctx.persistence);
+                tokio::spawn(async move {
+                    let data = state.export_save().await;
+                    if let Err(e) = persistence.save(data).await {
+                        log_err_server!("Échec de la sauvegarde : {}", e);
+                    }
+                });
                 Some(packet)
             }
 

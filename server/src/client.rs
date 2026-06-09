@@ -125,9 +125,9 @@ impl ClientSession {
         // Le handler traite le paquet de connexion (log)
         let ctx = HandlerContext {
             player_id,
-            state: &*self.state,
-            broadcaster: &self.broadcaster,
-            persistence: &self.persistence,
+            state: Arc::clone(&self.state),
+            broadcaster: self.broadcaster.clone(),
+            persistence: Arc::clone(&self.persistence),
         };
         self.handler.handle(packet, &ctx).await;
 
@@ -266,9 +266,9 @@ impl ClientSession {
                         Ok(packet) => {
                             let ctx = HandlerContext {
                                 player_id,
-                                state: self.state.as_ref(),
-                                broadcaster: &self.broadcaster,
-                                persistence: &self.persistence,
+                                state: Arc::clone(&self.state),
+                                broadcaster: self.broadcaster.clone(),
+                                persistence: Arc::clone(&self.persistence),
                             };
                             if let Some(response) = self.handler.handle(packet, &ctx).await {
                                 if write_tx.send(response).await.is_err() {

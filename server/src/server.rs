@@ -64,7 +64,7 @@ impl Server {
 
     pub async fn save(&self) -> Result<()> {
         let data = self.state.export_save().await;
-        self.persistence.save(&data).await
+        self.persistence.save(data).await
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -88,7 +88,7 @@ impl Server {
             loop {
                 interval.tick().await;
                 let data = state.export_save().await;
-                if let Err(e) = persistence.save(&data).await {
+                if let Err(e) = persistence.save(data).await {
                     log_err_server!("Auto-save échoué : {}", e);
                 } else {
                     log_server!("Auto-save effectué.");

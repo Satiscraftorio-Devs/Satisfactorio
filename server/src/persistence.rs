@@ -100,11 +100,11 @@ impl PersistenceService {
         self.save_path.exists()
     }
 
-    pub async fn save(&self, data: &SaveData) -> Result<()> {
+    pub async fn save(&self, data: SaveData) -> Result<()> {
         if let Some(parent) = self.save_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
-        let bytes = bincode::serialize(data)?;
+        let bytes = tokio::task::spawn_blocking(move || bincode::serialize(&data)).await??;
         tokio::fs::write(&self.save_path, bytes).await?;
         Ok(())
     }
@@ -114,7 +114,7 @@ impl PersistenceService {
             return Ok(None);
         }
         let bytes = tokio::fs::read(&self.save_path).await?;
-        let data = bincode::deserialize(&bytes)?;
+        let data = tokio::task::spawn_blocking(move || bincode::deserialize(&bytes)).await??;
         Ok(Some(data))
     }
 }
