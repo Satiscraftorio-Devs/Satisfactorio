@@ -49,6 +49,24 @@ launcher-profile: client-profile server-profile fmt
 client-profile: fmt
 	RUSTFLAGS="-C force-frame-pointers=yes" cargo run --profile flamegraph -p client
 
+PROFILE_NAME ?= Ascendustry
+
+profile-main:
+	@PID=$$(pgrep -n $(PROFILE_NAME)) ; \
+	MAIN_TID=$$PID ; \
+	echo "Main thread $$MAIN_TID" ; \
+	sudo perf record -F 99 -t $$MAIN_TID -g -- sleep 10 ; \
+	sudo perf script > out.perf
+
+profile-all:
+	@PID=$$(pgrep -n $(PROFILE_NAME)) ; \
+	sudo perf record -F 99 -p $$PID -g -- sleep 10 ; \
+	sudo perf script > out.perf
+
+flame:
+	Flamegraph/stackcollapse-perf.pl out.perf > folded.txt ; \
+	Flamegraph/flamegraph.pl folded.txt > flamegraph.svg
+
 launcher-release: fmt client-release-build server-release-build
 	RUSTFLAGS="-Awarnings" cargo run -r -p launcher --bin launcher
 

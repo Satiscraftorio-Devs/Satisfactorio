@@ -9,3 +9,5 @@ perf.data
 perf.data.old
 *plan*.md
 flamegraph*.svg
+folded.txt
+out.perf
