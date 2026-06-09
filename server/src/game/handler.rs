@@ -90,7 +90,7 @@ impl PacketHandler for ProductionHandler {
             ContenuPaquet::SaveRequest => {
                 log_server!("Sauvegarde demandée par le joueur {}.", ctx.player_id);
                 let data = ctx.state.export_save().await;
-                if let Err(e) = ctx.persistence.save(&data) {
+                if let Err(e) = ctx.persistence.save(&data).await {
                     log_err_server!("Échec de la sauvegarde : {}", e);
                 }
                 Some(packet)

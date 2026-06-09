@@ -100,20 +100,20 @@ impl PersistenceService {
         self.save_path.exists()
     }
 
-    pub fn save(&self, data: &SaveData) -> Result<()> {
+    pub async fn save(&self, data: &SaveData) -> Result<()> {
         if let Some(parent) = self.save_path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         let bytes = bincode::serialize(data)?;
-        std::fs::write(&self.save_path, bytes)?;
+        tokio::fs::write(&self.save_path, bytes).await?;
         Ok(())
     }
 
-    pub fn load(&self) -> Result<Option<SaveData>> {
+    pub async fn load(&self) -> Result<Option<SaveData>> {
         if !self.exists() {
             return Ok(None);
         }
-        let bytes = std::fs::read(&self.save_path)?;
+        let bytes = tokio::fs::read(&self.save_path).await?;
         let data = bincode::deserialize(&bytes)?;
         Ok(Some(data))
     }

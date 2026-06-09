@@ -38,7 +38,7 @@ impl Server {
         let listener = TcpListener::bind(address).await?;
         let state = Arc::new(AppState::new());
         let persistence = Arc::new(PersistenceService::new(save_path));
-        if let Ok(Some(data)) = persistence.load() {
+        if let Ok(Some(data)) = persistence.load().await {
             log_server!("Sauvegarde trouvée, restauration du monde.");
             state.import_save(data).await;
         } else {
@@ -64,7 +64,7 @@ impl Server {
 
     pub async fn save(&self) -> Result<()> {
         let data = self.state.export_save().await;
-        self.persistence.save(&data)
+        self.persistence.save(&data).await
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -88,7 +88,7 @@ impl Server {
             loop {
                 interval.tick().await;
                 let data = state.export_save().await;
-                if let Err(e) = persistence.save(&data) {
+                if let Err(e) = persistence.save(&data).await {
                     log_err_server!("Auto-save échoué : {}", e);
                 } else {
                     log_server!("Auto-save effectué.");
