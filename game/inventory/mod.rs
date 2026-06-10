@@ -141,8 +141,8 @@ impl Inventory {
     pub fn is_full(&self) -> bool {
         self.slot_data.len() == self.max_slot_number
     }
-    pub fn get_all_items(&self) -> Vec<(Item, u32)> {
-        self.slot_data.iter().map(|s| (s.item.item, s.quantity)).collect()
+    pub fn get_all_items(&self) -> Vec<(ItemData, u32)> {
+        self.slot_data.iter().map(|s| (s.item.clone(), s.quantity)).collect()
     }
 
     pub fn is_slot_correct(&self, slot: usize) -> bool {
