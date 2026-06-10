@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use rustc_hash::FxHashMap;
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
@@ -129,18 +131,23 @@ impl Inventory {
             self.slot_data.swap(slot1, slot2);
         }
     }
+
     pub fn slot_count(&self) -> usize {
         self.slot_data.len()
     }
+
     pub fn clear(&mut self) {
         self.slot_data.clear();
     }
+
     pub fn is_empty(&self) -> bool {
         self.slot_data.is_empty()
     }
+
     pub fn is_full(&self) -> bool {
         self.slot_data.len() == self.max_slot_number
     }
+
     pub fn get_all_items(&self) -> Vec<(ItemData, u32)> {
         self.slot_data.iter().map(|s| (s.item.clone(), s.quantity)).collect()
     }
@@ -159,5 +166,18 @@ impl Inventory {
 
     pub fn retain(&mut self) {
         self.slot_data.retain(|slot| slot.quantity > 0);
+    }
+}
+
+impl Display for Inventory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Inventory: [")?;
+        for (i, slot) in self.slot_data.iter().enumerate() {
+            write!(f, "{}: {}", i, slot.quantity)?;
+            if i < self.slot_data.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, "]")
     }
 }
