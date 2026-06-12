@@ -1,14 +1,16 @@
+mod tests;
+
 use std::fmt::Display;
 
 use rustc_hash::FxHashMap;
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 enum ItemType {
     Weapon,
     Placeable,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 enum Item {
     Dirt,
     Sword,
@@ -109,7 +111,7 @@ impl Inventory {
         quantity
     }
 
-    pub fn remove_item(&mut self, item: ItemData, quantity: u32, selected_slot: usize) {
+    pub fn remove_item(&mut self, _item: ItemData, quantity: u32, selected_slot: usize) {
         if let Some(slot) = self.slot_data.get_mut(selected_slot) {
             slot.remove(quantity);
             if slot.quantity == 0 {
