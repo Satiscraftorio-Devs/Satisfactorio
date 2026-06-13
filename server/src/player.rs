@@ -1,8 +1,8 @@
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
-use game::inventory::{DEFAULT_INVENTORY_SIZE, Inventory};
-use game::world::data::chunk::CHUNK_SIZE_F;
+use game::inventory::{Inventory, SlotData, DEFAULT_INVENTORY_SIZE};
 use game::player::PlayerGameMode;
 use game::types::{Position, Rotation};
+use game::world::data::chunk::CHUNK_SIZE_F;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -132,6 +132,17 @@ impl PlayerRegistry {
     }
     pub fn iter(&self) -> impl Iterator<Item = (&u64, &Player)> {
         self.players.iter()
+    }
+    pub fn set_inventory(&mut self, id: u64, inventory: Inventory) {
+        if let Some(player) = self.players.get_mut(&id) {
+            player.inventory = inventory;
+        }
+    }
+
+    pub fn update_inventory(&mut self, id: u64, modified_slots: Vec<SlotData>) {
+        if let Some(player) = self.players.get_mut(&id) {
+            player.inventory.update_slots(modified_slots);
+        }
     }
 }
 

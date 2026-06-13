@@ -22,9 +22,9 @@
 //! Cela évite de saturer le réseau avec des mises à jour trop fréquentes.
 
 use crate::network::protocol::GameProtocol;
+use game::player::PlayerGameMode;
 use log::{error, info};
 use network::client_connection::ClientConnection;
-use game::player::PlayerGameMode;
 use network::messages::Paquet;
 use std::time::{Duration, Instant};
 

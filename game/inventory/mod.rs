@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_INVENTORY_SIZE: usize = 16;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum ItemType {
     Weapon,
     Placeable,
@@ -25,10 +25,10 @@ pub struct SlotData {
     pub item: ItemStack,
 }
 
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemRules {
-    max_quantity_per_stack: FxHashMap<ItemType, u32>,
-    item_type: FxHashMap<Item, ItemType>,
+    pub max_quantity_per_stack: FxHashMap<ItemType, u32>,
+    pub item_type: FxHashMap<Item, ItemType>,
 }
 
 impl ItemRules {
@@ -139,7 +139,6 @@ impl Inventory {
         quantity
     }
 
-
     /// Supprime un item de l'inventaire à partir d'un slot spécifié.
     pub fn remove_item(&mut self, _item: ItemData, quantity: u32, selected_slot: usize) {
         if let Some(slot) = self.slot_data.get_mut(selected_slot) {
@@ -163,6 +162,14 @@ impl Inventory {
     pub fn swap_slots(&mut self, slot1: usize, slot2: usize) {
         if self.is_slot_correct(slot1) && self.is_slot_correct(slot2) {
             self.slot_data.swap(slot1, slot2);
+        }
+    }
+
+    pub fn update_slots(&mut self, modified_slots: Vec<SlotData>) {
+        for slot in modified_slots {
+            if self.is_slot_correct(slot.index) {
+                self.slot_data[slot.index] = slot.item;
+            }
         }
     }
 

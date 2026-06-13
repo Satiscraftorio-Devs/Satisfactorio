@@ -6,9 +6,7 @@ use crate::persistence::PersistenceService;
 use crate::state::AppState;
 use anyhow::Result;
 use game::player::PlayerTransformation;
-use network::messages::{
-    self, new_server_seed_paquet, BroadcastMessage, ContenuPaquet, Paquet, TypePaquet,
-};
+use network::messages::{self, new_server_seed_paquet, BroadcastMessage, ContenuPaquet, Paquet, TypePaquet};
 use network::traits::PacketCodec;
 use project_core::log_err_server;
 use project_core::log_server;
@@ -150,7 +148,7 @@ impl ClientSession {
         if self.player_unique_id != 0 {
             if let Some(saved) = self.state.take_saved_player_data(self.player_unique_id).await {
                 self.state
-                    .restore_player(player_id, saved.position, saved.rotation, saved.gamemode)
+                    .restore_player(player_id, saved.position, saved.rotation, saved.gamemode, saved.inventory)
                     .await;
                 let correction = Paquet::new(
                     TypePaquet::GuardCorrection,
@@ -304,7 +302,13 @@ impl ClientSession {
         if self.player_unique_id != 0 {
             if let Some(player) = self.state.get_player(self.player_id).await {
                 self.state
-                    .save_player_data(self.player_unique_id, player.position, player.rotation, player.gamemode)
+                    .save_player_data(
+                        self.player_unique_id,
+                        player.position,
+                        player.rotation,
+                        player.gamemode,
+                        player.inventory,
+                    )
                     .await;
             }
         }

@@ -11,12 +11,12 @@ use game::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, RENDER_DISTANCE_CHUNK_COUNT, SPAWN_POSITION_X,
     SPAWN_POSITION_Y, SPAWN_POSITION_Z, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };
-use game::inventory::{DEFAULT_INVENTORY_SIZE, Inventory};
+use game::inventory::{Inventory, DEFAULT_INVENTORY_SIZE};
+use game::player::PlayerGameMode;
+use game::types::{Position, Rotation};
 use game::world::data::block::BlockInstance;
 use game::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F};
 use game::world::raycast::voxel_raycast;
-use game::player::PlayerGameMode;
-use game::types::{Position, Rotation};
 use network::messages::Paquet;
 use physics::{body::PhysicsBody, collision::resolve_collision};
 use project_core::log_client;

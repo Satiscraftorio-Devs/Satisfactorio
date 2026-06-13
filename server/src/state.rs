@@ -3,11 +3,10 @@ use crate::persistence::{PlayerSave, SaveData, SaveWorld};
 use crate::player::PlayerRegistry;
 use crate::world::WorldState;
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
+use game::inventory::{Inventory, SlotData};
 use game::player::{PlayerGameMode, PlayerTransformation};
 use game::types::{Position, Rotation};
-use network::messages::{
-    BroadcastMessage, ChunkData, ContenuPaquet, Paquet, TypePaquet,
-};
+use network::messages::{BroadcastMessage, ChunkData, ContenuPaquet, Paquet, TypePaquet};
 use physics::position::{find_safe_spawn_point, is_position_free};
 use physics::validator::is_movement_plausible;
 use project_core::log_server;
@@ -105,6 +104,16 @@ impl AppState {
 
         let keep = self.players.read().await.all_required_chunks();
         self.world.write().await.retain_chunks(&keep);
+    }
+
+    pub async fn update_inventory(&self, id: u64, inventory: Vec<SlotData>) {
+        let mut players = self.players.write().await;
+        players.update_inventory(id, inventory.clone());
+    }
+
+    pub async fn set_inventory(&self, id: u64, inventory: Inventory) {
+        let mut players = self.players.write().await;
+        players.set_inventory(id, inventory.clone());
     }
 
     pub async fn set_player_gamemode(&self, id: u64, gamemode: PlayerGameMode) {
@@ -256,6 +265,7 @@ impl AppState {
         position: Position,
         rotation: Rotation,
         gamemode: PlayerGameMode,
+        inventory: Inventory,
     ) {
         self.identity.write().await.save_player_data(
             player_unique_id,
@@ -263,6 +273,7 @@ impl AppState {
                 position,
                 rotation,
                 gamemode,
+                inventory,
             },
         );
     }
@@ -271,10 +282,18 @@ impl AppState {
         self.identity.write().await.take_player_data(player_unique_id)
     }
 
-    pub async fn restore_player(&self, id: u64, position: Position, rotation: Rotation, gamemode: PlayerGameMode) {
+    pub async fn restore_player(
+        &self,
+        id: u64,
+        position: Position,
+        rotation: Rotation,
+        gamemode: PlayerGameMode,
+        inventory: Inventory,
+    ) {
         let mut players = self.players.write().await;
         players.update_position(id, position.clone(), rotation.clone());
         players.set_last_valid_transformation(id, position, rotation);
         players.update_gamemode(id, gamemode);
+        players.set_inventory(id, inventory);
     }
 }

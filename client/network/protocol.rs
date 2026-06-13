@@ -5,11 +5,11 @@
 //!
 //! Il fait la ponte entre la logique de jeu (positions, chunks) et le système
 //! de paquets réseau.
+use game::player::{PlayerGameMode, PlayerTransformation};
+use game::types::{Position, Rotation};
 use game::world::data::block::BlockInstance;
 use network;
 use network::messages;
-use game::player::{PlayerGameMode, PlayerTransformation};
-use game::types::{Position, Rotation};
 use network::messages::{ContenuPaquet, Paquet, TypePaquet};
 
 /// Protocol de jeu pour le client.

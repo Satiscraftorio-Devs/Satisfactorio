@@ -89,7 +89,7 @@ pub enum ContenuPaquet {
         inventory: Vec<SlotData>, // Slots modifié seulement
     },
     InventorySet {
-        inventory: Vec<Inventory>, // Inventaire complet
+        inventory: Inventory, // Inventaire complet
     },
 }
 

@@ -102,6 +102,16 @@ impl PacketHandler for ProductionHandler {
                 Some(packet)
             }
 
+            ContenuPaquet::InventorySet { inventory } => {
+                ctx.state.set_inventory(ctx.player_id, inventory.clone()).await;
+                Some(packet)
+            }
+
+            ContenuPaquet::InventoryUpdate { inventory, player_id } => {
+                ctx.state.update_inventory(*player_id, inventory.clone()).await;
+                Some(packet)
+            }
+
             _ => {
                 log_server!("Joueur {}: paquet non géré, éjection.", ctx.player_id);
                 None

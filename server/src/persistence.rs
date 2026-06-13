@@ -2,6 +2,7 @@ use core::str;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use game::inventory::Inventory;
 use game::player::PlayerGameMode;
 use game::types::{Position, Rotation};
 use rustc_hash::FxHashMap;
@@ -31,6 +32,7 @@ pub struct PlayerSave {
     pub rotation: Rotation,
     pub position: Position,
     pub gamemode: PlayerGameMode,
+    pub inventory: Inventory,
 }
 
 #[derive(Serialize, Deserialize)]

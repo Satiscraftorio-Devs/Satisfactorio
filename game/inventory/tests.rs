@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod tests {
     use crate::inventory::{Inventory, Item, ItemData, ItemRules, ItemStack, ItemType};
