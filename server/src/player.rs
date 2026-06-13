@@ -1,4 +1,5 @@
 use game::constants::{SPAWN_POSITION_X, SPAWN_POSITION_Y, SPAWN_POSITION_Z};
+use game::inventory::{DEFAULT_INVENTORY_SIZE, Inventory};
 use game::world::data::chunk::CHUNK_SIZE_F;
 use game::player::PlayerGameMode;
 use game::types::{Position, Rotation};
@@ -12,9 +13,10 @@ pub struct Player {
     pub username: String,
     pub position: Position,
     pub rotation: Rotation,
-    pub gamemode: PlayerGameMode,
     pub last_valid_position: Position,
     pub last_valid_rotation: Rotation,
+    pub inventory: Inventory,
+    pub gamemode: PlayerGameMode,
 }
 
 pub struct PlayerRegistry {
@@ -50,9 +52,10 @@ impl PlayerRegistry {
             username,
             position: position.clone(),
             rotation: rotation.clone(),
-            gamemode: PlayerGameMode::Survival,
             last_valid_position: position,
             last_valid_rotation: rotation,
+            gamemode: PlayerGameMode::Survival,
+            inventory: Inventory::default(DEFAULT_INVENTORY_SIZE),
         };
         self.players.insert(id, player);
     }

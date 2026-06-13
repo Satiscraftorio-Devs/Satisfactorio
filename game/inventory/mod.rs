@@ -3,20 +3,30 @@ mod tests;
 use std::fmt::Display;
 
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
+
+pub const DEFAULT_INVENTORY_SIZE: usize = 16;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
-enum ItemType {
+pub enum ItemType {
     Weapon,
     Placeable,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
-enum Item {
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Serialize, Deserialize)]
+pub enum Item {
     Dirt,
     Sword,
 }
 
-struct ItemRules {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlotData {
+    pub index: usize,
+    pub item: ItemStack,
+}
+
+
+pub struct ItemRules {
     max_quantity_per_stack: FxHashMap<ItemType, u32>,
     item_type: FxHashMap<Item, ItemType>,
 }
@@ -36,10 +46,15 @@ impl ItemRules {
             item_type,
         }
     }
+
+    pub fn add_rule(&mut self, item: Item, item_type: ItemType, max_quantity_per_stack: u32) {
+        self.item_type.insert(item, item_type);
+        self.max_quantity_per_stack.insert(item_type, max_quantity_per_stack);
+    }
 }
 
-#[derive(Clone, PartialEq)]
-struct ItemData {
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct ItemData {
     item: Item,
     custom_name: Option<String>,
 }
@@ -59,8 +74,8 @@ impl ItemData {
     }
 }
 
-#[derive(Clone)]
-struct ItemStack {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ItemStack {
     item: ItemData,
     quantity: u32,
 }
@@ -90,7 +105,8 @@ impl ItemStack {
     }
 }
 
-struct Inventory {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Inventory {
     slot_data: Vec<ItemStack>,
     max_slot_number: usize,
 }

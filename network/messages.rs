@@ -1,3 +1,4 @@
+use game::inventory::{Inventory, SlotData};
 use game::player::{PlayerGameMode, PlayerTransformation};
 use game::types::{Position, Rotation};
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,8 @@ pub enum TypePaquet {
     SaveRequest,
     Kick,
     ClientIdentity,
+    InventoryUpdate,
+    InventorySet,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -80,6 +83,13 @@ pub enum ContenuPaquet {
     ClientIdentity {
         player_id: u64,
         username: String,
+    },
+    InventoryUpdate {
+        player_id: u64,
+        inventory: Vec<SlotData>, // Slots modifié seulement
+    },
+    InventorySet {
+        inventory: Vec<Inventory>, // Inventaire complet
     },
 }
 
