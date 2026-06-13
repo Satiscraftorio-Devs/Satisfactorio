@@ -3,8 +3,6 @@
 mod tests {
     use crate::inventory::{Inventory, Item, ItemData, ItemRules, ItemStack, ItemType};
 
-use super::*;
-
     #[test]
     fn test_item_data_new() {
         let data = ItemData::new(Item::Dirt, None);

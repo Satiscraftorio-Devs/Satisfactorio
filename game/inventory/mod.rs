@@ -38,7 +38,7 @@ impl ItemRules {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct ItemData {
     item: Item,
     custom_name: Option<String>,
@@ -65,19 +65,26 @@ struct ItemStack {
     quantity: u32,
 }
 impl ItemStack {
+    /// Retourne true si l'item peut être empilé avec l'autre item, false sinon.
     pub fn new(item: ItemData, quantity: u32) -> Self {
         Self { item, quantity }
     }
+    /// Retourne true si l'item peut être empilé avec l'autre item, false sinon.
     pub fn can_stack_with(&self, other: &ItemStack) -> bool {
         self.item.item == other.item.item
     }
+
     pub fn stack_with(&mut self, other: &mut ItemStack) {
         self.quantity += other.quantity;
         other.quantity = 0;
     }
+
+    /// Ajoute une quantité à l'item existant dans ce slot.
     pub fn add(&mut self, quantity: u32) {
         self.quantity += quantity;
     }
+
+    /// Retire une quantité de l'item existant dans ce slot.
     pub fn remove(&mut self, quantity: u32) {
         self.quantity = self.quantity.saturating_sub(quantity);
     }
@@ -88,12 +95,15 @@ struct Inventory {
     max_slot_number: usize,
 }
 impl Inventory {
+    /// Crée un inventaire vide avec la capacité maximale spécifiée.
     pub fn default(max_slot_number: usize) -> Self {
         Self {
             slot_data: Vec::with_capacity(max_slot_number),
             max_slot_number,
         }
     }
+
+    /// Ajoute un item à l'inventaire, en utilisant un slot existant si possible, sinon en crée un nouveau. (s'il reste un slot libre)
     pub fn add_item(&mut self, item: ItemData, quantity: u32) -> u32 {
         // Cherche slot existant avec même item
         for slot in &mut self.slot_data {
@@ -107,10 +117,14 @@ impl Inventory {
         }
 
         // Pas de slot existant → nouveau slot
-        self.slot_data.push(ItemStack::new(item, quantity));
+        if self.is_remaining_free_slot() {
+            self.slot_data.push(ItemStack::new(item, quantity));
+        }
         quantity
     }
 
+
+    /// Supprime un item de l'inventaire à partir d'un slot spécifié.
     pub fn remove_item(&mut self, _item: ItemData, quantity: u32, selected_slot: usize) {
         if let Some(slot) = self.slot_data.get_mut(selected_slot) {
             slot.remove(quantity);
@@ -120,6 +134,7 @@ impl Inventory {
         }
     }
 
+    /// Retourne le slot à l'index spécifié, s'il existe.
     pub fn get_slot(&self, slot: usize) -> Option<&ItemStack> {
         if self.is_slot_correct(slot) {
             Some(&self.slot_data[slot])
@@ -128,36 +143,54 @@ impl Inventory {
         }
     }
 
+    /// Échange les slots spécifiés.
     pub fn swap_slots(&mut self, slot1: usize, slot2: usize) {
         if self.is_slot_correct(slot1) && self.is_slot_correct(slot2) {
             self.slot_data.swap(slot1, slot2);
         }
     }
 
+    /// Retourne le nombre de slots libres dans l'inventaire.
+    pub fn free_slots_count(&self) -> usize {
+        self.max_slot_number.saturating_sub(self.slot_data.len())
+    }
+
+    /// Retourne le nombre de slots utilisés dans l'inventaire.
     pub fn slot_count(&self) -> usize {
         self.slot_data.len()
     }
 
+    /// Efface tous les items de l'inventaire.
     pub fn clear(&mut self) {
         self.slot_data.clear();
     }
 
+    /// Retourne true si l'inventaire est vide, false sinon.
     pub fn is_empty(&self) -> bool {
         self.slot_data.is_empty()
     }
 
+    /// Retourne true si l'inventaire est plein, false sinon.
     pub fn is_full(&self) -> bool {
         self.slot_data.len() == self.max_slot_number
     }
 
+    /// Retourne tous les items de l'inventaire.
     pub fn get_all_items(&self) -> Vec<(ItemData, u32)> {
         self.slot_data.iter().map(|s| (s.item.clone(), s.quantity)).collect()
     }
 
+    /// Retourne true si le slot est correct, false sinon.
     pub fn is_slot_correct(&self, slot: usize) -> bool {
         slot < self.slot_data.len() && slot < self.max_slot_number
     }
 
+    /// Retourne true s'il reste un slot libre, false sinon.
+    pub fn is_remaining_free_slot(&self) -> bool {
+        self.slot_data.len() < self.max_slot_number
+    }
+
+    /// Retourne la quantité d'un slot donné.
     pub fn get_slot_quantity(&self, slot: usize) -> u32 {
         if self.is_slot_correct(slot) {
             self.slot_data[slot].quantity
@@ -166,6 +199,12 @@ impl Inventory {
         }
     }
 
+    /// Retourne la quantité d'un item donné.
+    pub fn get_item_quantity(&self, item: &ItemData) -> u32 {
+        self.slot_data.iter().filter(|s| s.item == *item).map(|s| s.quantity).sum()
+    }
+
+    /// Libère tous les slots vides de l'inventaire.
     pub fn retain(&mut self) {
         self.slot_data.retain(|slot| slot.quantity > 0);
     }
