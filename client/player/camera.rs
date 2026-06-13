@@ -1,6 +1,7 @@
 use cgmath::{Deg, InnerSpace, Matrix4, Point3, Vector3, Vector4};
 use engine::render::camera::OPENGL_TO_WGPU_MATRIX;
 use game::constants::UP;
+use physics::aabb::AABB;
 use project_core::{geometry::plane::Plane, utils::updatable::Updatable};
 
 #[derive(Clone)]
@@ -24,8 +25,8 @@ impl Camera {
             pitch: Updatable::new(0.0),
             fovy: Updatable::new(70.0),
             aspect: Updatable::new(aspect),
-            znear: 0.1,
-            zfar: 1000.0,
+            znear: 0.125,
+            zfar: 500.0,
             view_proj: Updatable::new(Matrix4 {
                 x: Vector4::new(0.0, 0.0, 0.0, 0.0),
                 y: Vector4::new(0.0, 0.0, 0.0, 0.0),
@@ -125,5 +126,51 @@ impl Camera {
 
     pub fn get_frustum_planes(&self) -> &[Plane; 6] {
         self.frustum_planes.current()
+    }
+
+    #[inline(never)]
+    pub fn get_frustum_aabb(&self) -> AABB {
+        let fov = *self.fovy.current();
+        let aspect = *self.aspect.current();
+        let znear = self.znear;
+        let zfar = self.zfar;
+        let eye = *self.eye.current();
+        let forward = self.forward();
+        let right = self.right();
+        let up = right.cross(forward);
+
+        let tan_half_fov = (fov / 2.0).tan();
+        let nh = tan_half_fov * znear;
+        let nw = nh * aspect;
+        let fh = tan_half_fov * zfar;
+        let fw = fh * aspect;
+
+        let nc = eye + forward * znear;
+        let fc = eye + forward * zfar;
+
+        // 8 coins dans les 4 directions × near/far
+        let rn = right * nw;
+        let rn2 = right * fw;
+        let un = up * nh;
+        let un2 = up * fh;
+
+        let mut min = Vector3::new(f32::MAX, f32::MAX, f32::MAX);
+        let mut max = Vector3::new(f32::MIN, f32::MIN, f32::MIN);
+
+        for c in [
+            nc - rn - un,
+            nc + rn - un,
+            nc - rn + un,
+            nc + rn + un,
+            fc - rn2 - un2,
+            fc + rn2 - un2,
+            fc - rn2 + un2,
+            fc + rn2 + un2,
+        ] {
+            min = Vector3::new(min.x.min(c.x), min.y.min(c.y), min.z.min(c.z));
+            max = Vector3::new(max.x.max(c.x), max.y.max(c.y), max.z.max(c.z));
+        }
+
+        AABB { min, max }
     }
 }

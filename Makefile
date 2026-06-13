@@ -55,13 +55,13 @@ profile-main:
 	@PID=$$(pgrep -n $(PROFILE_NAME)) ; \
 	MAIN_TID=$$PID ; \
 	echo "Main thread $$MAIN_TID" ; \
-	perf record -F 99 -t $$MAIN_TID -g -- sleep 10 ; \
+	perf record -F 99 -t $$MAIN_TID -g -- sleep 20 ; \
 	sudo chown $$USER:$$USER perf.data
 	perf script > out.perf
 
 profile-all:
 	@PID=$$(pgrep -n $(PROFILE_NAME)) ; \
-	perf record -F 99 -p $$PID -g -- sleep 10 ; \
+	perf record -F 99 -p $$PID -g -- sleep 20 ; \
 	sudo chown $$USER:$$USER perf.data
 	perf script > out.perf
 

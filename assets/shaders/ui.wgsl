@@ -42,7 +42,7 @@ fn fs_main(in: UiVertexOutput) -> @location(0) vec4<f32> {
         f32(c & 0xFFu) / 255.0,
     );
     if (in.uv.x >= 0.0 && in.uv.y >= 0.0) {
-        return textureSample(t_atlas, s_atlas, in.uv) * color;
+        return textureSampleLevel(t_atlas, s_atlas, in.uv, 0.0) * color;
     }
     return color;
 }

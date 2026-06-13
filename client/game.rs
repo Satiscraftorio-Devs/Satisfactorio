@@ -8,7 +8,7 @@ use crate::render::meshing::world::WorldMesh;
 use crate::systems::inputs::InputState;
 use crate::world::world::{MeshRequestMessage, World};
 use bytemuck::cast_slice;
-use cgmath::{dot, Vector3};
+use cgmath::{dot, EuclideanSpace, Point3, Vector3};
 use engine::audio::GameAudioManager;
 use engine::core::application::AppState;
 use engine::core::frame::EngineFrameData;
@@ -20,7 +20,7 @@ use engine::render::ui::interpreter::compiler::UiCompiler;
 use engine::render::ui::interpreter::translator::UiTranslator;
 use engine::render::ui::widgets::panel::Panel;
 use engine::render::ui::widgets::{Widget, WidgetTransform};
-use game::constants::{HORIZONTAL_RENDER_DISTANCE, VERTICAL_RENDER_DISTANCE};
+use game::constants::{CHUNK_VECTOR, HORIZONTAL_RENDER_DISTANCE, VERTICAL_RENDER_DISTANCE};
 use game::world::data::block::BlockInstance;
 use game::world::data::chunk::CHUNK_SIZE_F;
 use network::messages::new_save_request_paquet;
@@ -82,11 +82,87 @@ impl GameState {
         }
     }
 
+    #[inline(never)]
+    fn update_debug_commands(&mut self, alloc: &Arc<RwLock<GpuAllocator>>) {
+        // MESH MEMORY TRACKER (CPU & GPU)
+        if self.inputs.take_key_pressed(KeyCode::KeyV) {
+            println!("==== Mesh Memory Tracker ====");
+            println!("CPU:");
+            self.world_mesh.print_memory();
+            println!("-----------------------------");
+            println!("GPU:");
+            alloc.read().unwrap().force_print_debug_infos();
+            println!("=============================");
+        }
+        // MESH MEMORY DUMP (CPU)
+        if self.inputs.is_key_pressed(KeyCode::ControlLeft) && self.inputs.is_key_pressed(KeyCode::KeyD) {
+            self.inputs.take_key_pressed(KeyCode::ControlLeft);
+            self.inputs.take_key_pressed(KeyCode::KeyD);
+            let alloc = &alloc.read().unwrap();
+            let meshes = &self.world_mesh.meshes;
+            println!("==== Mesh CPU Memory Dump ====");
+            for (pos, mesh) in meshes.iter() {
+                println!("- Chunk {:?}", *pos);
+                let Some(id) = mesh.id else {
+                    continue;
+                };
+                let Some(data) = alloc.get_mesh_entry(id) else {
+                    continue;
+                };
+                println!(
+                    "  └─ Mesh (id: {:?}, pos: {:?}, len: {:?})",
+                    data.id, data.position, data.length
+                );
+            }
+            println!("==============================")
+        }
+        // CURRENT CHUNK DEBUG
+        if self.inputs.take_key_pressed(KeyCode::KeyC) {
+            let cpos = self.player.state.cpos.current();
+            let key = (cpos[0], cpos[1], cpos[2]);
+            println!("==== Chunk {:?} ====", key);
+            if let Some((state, dirty)) = self.world.chunk_infos_at(&key) {
+                println!("- Data (CPU):\n  └─ {}", state);
+                if dirty {
+                    println!("  └─ Dirty")
+                }
+            }
+            if let Some((id, dirty)) = self.world_mesh.mesh_infos_at(&key) {
+                let id = match id {
+                    Some(id) => &id.to_string(),
+                    None => "None",
+                };
+                println!("- Mesh (GPU):\n  └─ Id: {}", id);
+                if dirty {
+                    println!("  └─ Dirty")
+                }
+            };
+            println!("========================")
+        }
+
+        // SWITCH GAMEMODE
+        if self.inputs.take_key_pressed(KeyCode::KeyG) {
+            self.player.state.switch_player_game_mode();
+            println!("Switching gamemode to {}", self.player.state.game_mode);
+            if let Some(ref mut net) = self.network {
+                let result = net.send_gamemode_change(self.player.state.game_mode);
+                match result {
+                    Ok(_) => {}
+                    Err(err) => {
+                        log_err_client!("Failed to switch gamemode.\nError: {}", err);
+                    }
+                }
+            }
+        }
+    }
+
+    #[inline(never)]
     fn update_physics(&mut self, frame: &EngineFrameData) {
         self.player
             .physics_update(frame.dt, &mut self.inputs, &self.world, self.player.state.game_mode.clone());
     }
 
+    #[inline(never)]
     fn update_logic(
         &mut self,
         frame: &EngineFrameData,
@@ -98,6 +174,7 @@ impl GameState {
         (network_commands, mesh_request)
     }
 
+    #[inline(never)]
     fn update_network(&mut self, network_commands: Vec<network::messages::Paquet>) {
         let net = self.network.as_mut().expect("NetworkManager: uninitialized.");
         if !net.is_connected() {
@@ -184,68 +261,6 @@ impl GameState {
         self.remote_players.cleanup_stale(Duration::from_secs(30));
     }
 
-    fn cull_chunks_recursive(
-        &self,
-        aabb: &AABB,
-        frustum: &[Plane; 6],
-        out: &mut FxHashSet<u32>,
-        chunks_to_render: &FxHashSet<(i32, i32, i32)>,
-    ) {
-        let mut size = Vector3::new(aabb.x_length(), aabb.y_length(), aabb.z_length());
-
-        if !is_chunk_in_camera_frustum(&aabb.min, &aabb.max, frustum) {
-            return;
-        }
-
-        if size.x <= CHUNK_SIZE_F && size.y <= CHUNK_SIZE_F && size.z <= CHUNK_SIZE_F {
-            let coords = (
-                (aabb.min.x / CHUNK_SIZE_F).floor() as i32,
-                (aabb.min.y / CHUNK_SIZE_F).floor() as i32,
-                (aabb.min.z / CHUNK_SIZE_F).floor() as i32,
-            );
-            self.cull_chunk_leaf(&coords, out, chunks_to_render);
-            return;
-        }
-
-        let center = aabb.center();
-        size *= 0.25;
-        let he = &size; // half extent
-
-        let children_aabbs = [
-            AABB::new_sized(center + Vector3::new(he.x, he.y, he.z), size),
-            AABB::new_sized(center + Vector3::new(-he.x, he.y, he.z), size),
-            AABB::new_sized(center + Vector3::new(he.x, -he.y, he.z), size),
-            AABB::new_sized(center + Vector3::new(-he.x, -he.y, he.z), size),
-            AABB::new_sized(center + Vector3::new(he.x, he.y, -he.z), size),
-            AABB::new_sized(center + Vector3::new(-he.x, he.y, -he.z), size),
-            AABB::new_sized(center + Vector3::new(he.x, -he.y, -he.z), size),
-            AABB::new_sized(center + Vector3::new(-he.x, -he.y, -he.z), size),
-        ];
-
-        for aabb in children_aabbs {
-            self.cull_chunks_recursive(&aabb, frustum, out, chunks_to_render);
-        }
-    }
-
-    fn cull_chunk_leaf(
-        &self,
-        coords: &(i32, i32, i32),
-        out: &mut FxHashSet<u32>,
-        chunks_to_render: &FxHashSet<(i32, i32, i32)>,
-    ) {
-        let meshes = &self.world_mesh.meshes;
-        if !chunks_to_render.contains(coords) {
-            return;
-        }
-        let Some(mesh) = meshes.get(coords) else {
-            return;
-        };
-        let Some(id) = mesh.id else {
-            return;
-        };
-        out.insert(id);
-    }
-
     #[inline(never)]
     fn update_rendering(&mut self, data: &mut GameFrameData, renderer: &mut Renderer) {
         // ATTENTION: dans le futur, trouver une alternative pour mieux mettre en cache les meshs ids
@@ -259,21 +274,9 @@ impl GameState {
 
             self.player.state.camera.aspect.update(renderer.render_options.aspect);
 
-            const BASE_REGION_HEIGHT: f32 = (VERTICAL_RENDER_DISTANCE + 1) as f32;
-            const BASE_REGION_WIDTH: f32 = (HORIZONTAL_RENDER_DISTANCE + 1) as f32;
-
-            let cam_position_chunk_aligned = (*self.player.state.camera.eye()).map(|coord| coord - coord % CHUNK_SIZE_F);
-            let cam_frustum = self.player.state.camera.get_frustum_planes();
-
-            let aabb = AABB::new_sized(
-                cam_position_chunk_aligned,
-                Vector3::new(BASE_REGION_WIDTH, BASE_REGION_HEIGHT, BASE_REGION_WIDTH) * CHUNK_SIZE_F,
-            );
-            let chunks_to_render = self.player.get_rendered_chunk_keys_set();
-
             data.visible_meshes.clear();
 
-            self.cull_chunks_recursive(&aabb, &cam_frustum, &mut data.visible_meshes, &chunks_to_render);
+            self.cull_chunks(&mut data.visible_meshes);
         };
         // Update renderer with remote player positions
         let alloc = &mut renderer.render_manager.world_buffer.write().unwrap();
@@ -290,6 +293,63 @@ impl GameState {
                 }
             }
             data.visible_meshes.replace(p.mesh_id.unwrap());
+        }
+    }
+
+    #[inline(never)]
+    fn cull_chunks(
+        &self,
+        out: &mut FxHashSet<u32>,
+    ) {
+        const BASE_REGION_HEIGHT: f32 = (VERTICAL_RENDER_DISTANCE + 1) as f32;
+        const BASE_REGION_WIDTH: f32 = (HORIZONTAL_RENDER_DISTANCE + 1) as f32;
+
+        let cam_eye = *self.player.state.camera.eye();
+        let cam_position_chunk_aligned = cam_eye.map(|coord| coord - coord % CHUNK_SIZE_F);
+        let cam_aabb = AABB::new_sized(
+            cam_position_chunk_aligned,
+            Vector3::new(BASE_REGION_WIDTH, BASE_REGION_HEIGHT, BASE_REGION_WIDTH) * CHUNK_SIZE_F,
+        );
+        let cam_eye = cam_eye.to_vec();
+        let cam_forward = self.player.state.camera.forward();
+        let cam_frustum = self.player.state.camera.get_frustum_planes();
+
+        let chunks_to_render = self.player.get_rendered_chunk_keys_set();
+
+        for (key, mesh) in self.world_mesh.meshes.iter() {
+            let Some(id) = mesh.id else {
+                continue;
+            };
+
+            if !chunks_to_render.contains(key) {
+                continue;
+            }
+
+            let min = Point3::new((key.0) as f32, (key.1) as f32, (key.2) as f32) * CHUNK_SIZE_F;
+            let chunk_aabb = AABB::new_from_corner_and_dir(min, CHUNK_VECTOR);
+
+            if !chunk_aabb.overlaps(&cam_aabb) {
+                continue;
+            }
+
+            let min = min.to_vec();
+            let max = min + CHUNK_VECTOR;
+
+            // First, we check simply if the chunk to render is behind the camera.
+            if is_chunk_behind_camera(&min, &max, &cam_forward, &cam_eye) {
+                continue;
+            }
+
+            // Second, we check if the chunk is within the field of view of the camera.
+            if !is_chunk_in_camera_frustum(&min, &max, &cam_frustum) {
+                continue;
+            }
+
+            // If any of the above is true, we do not render the chunk.
+            // We do the frustum check lately because it is more expansive,
+            // on top of this, the first check would already eliminate ~50% of the candidates.
+
+            out.insert(id);
         }
     }
 }
@@ -385,81 +445,7 @@ impl AppState for GameState {
     }
 }
 
-impl GameState {
-    fn update_debug_commands(&mut self, alloc: &Arc<RwLock<GpuAllocator>>) {
-        // MESH MEMORY TRACKER (CPU & GPU)
-        if self.inputs.take_key_pressed(KeyCode::KeyV) {
-            println!("==== Mesh Memory Tracker ====");
-            println!("CPU:");
-            self.world_mesh.print_memory();
-            println!("-----------------------------");
-            println!("GPU:");
-            alloc.read().unwrap().force_print_debug_infos();
-            println!("=============================");
-        }
-        // MESH MEMORY DUMP (CPU)
-        if self.inputs.is_key_pressed(KeyCode::ControlLeft) && self.inputs.is_key_pressed(KeyCode::KeyD) {
-            self.inputs.take_key_pressed(KeyCode::ControlLeft);
-            self.inputs.take_key_pressed(KeyCode::KeyD);
-            let alloc = &alloc.read().unwrap();
-            let meshes = &self.world_mesh.meshes;
-            println!("==== Mesh CPU Memory Dump ====");
-            for (pos, mesh) in meshes.iter() {
-                println!("- Chunk {:?}", *pos);
-                let Some(id) = mesh.id else {
-                    continue;
-                };
-                let Some(data) = alloc.get_mesh_entry(id) else {
-                    continue;
-                };
-                println!(
-                    "  └─ Mesh (id: {:?}, pos: {:?}, len: {:?})",
-                    data.id, data.position, data.length
-                );
-            }
-            println!("==============================")
-        }
-        // CURRENT CHUNK DEBUG
-        if self.inputs.take_key_pressed(KeyCode::KeyC) {
-            let cpos = self.player.state.cpos.current();
-            let key = (cpos[0], cpos[1], cpos[2]);
-            println!("==== Chunk {:?} ====", key);
-            if let Some((state, dirty)) = self.world.chunk_infos_at(&key) {
-                println!("- Data (CPU):\n  └─ {}", state);
-                if dirty {
-                    println!("  └─ Dirty")
-                }
-            }
-            if let Some((id, dirty)) = self.world_mesh.mesh_infos_at(&key) {
-                let id = match id {
-                    Some(id) => &id.to_string(),
-                    None => "None",
-                };
-                println!("- Mesh (GPU):\n  └─ Id: {}", id);
-                if dirty {
-                    println!("  └─ Dirty")
-                }
-            };
-            println!("========================")
-        }
-
-        // SWITCH GAMEMODE
-        if self.inputs.take_key_pressed(KeyCode::KeyG) {
-            self.player.state.switch_player_game_mode();
-            println!("Switching gamemode to {}", self.player.state.game_mode);
-            if let Some(ref mut net) = self.network {
-                let result = net.send_gamemode_change(self.player.state.game_mode);
-                match result {
-                    Ok(_) => {}
-                    Err(err) => {
-                        log_err_client!("Failed to switch gamemode.\nError: {}", err);
-                    }
-                }
-            }
-        }
-    }
-}
-
+#[inline(never)]
 fn is_chunk_behind_camera(min: &Vector3<f32>, max: &Vector3<f32>, cam_forward: &Vector3<f32>, cam_eye: &Vector3<f32>) -> bool {
     let extent = (max - min) * 0.5;
     let center = min + extent;
@@ -471,6 +457,7 @@ fn is_chunk_behind_camera(min: &Vector3<f32>, max: &Vector3<f32>, cam_forward: &
     distance + radius < 0.0
 }
 
+#[inline(never)]
 fn is_chunk_in_camera_frustum(min: &Vector3<f32>, max: &Vector3<f32>, planes: &[Plane; 6]) -> bool {
     for p in planes {
         let positive = Vector3::new(

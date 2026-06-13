@@ -28,6 +28,7 @@ impl AABB {
         self.min += v;
     }
 
+    #[inline(never)]
     pub fn overlaps(&self, other: &AABB) -> bool {
         self.min.x <= other.max.x
             && self.max.x >= other.min.x

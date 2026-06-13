@@ -52,7 +52,7 @@ impl<S: AppState> App<S> {
 }
 
 impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
-    #[inline(always)]
+    #[inline(never)]
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = Window::default_attributes().with_maximized(true).with_title("Ascendustry");
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
@@ -61,26 +61,26 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         self.engine_state = Some(engine);
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn suspended(&mut self, _: &ActiveEventLoop) {
         if let Some(engine) = self.engine_state.as_mut() {
             engine.dispose();
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: AppEvent) {
         log_client!("Évènement système reçu: {:?}", event.to_string());
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta } = event {
             self.app_state.on_mouse_move(delta.0, delta.1);
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
         let Some(state) = self.engine_state.as_mut() else {
             return;
@@ -101,7 +101,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         state.window.request_redraw();
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: winit::window::WindowId, event: WindowEvent) {
         let Some(state) = self.engine_state.as_mut() else {
             return;
@@ -145,7 +145,7 @@ impl<S: AppState> ApplicationHandler<AppEvent> for App<S> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn exiting(&mut self, _: &ActiveEventLoop) {
         if let Some(engine) = self.engine_state.as_mut() {
             self.app_state.dispose(&mut engine.renderer.render_manager.world_buffer);

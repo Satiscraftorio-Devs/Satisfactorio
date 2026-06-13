@@ -67,7 +67,7 @@ impl PipelineFactory {
         &self,
         layout: &PipelineLayout,
         config: &SurfaceConfiguration,
-        features: &Features,
+        _features: &Features,
     ) -> (RenderPipeline, RenderPipeline) {
         let device = self.gpu_tools.device();
 
@@ -101,7 +101,8 @@ impl PipelineFactory {
             cull_mode: Some(Face::Back),
             polygon_mode: PolygonMode::Fill,
             unclipped_depth: false,
-            conservative: features.contains(Features::CONSERVATIVE_RASTERIZATION),
+            conservative: false,
+            // conservative: features.contains(Features::CONSERVATIVE_RASTERIZATION),
         };
 
         let wireframe = PrimitiveState {
@@ -190,7 +191,7 @@ impl PipelineFactory {
         self.make("Gizmo", layout, vertex, fragment, primitive, Some(depth_stencil))
     }
 
-    pub fn make_ui(&self, layout: &PipelineLayout, config: &SurfaceConfiguration, features: &Features) -> RenderPipeline {
+    pub fn make_ui(&self, layout: &PipelineLayout, config: &SurfaceConfiguration) -> RenderPipeline {
         let device = self.gpu_tools.device();
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -223,7 +224,8 @@ impl PipelineFactory {
             cull_mode: None,
             polygon_mode: PolygonMode::Fill,
             unclipped_depth: false,
-            conservative: features.contains(Features::CONSERVATIVE_RASTERIZATION),
+            conservative: false,
+            // conservative: features.contains(Features::CONSERVATIVE_RASTERIZATION),
         };
 
         self.make("UI", layout, vertex, fragment, primitive, None)

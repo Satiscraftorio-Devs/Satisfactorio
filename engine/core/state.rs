@@ -358,9 +358,7 @@ fn fun_name(
 
     let gizmo_render_pipeline = gpu_factory.pipeline().make_gizmo(&opaque_render_pipeline_layout, config);
 
-    let ui_render_pipeline = gpu_factory
-        .pipeline()
-        .make_ui(&ui_render_pipeline_layout, config, &gpu_context.features);
+    let ui_render_pipeline = gpu_factory.pipeline().make_ui(&ui_render_pipeline_layout, config);
 
     let gizmo_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Gizmo Buffer"),
