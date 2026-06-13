@@ -11,6 +11,7 @@ use game::constants::{
     HORIZONTAL_RENDER_DISTANCE, HORIZONTAL_SIMULATION_DISTANCE, RENDER_DISTANCE_CHUNK_COUNT, SPAWN_POSITION_X,
     SPAWN_POSITION_Y, SPAWN_POSITION_Z, VERTICAL_RENDER_DISTANCE, VERTICAL_SIMULATION_DISTANCE,
 };
+use game::inventory::{DEFAULT_INVENTORY_SIZE, Inventory};
 use game::world::data::block::BlockInstance;
 use game::world::data::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_F};
 use game::world::raycast::voxel_raycast;
@@ -31,6 +32,7 @@ pub struct PlayerState {
     pub cpos: Updatable<Point3<i32>>,
     pub chunk_keys: FxHashSet<(i32, i32, i32)>,
     pub game_mode: PlayerGameMode,
+    pub inventory: Inventory,
     pub horizontal_render_distance: u16,
     pub vertical_render_distance: u16,
     pub horizontal_simulation_distance: u16,
@@ -49,6 +51,7 @@ impl PlayerState {
         PlayerState {
             game_mode: PlayerGameMode::Survival,
             uuid: -1,
+            inventory: Inventory::default(DEFAULT_INVENTORY_SIZE),
             pos: Updatable::new(spawn_pos),
             cpos: Updatable::new(spawn_pos.map(|coord| coord.div_euclid(CHUNK_SIZE as f32).floor() as i32)),
             chunk_keys: FxHashSet::with_capacity_and_hasher(RENDER_DISTANCE_CHUNK_COUNT as usize, FxBuildHasher),
